@@ -1,0 +1,236 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the ParkWise system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User's last name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "User's phone number."
+        },
+        "address": {
+          "type": "string",
+          "description": "User's address."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "ParkingSpot": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ParkingSpot",
+      "type": "object",
+      "description": "Represents a parking spot in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the parking spot."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the parking spot (e.g., coordinates or address)."
+        },
+        "isAvailable": {
+          "type": "boolean",
+          "description": "Indicates whether the parking spot is currently available."
+        },
+        "pricePerHour": {
+          "type": "number",
+          "description": "Price per hour for the parking spot."
+        }
+      },
+      "required": [
+        "id",
+        "location",
+        "isAvailable",
+        "pricePerHour"
+      ]
+    },
+    "SignWaiver": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SignWaiver",
+      "type": "object",
+      "description": "Represents a parking sign waiver.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the sign waiver."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the sign waiver."
+        },
+        "terms": {
+          "type": "string",
+          "description": "Terms and conditions of the sign waiver."
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "terms"
+      ]
+    },
+    "Subscription": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subscription",
+      "type": "object",
+      "description": "Represents a user's subscription to parking services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subscription."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Subscription)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the subscription.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "End date of the subscription.",
+          "format": "date-time"
+        },
+        "paymentFrequency": {
+          "type": "string",
+          "description": "Payment frequency (e.g., monthly, quarterly, yearly)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Subscription amount."
+        },
+        "signWaiverId": {
+          "type": "string",
+          "description": "Reference to SignWaiver. (Relationship: Subscription 1:1 SignWaiver)"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "startDate",
+        "endDate",
+        "paymentFrequency",
+        "amount",
+        "signWaiverId"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Payment)"
+        },
+        "subscriptionId": {
+          "type": "string",
+          "description": "Reference to Subscription. (Relationship: Subscription 1:N Payment)"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "Date of the payment.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Payment amount."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used (e.g., credit card, PayPal)."
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "Transaction identifier from the payment gateway."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "subscriptionId",
+        "paymentDate",
+        "amount",
+        "paymentMethod",
+        "transactionId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/backend/entities/User"
+      },
+      "description": "Stores user profiles. Each document represents a user in the system."
+    },
+    "/users/{userId}/subscriptions/{subscriptionId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Subscription"
+      },
+      "description": "Stores user subscriptions.  Path-based ownership enforced by `/users/{userId}`. Includes 'signWaiverId' used in the rules to ensure user has signed the required waiver."
+    },
+    "/users/{userId}/payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/backend/entities/Payment"
+      },
+      "description": "Stores user payments.  Path-based ownership enforced by `/users/{userId}`."
+    },
+    "/parking_spots/{parkingSpotId}": {
+      "schema": {
+        "$ref": "#/backend/entities/ParkingSpot"
+      },
+      "description": "Stores parking spot information."
+    },
+    "/sign_waivers/{signWaiverId}": {
+      "schema": {
+        "$ref": "#/backend/entities/SignWaiver"
+      },
+      "description": "Stores sign waiver information."
+    },
+    "/roles_admin/{userId}": {
+      "schema": {
+        "$ref": "#/backend/entities/User"
+      },
+      "description": "Marks a user as an administrator. Existence implies admin role."
+    }
+  }
+}
