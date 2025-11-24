@@ -1,0 +1,102 @@
+import type { ReactNode } from "react";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarInset,
+  SidebarTrigger,
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from "@/components/ui/sidebar";
+import { Logo } from "@/components/logo";
+import { Toaster } from "@/components/ui/toaster";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
+import Link from "next/link";
+import { LogOut, Settings } from "lucide-react";
+
+export default function DashboardLayout({
+  children,
+  nav,
+  role = "User",
+}: {
+  children: ReactNode;
+  nav: ReactNode;
+  role?: string;
+}) {
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen w-full bg-background">
+        <Sidebar>
+          <SidebarHeader>
+            <Logo />
+          </SidebarHeader>
+          {nav}
+          <SidebarFooter>
+             <SidebarMenu>
+               <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Logout">
+                    <Link href="/login">
+                      <LogOut />
+                      <span>Logout</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+             </SidebarMenu>
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset>
+          <header className="flex h-14 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
+            <SidebarTrigger className="md:hidden" />
+            <div className="flex-1">
+              {/* Future search bar or breadcrumbs can go here */}
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="overflow-hidden rounded-full"
+                >
+                  <Avatar>
+                    <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="User avatar" />
+                    <AvatarFallback>{role.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{role} Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/login">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+          <main className="flex-1 overflow-auto p-4 md:p-6">
+            {children}
+          </main>
+        </SidebarInset>
+      </div>
+      <Toaster />
+    </SidebarProvider>
+  );
+}

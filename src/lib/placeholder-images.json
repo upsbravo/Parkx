@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-image",
+      "description": "A modern parking garage with clear markings and good lighting.",
+      "imageUrl": "https://images.unsplash.com/photo-1622836270623-0a8072ed6eec?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwYXJraW5nJTIwZ2FyYWdlfGVufDB8fHx8MTc2NDAwMzIzMnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "parking garage"
+    },
+    {
+      "id": "vendor-management",
+      "description": "A person on a tablet managing a list of businesses.",
+      "imageUrl": "https://images.unsplash.com/photo-1526628953301-3e589a6a8b74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxidXNpbmVzcyUyMG1hbmFnZW1lbnR8ZW58MHx8fHwxNzY0MDE3Nzc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "business management"
+    },
+    {
+      "id": "user-management",
+      "description": "A dashboard showing user profiles and activity.",
+      "imageUrl": "https://images.unsplash.com/photo-1731846584223-81977e156b2c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx1c2VyJTIwZGFzaGJvYXJkfGVufDB8fHx8MTc2NDAxNzc3N3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "user dashboard"
+    },
+    {
+      "id": "communication-portal",
+      "description": "A messaging interface on a smartphone.",
+      "imageUrl": "https://images.unsplash.com/photo-1763810021881-49b45b0717d5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjaGF0JTIwaW50ZXJmYWNlfGVufDB8fHx8MTc2NDAxMDk5OHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "chat interface"
+    },
+    {
+      "id": "avatar-1",
+      "description": "Avatar for a user.",
+      "imageUrl": "https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjM5Mjg3NDZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "avatar-2",
+      "description": "Avatar for another user.",
+      "imageUrl": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjM5Mjg3NDZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "vehicle-1",
+      "description": "Photo of a car.",
+      "imageUrl": "https://images.unsplash.com/photo-1722088353797-854b8600d97a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzZWRhbiUyMGNhcnxlbnwwfHx8fDE3NjM5NTk4NTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sedan car"
+    }
+  ]
 }
