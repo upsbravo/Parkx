@@ -168,7 +168,7 @@ const Sidebar = React.forwardRef<
     {
       side = "left",
       variant = "sidebar",
-      collapsible = "offcanvas",
+      collapsible = "icon",
       className,
       children,
       ...props
@@ -323,6 +323,8 @@ const SidebarInset = React.forwardRef<
       ref={ref}
       className={cn(
         "relative flex min-h-svh flex-1 flex-col bg-background",
+        "md:peer-data-[state=collapsed]:peer-data-[variant=sidebar]:ms-[--sidebar-width-icon]",
+        "md:peer-data-[state=expanded]:peer-data-[variant=sidebar]:ms-[--sidebar-width]",
         // This is a bit of a hack to make the inset variant work.
         "peer-data-[variant=inset]:min-h-[calc(100svh-theme(spacing.4))] md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ms-[calc(var(--sidebar-width-icon)+theme(spacing.4))] md:peer-data-[variant=inset]:ms-[calc(var(--sidebar-width)+theme(spacing.4))] md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
         className

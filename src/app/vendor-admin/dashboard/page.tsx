@@ -65,7 +65,7 @@ export default function VendorAdminDashboard() {
             <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{((occupiedSpots / totalSpots) * 100).toFixed(0)}%</div>
+            <div className="text-2xl font-bold">{totalSpots > 0 ? ((occupiedSpots / totalSpots) * 100).toFixed(0) : 0}%</div>
             <p className="text-xs text-muted-foreground">{occupiedSpots} of {totalSpots} spots are occupied</p>
           </CardContent>
         </Card>
@@ -89,7 +89,7 @@ export default function VendorAdminDashboard() {
             <p className="text-xs text-muted-foreground">New users waiting for spots</p>
           </CardContent>
         </Card>
-        <Card className="lg:col-span-2 xl:col-span-1">
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>Branding</CardTitle>
             <CardDescription>Customize your user-facing elements.</CardDescription>
