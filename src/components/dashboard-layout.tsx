@@ -91,7 +91,7 @@ export default function DashboardLayout({
               </DropdownMenuContent>
             </DropdownMenu>
           </header>
-          <main className="overflow-auto p-4 md:p-6">
+          <main className="p-4 md:p-6">
             {children}
           </main>
         </SidebarInset>
