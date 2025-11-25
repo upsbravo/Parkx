@@ -13,10 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser } from "@/firebase";
+import { useFirestore, useUser, useAuth } from "@/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
+import { initializeApp, deleteApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 export function InviteUserDialog({
   open,
@@ -54,11 +56,15 @@ export function InviteUserDialog({
     }
     setIsLoading(true);
 
+    const tempAppName = `temp-user-creation-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+    let newUser;
+
+
     try {
-      // Use a separate auth instance to create a user without logging out the current admin
-      const auth = getAuth();
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const newUser = userCredential.user;
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+      newUser = userCredential.user;
 
       // Create the user document in the endUsers subcollection of the current vendor
       await setDoc(doc(firestore, "vendors", vendorAdmin.uid, "endUsers", newUser.uid), {
@@ -85,12 +91,16 @@ export function InviteUserDialog({
 
     } catch (error: any) {
       console.error("Error creating user: ", error);
+       if (newUser) {
+        await deleteUser(newUser);
+      }
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",
         description: error.message || "There was a problem creating the user account.",
       });
     } finally {
+      await deleteApp(tempApp);
       setIsLoading(false);
     }
   };

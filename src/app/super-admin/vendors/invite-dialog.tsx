@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
@@ -31,6 +31,7 @@ export function InviteVendorDialog({
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const mainAuth = useAuth(); // Use the main auth instance
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +65,7 @@ export function InviteVendorDialog({
       trialEndDate.setMonth(trialEndDate.getMonth() + 1);
 
       // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
+      // This part of the code runs under the authority of the currently logged-in Super Admin
       await setDoc(doc(firestore, "vendors", newUser.uid), {
         name: name,
         email: email,
@@ -90,15 +92,15 @@ export function InviteVendorDialog({
       setStartTrial(false);
     } catch (error: any) {
       console.error("Error creating vendor: ", error);
+      // If user was created in Auth but Firestore failed, we should clean up.
+      if (newUser) {
+        await deleteUser(newUser);
+      }
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",
         description: error.message || "There was a problem creating the vendor account.",
       });
-       // Cleanup failed user creation
-      if (newUser) {
-        await deleteUser(newUser);
-      }
     } finally {
       // Cleanup the temporary app
       await deleteApp(tempApp);
