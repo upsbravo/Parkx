@@ -464,9 +464,6 @@ export default function VendorInvoicesPage() {
                                 />
                             </div>
                         </div>
-                        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleConfirmPayment('Swiped Card')}>
-                            <CreditCard className="mr-2" /> Swipe a card
-                        </Button>
                         <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleConfirmPayment('Manual Card Entry')}>
                             <CreditCard className="mr-2" /> Charge a card manually
                         </Button>
