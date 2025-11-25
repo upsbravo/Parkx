@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -37,6 +36,7 @@ type VendorInvoice = {
   dueDate: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
+  notes?: string;
 };
 
 export default function AllInvoicesPage() {
@@ -47,7 +47,7 @@ export default function AllInvoicesPage() {
 
   const firestore = useFirestore();
   const invoicesQuery = useMemoFirebase(
-    () => collection(firestore, 'vendorInvoices'),
+    () => (firestore ? collection(firestore, 'vendorInvoices') : null),
     [firestore]
   );
   const { data: vendorInvoices, isLoading } =
@@ -60,8 +60,16 @@ export default function AllInvoicesPage() {
   } as const;
 
   const formatDate = (dateString: string) => {
-    if (!isClient) return '...';
+    if (!isClient || !dateString) return '...';
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatCurrency = (amount: number) => {
+    if (!isClient) return '...';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
   };
 
   return (
@@ -83,11 +91,11 @@ export default function AllInvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice ID</TableHead>
                 <TableHead>Vendor</TableHead>
-                <TableHead>Date</TableHead>
+                <TableHead>Due Date</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Notes</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -97,9 +105,6 @@ export default function AllInvoicesPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-5 w-24" />
-                    </TableCell>
                     <TableCell>
                       <Skeleton className="h-5 w-32" />
                     </TableCell>
@@ -113,6 +118,9 @@ export default function AllInvoicesPage() {
                       <Skeleton className="h-6 w-20 rounded-full" />
                     </TableCell>
                     <TableCell>
+                      <Skeleton className="h-5 w-48" />
+                    </TableCell>
+                    <TableCell>
                       <Skeleton className="h-8 w-8" />
                     </TableCell>
                   </TableRow>
@@ -120,14 +128,18 @@ export default function AllInvoicesPage() {
               ) : vendorInvoices && vendorInvoices.length > 0 ? (
                 vendorInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
-                    <TableCell className="font-medium">{invoice.id}</TableCell>
-                    <TableCell>{invoice.vendorName}</TableCell>
+                    <TableCell className="font-medium">
+                      {invoice.vendorName}
+                    </TableCell>
                     <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                    <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                    <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                     <TableCell>
                       <Badge variant={statusVariant[invoice.status]}>
                         {invoice.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[250px] truncate text-muted-foreground">
+                      {invoice.notes}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
