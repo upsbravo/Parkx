@@ -66,7 +66,7 @@ export default function SuperAdminAccountPage() {
       }
   
       // Update profile in Firestore
-      const userRef = doc(firestore, 'superAdmins', user.uid);
+      const userRef = doc(firestore, 'super_admins', user.uid);
       await updateDoc(userRef, {
         firstName: fullName.split(' ')[0],
         lastName: fullName.split(' ').slice(1).join(' '),
@@ -132,13 +132,19 @@ export default function SuperAdminAccountPage() {
           
           await updateProfile(newAdminUser, { displayName: newAdminFullName });
 
-          // Create the document in the superAdmins collection
-          const adminRef = doc(firestore, "superAdmins", newAdminUser.uid);
+          // Create the document in the super_admins collection
+          const adminRef = doc(firestore, "super_admins", newAdminUser.uid);
           await setDoc(adminRef, {
               id: newAdminUser.uid,
               email: newAdminEmail,
               firstName: newAdminFullName.split(' ')[0],
               lastName: newAdminFullName.split(' ').slice(1).join(' '),
+          });
+          
+          // CRITICAL: Create the role document for security rules to work
+          const roleRef = doc(firestore, "roles_super_admin", newAdminUser.uid);
+          await setDoc(roleRef, {
+              id: newAdminUser.uid,
           });
           
           toast({

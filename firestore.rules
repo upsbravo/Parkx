@@ -97,18 +97,17 @@ service cloud.firestore {
 
     /**
      * @description Controls access to Super Admin role documents. Only other Super Admins
-     *              can read these documents. Writes are disabled from the client to
-     *              prevent privilege escalation.
+     *              can read or create these documents.
      * @path /roles_super_admin/{userId}
      * @allow (get) A Super Admin views another Super Admin's role document.
-     * @deny (create) A regular user tries to make themselves a Super Admin.
-     * @principle Enforces a secure, read-only role-checking system from the client-side.
+     * @allow (create) A Super Admin creates a new role document for another Super Admin.
+     * @deny (update) No client-side updates allowed to prevent privilege modification.
+     * @principle Enforces a secure, admin-managed role system.
      */
     match /roles_super_admin/{userId} {
       allow get, list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
     }
 
     /**
@@ -116,13 +115,14 @@ service cloud.firestore {
      *              manage their own profile. Other Super Admins can view profiles.
      * @path /super_admins/{superAdminId}
      * @allow (update) A Super Admin (auth.uid: 'sa123') updates their own profile at /super_admins/sa123.
+     * @allow (create) A Super Admin creates a new profile for another Super Admin.
      * @deny (update) A Super Admin (auth.uid: 'sa456') tries to update another admin's profile at /super_admins/sa123.
-     * @principle Restricts access to a user's own data tree, with elevated read for admins.
+     * @principle Restricts access to a user's own data tree, with elevated privileges for admins.
      */
     match /super_admins/{superAdminId} {
       allow get: if isOwner(superAdminId) || isSuperAdmin();
       allow list: if isSuperAdmin();
-      allow create: if isOwner(superAdminId) && request.resource.data.id == superAdminId;
+      allow create: if isSuperAdmin() && request.resource.data.id == superAdminId;
       allow update: if isOwner(superAdminId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(superAdminId);
     }
