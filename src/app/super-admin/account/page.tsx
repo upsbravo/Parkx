@@ -116,57 +116,6 @@ export default function SuperAdminAccountPage() {
         });
     }
   };
-  
-  const handleCreateAdmin = async () => {
-      if (!newAdminEmail || !newAdminPassword || !newAdminFullName) {
-          toast({ variant: "destructive", title: "Error", description: "Please fill out all fields for the new admin." });
-          return;
-      }
-      setIsCreatingAdmin(true);
-
-      try {
-          // Use the auth instance from the hook to avoid conflicts
-          const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
-          const newAdminUser = userCredential.user;
-          
-          await updateProfile(newAdminUser, { displayName: newAdminFullName });
-
-          // Create the document in the super_admins collection
-          const adminRef = doc(firestore, "super_admins", newAdminUser.uid);
-          await setDoc(adminRef, {
-              id: newAdminUser.uid,
-              email: newAdminEmail,
-              firstName: newAdminFullName.split(' ')[0],
-              lastName: newAdminFullName.split(' ').slice(1).join(' '),
-          });
-          
-          // CRITICAL: Create the role document for security rules to work
-          const roleRef = doc(firestore, "roles_super_admin", newAdminUser.uid);
-          await setDoc(roleRef, {
-              active: true,
-          });
-          
-          toast({
-              title: "Super Admin Created",
-              description: `${newAdminFullName} can now log in with the provided credentials.`,
-          });
-          
-          // Clear fields
-          setNewAdminFullName('');
-          setNewAdminEmail('');
-          setNewAdminPassword('');
-
-      } catch (error: any) {
-          console.error("Error creating super admin:", error);
-          toast({
-              variant: "destructive",
-              title: "Creation Failed",
-              description: error.message || "There was a problem creating the new super admin.",
-          });
-      } finally {
-          setIsCreatingAdmin(false);
-      }
-  };
 
 
   return (
@@ -230,58 +179,6 @@ export default function SuperAdminAccountPage() {
           <Button onClick={handleProfileSave}>Save Changes</Button>
         </CardFooter>
       </Card>
-      
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <UserPlus className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Create New Super Admin</CardTitle>
-          </div>
-          <CardDescription>
-            Create an additional Super Admin account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-           <div className="space-y-2">
-              <Label htmlFor="new-admin-full-name">Full Name</Label>
-              <Input
-                id="new-admin-full-name"
-                value={newAdminFullName}
-                onChange={(e) => setNewAdminFullName(e.target.value)}
-                placeholder="Jane Doe"
-                disabled={isCreatingAdmin}
-              />
-            </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-admin-email">Email Address</Label>
-            <Input
-              id="new-admin-email"
-              type="email"
-              value={newAdminEmail}
-              onChange={(e) => setNewAdminEmail(e.target.value)}
-              placeholder="new.admin@parkx.com"
-              disabled={isCreatingAdmin}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-admin-password">Temporary Password</Label>
-            <Input
-              id="new-admin-password"
-              type="password"
-              value={newAdminPassword}
-              onChange={(e) => setNewAdminPassword(e.target.value)}
-              placeholder="Set a strong temporary password"
-              disabled={isCreatingAdmin}
-            />
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleCreateAdmin} disabled={isCreatingAdmin}>
-            {isCreatingAdmin ? 'Creating...' : 'Create Admin'}
-          </Button>
-        </CardFooter>
-      </Card>
-
 
       <Card>
         <CardHeader>
