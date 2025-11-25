@@ -162,6 +162,16 @@ export default function VendorInvoicesPage() {
     setPaymentAmount('');
   }
 
+  const handleMarkAsUnpaid = (invoice: VendorInvoice) => {
+    if (!invoice || invoice.status !== 'Paid') return;
+    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+    updateDocumentNonBlocking(invoiceRef, { status: 'Pending' });
+    toast({
+      title: 'Invoice Updated',
+      description: `Invoice for ${invoice.vendorName} marked as Pending.`,
+    });
+  };
+
   const handleVoidClick = (invoice: VendorInvoice) => {
     setSelectedInvoice(invoice);
     setIsAlertOpen(true);
@@ -342,7 +352,11 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                             {invoice.status !== 'Paid' && <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>}
+                             {invoice.status !== 'Paid' ? (
+                                <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>
+                             ) : (
+                                <DropdownMenuItem onClick={() => handleMarkAsUnpaid(invoice)}>Mark as Unpaid</DropdownMenuItem>
+                             )}
                             <DropdownMenuItem
                               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onClick={() => handleVoidClick(invoice)}
