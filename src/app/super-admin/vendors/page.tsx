@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InviteVendorDialog } from "./invite-dialog";
@@ -30,11 +31,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 // Define a type for the vendor data coming from Firestore
 // This should align with the structure in your `backend.json` and invite dialog
@@ -57,6 +59,7 @@ export default function VendorsPage() {
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const auth = useAuth();
 
   useEffect(() => {
     setIsClient(true);
@@ -95,6 +98,23 @@ export default function VendorsPage() {
       title: "Vendor Reactivated",
       description: `${vendor.name} has been marked as active.`,
     });
+  };
+
+  const handleSendPasswordReset = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: "Password Reset Email Sent",
+        description: `An email has been sent to ${email} with instructions to reset the password.`,
+      });
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to send password reset email.",
+      });
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -217,6 +237,10 @@ export default function VendorsPage() {
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
                               Billings
                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleSendPasswordReset(vendor.email)}>
+                              Send Password Reset
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
                                 onClick={() => handleReactivate(vendor)}
