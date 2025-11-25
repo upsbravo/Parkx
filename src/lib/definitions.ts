@@ -1,12 +1,12 @@
 export type Vendor = {
   id: string;
   name: string;
+  email: string;
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
+  joinDate: string;
+  trialEnds: string | null;
   spotsUsed: number;
   spotLimit: number;
-  owner: string;
-  email: string;
-  registrationDate: string;
 };
 
 export type EndUser = {

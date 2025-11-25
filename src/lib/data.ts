@@ -1,11 +1,11 @@
 import { Vendor, EndUser, ParkingSpot, Message, Invoice } from './definitions';
 
 export const vendors: Vendor[] = [
-  { id: '1', name: 'InnovateCorp', status: 'Active', spotsUsed: 45, spotLimit: 50, owner: 'John Doe', email: 'john.doe@innovate.com', registrationDate: '2023-01-15' },
-  { id: '2', name: 'DataSys', status: 'Active', spotsUsed: 80, spotLimit: 100, owner: 'Jane Smith', email: 'jane.smith@datasys.co', registrationDate: '2023-02-20' },
-  { id: '3', name: 'CloudNet', status: 'Trial', spotsUsed: 10, spotLimit: 20, owner: 'Peter Jones', email: 'peter.jones@cloud.net', registrationDate: '2023-05-10' },
-  { id: '4', name: 'SecureSoft', status: 'Pending', spotsUsed: 0, spotLimit: 30, owner: 'Mary Johnson', email: 'mary.j@securesoft.io', registrationDate: '2023-06-01' },
-  { id: '5', name: 'Legacy Inc.', status: 'Inactive', spotsUsed: 25, spotLimit: 25, owner: 'David Williams', email: 'd.williams@legacy.com', registrationDate: '2022-11-05' },
+  { id: '1', name: 'InnovateCorp', email: 'contact@innovate.com', status: 'Active', joinDate: '2023-01-15', trialEnds: null, spotsUsed: 45, spotLimit: 50 },
+  { id: '2', name: 'DataSys', email: 'admin@datasys.co', status: 'Active', joinDate: '2023-02-20', trialEnds: null, spotsUsed: 80, spotLimit: 100 },
+  { id: '3', name: 'CloudNet', email: 'support@cloud.net', status: 'Trial', joinDate: '2023-05-10', trialEnds: '2023-06-10', spotsUsed: 10, spotLimit: 20 },
+  { id: '4', name: 'SecureSoft', email: 'onboarding@securesoft.io', status: 'Pending', joinDate: '2023-06-01', trialEnds: null, spotsUsed: 0, spotLimit: 30 },
+  { id: '5', name: 'Legacy Inc.', email: 'accounts@legacy.com', status: 'Inactive', joinDate: '2022-11-05', trialEnds: null, spotsUsed: 25, spotLimit: 25 },
 ];
 
 export const endUsers: EndUser[] = [
