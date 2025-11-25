@@ -16,11 +16,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Progress } from '@/components/ui/progress';
+
 
 type Vendor = {
   name: string;
@@ -74,6 +76,8 @@ export default function BrandingPage() {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const vendorRef = useMemoFirebase(
     () => (user ? doc(firestore, 'vendors', user.uid) : null),
@@ -122,55 +126,80 @@ export default function BrandingPage() {
   const handleSaveChanges = async () => {
     if (!user || !vendorData || !firestore) return;
     setIsSaving(true);
-
-    try {
-      let updatedLogoUrl = formData.logoUrl;
-
-      if (logoFile) {
-        const storage = getStorage();
-        const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/${logoFile.name}`);
-        const snapshot = await uploadBytes(logoStorageRef, logoFile);
-        updatedLogoUrl = await getDownloadURL(snapshot.ref);
-      }
-      
-      if (formData.name !== user.displayName) {
+  
+    const updateFirestore = async (newLogoUrl: string | null) => {
+      try {
+        if (formData.name !== user.displayName) {
           await updateProfile(user, { displayName: formData.name });
-      }
-
-      await updateDoc(vendorRef!, {
-        name: formData.name,
-        logoUrl: updatedLogoUrl,
-        website: formData.website,
-        phone: formData.phone,
-        timeZone: formData.timeZone,
-        address: {
+        }
+  
+        await updateDoc(vendorRef!, {
+          name: formData.name,
+          logoUrl: newLogoUrl,
+          website: formData.website,
+          phone: formData.phone,
+          timeZone: formData.timeZone,
+          address: {
             street1: formData.street1,
             street2: formData.street2,
             city: formData.city,
             state: formData.state,
             zip: formData.zip,
             country: formData.country,
+          }
+        });
+  
+        toast({
+          title: 'Branding Updated',
+          description: 'Your company profile has been saved.',
+        });
+      } catch (error: any) {
+        console.error('Failed to save branding:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Could not save your changes. Please try again.',
+        });
+      } finally {
+        setIsSaving(false);
+        setIsUploading(false);
+        setLogoFile(null);
+      }
+    };
+  
+    if (logoFile) {
+      setIsUploading(true);
+      const storage = getStorage();
+      const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/${logoFile.name}`);
+      const uploadTask = uploadBytesResumable(logoStorageRef, logoFile);
+  
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error("Upload failed:", error);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: "Your logo could not be uploaded. Please try again.",
+          });
+          setIsSaving(false);
+          setIsUploading(false);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          await updateFirestore(downloadURL);
         }
-      });
-
-      toast({
-        title: 'Branding Updated',
-        description: 'Your company profile has been saved.',
-      });
-    } catch (error: any) {
-      console.error('Failed to save branding:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Could not save your changes. Please try again.',
-      });
-    } finally {
-      setIsSaving(false);
-      setLogoFile(null);
+      );
+    } else {
+      await updateFirestore(formData.logoUrl);
     }
   };
 
   const isPageLoading = isUserLoading || isVendorDataLoading;
+  const isActionDisabled = isSaving || isPageLoading || isUploading;
 
   return (
     <div className="space-y-6">
@@ -195,11 +224,11 @@ export default function BrandingPage() {
                 <div className="md:col-span-2 space-y-6">
                     <div className="space-y-2">
                         <Label htmlFor="company-name">Name *</Label>
-                        <Input id="company-name" value={formData.name} onChange={e => handleInputChange('name', e.target.value)} />
+                        <Input id="company-name" value={formData.name} onChange={e => handleInputChange('name', e.target.value)} disabled={isActionDisabled}/>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="website">Website</Label>
-                        <Input id="website" value={formData.website} onChange={e => handleInputChange('website', e.target.value)} />
+                        <Input id="website" value={formData.website} onChange={e => handleInputChange('website', e.target.value)} disabled={isActionDisabled}/>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="email">Email *</Label>
@@ -207,12 +236,12 @@ export default function BrandingPage() {
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="phone">Phone *</Label>
-                        <Input id="phone" value={formData.phone} onChange={e => handleInputChange('phone', e.target.value)} />
+                        <Input id="phone" value={formData.phone} onChange={e => handleInputChange('phone', e.target.value)} disabled={isActionDisabled}/>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="country">Country</Label>
-                            <Select value={formData.country} onValueChange={value => handleInputChange('country', value)}>
+                            <Select value={formData.country} onValueChange={value => handleInputChange('country', value)} disabled={isActionDisabled}>
                                 <SelectTrigger id="country"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="United States of America">United States of America</SelectItem>
@@ -223,7 +252,7 @@ export default function BrandingPage() {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="timezone">Time Zone</Label>
-                            <Select value={formData.timeZone} onValueChange={value => handleInputChange('timeZone', value)}>
+                            <Select value={formData.timeZone} onValueChange={value => handleInputChange('timeZone', value)} disabled={isActionDisabled}>
                                 <SelectTrigger id="timezone"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="America/New_York">Eastern Time (ET)</SelectItem>
@@ -237,57 +266,66 @@ export default function BrandingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div className="space-y-2">
                             <Label htmlFor="address1">Address 1</Label>
-                            <Input id="address1" value={formData.street1} onChange={e => handleInputChange('street1', e.target.value)} />
+                            <Input id="address1" value={formData.street1} onChange={e => handleInputChange('street1', e.target.value)} disabled={isActionDisabled}/>
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="address2">Address 2</Label>
-                            <Input id="address2" value={formData.street2} onChange={e => handleInputChange('street2', e.target.value)} />
+                            <Input id="address2" value={formData.street2} onChange={e => handleInputChange('street2', e.target.value)} disabled={isActionDisabled}/>
                         </div>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                          <div className="space-y-2">
                             <Label htmlFor="city">City</Label>
-                            <Input id="city" value={formData.city} onChange={e => handleInputChange('city', e.target.value)} />
+                            <Input id="city" value={formData.city} onChange={e => handleInputChange('city', e.target.value)} disabled={isActionDisabled}/>
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="state">State</Label>
-                            <Input id="state" value={formData.state} onChange={e => handleInputChange('state', e.target.value)} />
+                            <Input id="state" value={formData.state} onChange={e => handleInputChange('state', e.target.value)} disabled={isActionDisabled}/>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="zip">ZIP Code</Label>
-                            <Input id="zip" value={formData.zip} onChange={e => handleInputChange('zip', e.target.value)} />
+                            <Input id="zip" value={formData.zip} onChange={e => handleInputChange('zip', e.target.value)} disabled={isActionDisabled}/>
                         </div>
                     </div>
                 </div>
-                <div className="md:col-span-1 space-y-2">
-                     <Label>Company Logo</Label>
-                     <div 
-                        className="aspect-square w-full rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer"
-                        onClick={handleLogoClick}
-                     >
-                        {formData.logoUrl ? (
-                            <Image src={formData.logoUrl} alt={formData.name} width={200} height={200} className="object-contain p-4" />
-                        ) : (
-                            <div className="text-center text-muted-foreground">
-                                Click to upload logo
-                            </div>
-                        )}
-                        <Input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept="image/png, image/jpeg, image/gif, image/webp"
-                        />
+                <div className="md:col-span-1 space-y-4">
+                     <div className='space-y-2'>
+                        <Label>Company Logo</Label>
+                        <div 
+                            className="aspect-square w-full rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer"
+                            onClick={handleLogoClick}
+                        >
+                            {formData.logoUrl ? (
+                                <Image src={formData.logoUrl} alt={formData.name} width={200} height={200} className="object-contain p-4" />
+                            ) : (
+                                <div className="text-center text-muted-foreground">
+                                    Click to upload logo
+                                </div>
+                            )}
+                            <Input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/png, image/jpeg, image/gif, image/webp"
+                                disabled={isActionDisabled}
+                            />
+                        </div>
                      </div>
+                     {isUploading && (
+                        <div className='space-y-2'>
+                            <Label className='text-muted-foreground'>Uploading...</Label>
+                            <Progress value={uploadProgress} />
+                        </div>
+                     )}
                      <p className="text-xs text-muted-foreground text-center">Appears on PDFs and customer-facing views</p>
                 </div>
             </div>
           )}
         </CardContent>
         <CardFooter>
-          <Button onClick={handleSaveChanges} disabled={isSaving || isPageLoading}>
-            {isSaving ? 'Saving...' : 'Save Changes'}
+          <Button onClick={handleSaveChanges} disabled={isActionDisabled}>
+            {isUploading ? `Uploading... ${Math.round(uploadProgress)}%` : isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </CardFooter>
       </Card>
