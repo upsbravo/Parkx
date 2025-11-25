@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { User, Lock, UserPlus } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useState, useEffect } from 'react';
-import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, getAuth, updateProfile } from 'firebase/auth';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -59,12 +59,17 @@ export default function SuperAdminAccountPage() {
         await reauthenticateWithCredential(user, credential);
         await updateEmail(user, email);
       }
+      
+      // Update displayName in Firebase Auth if it changed
+      if (fullName !== user.displayName) {
+        await updateProfile(user, { displayName: fullName });
+      }
   
       // Update profile in Firestore
       const userRef = doc(firestore, 'superAdmins', user.uid);
       await updateDoc(userRef, {
         firstName: fullName.split(' ')[0],
-        lastName: fullName.split(' ')[1] || '',
+        lastName: fullName.split(' ').slice(1).join(' '),
         email: email,
       });
   
@@ -124,6 +129,8 @@ export default function SuperAdminAccountPage() {
           const secondaryAuth = getAuth();
           const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newAdminEmail, newAdminPassword);
           const newAdminUser = userCredential.user;
+          
+          await updateProfile(newAdminUser, { displayName: newAdminFullName });
 
           // Create the document in the superAdmins collection
           const adminRef = doc(firestore, "superAdmins", newAdminUser.uid);
