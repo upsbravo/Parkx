@@ -57,43 +57,19 @@ export default function LoginPage() {
     },
   });
 
-  const handleSuccessfulLogin = async (userCredential: UserCredential, message: string) => {
-    const user = userCredential.user;
+  const handleSuccessfulLogin = (userCredential: UserCredential, message: string) => {
     const values = form.getValues();
+    toast({
+      title: message,
+      description: `Welcome!`,
+    });
 
-    try {
-      // If super admin, ensure the superAdmins document exists.
-      // This MUST be awaited to prevent a race condition with data fetching on the next page.
-      if (values.email.startsWith('super')) {
-        const superAdminRef = doc(firestore, 'superAdmins', user.uid);
-        await setDoc(superAdminRef, { 
-          email: user.email,
-          uid: user.uid
-        }, { merge: true });
-      }
-
-      toast({
-        title: message,
-        description: `Welcome!`,
-      });
-
-      if (values.email.startsWith('super')) {
-        router.push('/super-admin/dashboard');
-      } else if (values.email.startsWith('vendor')) {
-        router.push('/vendor-admin/dashboard');
-      } else {
-        router.push('/end-user/dashboard');
-      }
-
-    } catch (dbError: any) {
-      console.error('Error creating user role document:', dbError);
-      toast({
-        variant: 'destructive',
-        title: 'Database Error',
-        description: 'Could not set up user role. Please try again.',
-      });
-      // Optionally, sign the user out if role setup is critical
-      // await auth.signOut(); 
+    if (values.email.startsWith('super')) {
+      router.push('/super-admin/dashboard');
+    } else if (values.email.startsWith('vendor')) {
+      router.push('/vendor-admin/dashboard');
+    } else {
+      router.push('/end-user/dashboard');
     }
   };
 
@@ -107,8 +83,18 @@ export default function LoginPage() {
     } catch (error: any) {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
-          // Create the user
           const newUserCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+          const user = newUserCredential.user;
+
+          // If super admin, ensure the superAdmins document exists.
+          if (values.email.startsWith('super')) {
+            const superAdminRef = doc(firestore, 'superAdmins', user.uid);
+            await setDoc(superAdminRef, { 
+              email: user.email,
+              uid: user.uid
+            }, { merge: true });
+          }
+          
           await handleSuccessfulLogin(newUserCredential, 'Account Created & Logged In');
 
         } catch (creationError: any) {
