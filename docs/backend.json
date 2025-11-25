@@ -172,6 +172,52 @@
         "message",
         "timestamp"
       ]
+    },
+    "VendorInvoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VendorInvoice",
+      "type": "object",
+      "description": "Represents an invoice for a vendor, covering subscriptions and additional services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Vendor Invoice."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "The ID of the vendor this invoice belongs to."
+        },
+        "vendorName": {
+          "type": "string",
+          "description": "The name of the vendor (denormalized for display)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the invoice is due.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
+          "enum": ["Pending", "Paid", "Overdue"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or line items for the invoice."
+        }
+      },
+      "required": [
+        "id",
+        "vendorId",
+        "vendorName",
+        "amount",
+        "dueDate",
+        "status"
+      ]
     }
   },
   "auth": {
@@ -210,6 +256,22 @@
             {
               "name": "vendorId",
               "description": "The unique identifier for the Vendor document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendorInvoices/{vendorInvoiceId}",
+        "definition": {
+          "entityName": "VendorInvoice",
+          "schema": {
+            "$ref": "#/backend/entities/VendorInvoice"
+          },
+          "description": "Stores invoices for vendors. Super Admin has full access.",
+          "params": [
+            {
+              "name": "vendorInvoiceId",
+              "description": "The unique identifier for the VendorInvoice document."
             }
           ]
         }
@@ -271,6 +333,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, role-based access control, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing authorization data, specifically `vendorId` in `endUsers` and `parkingSpots`, which prevents the need for `get()` calls in security rules. The structure is segregated based on roles and entity ownership to maintain a homogeneous security posture within collections. QAPs are supported through structural segregation and path-based ownership for private user data and membership maps where collaboration is needed.\n\nSpecifically, the structure is as follows:\n\n*   `/superAdmins/{superAdminId}`: Stores Super Admin profiles. Only one super admin will be available in the system at any time. Collection enforces that only authenticated super admins can manage super admins profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.\n*   `/vendors/{vendorId}/endUsers/{endUserId}`: Stores End Users, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.\n*   `/vendors/{vendorId}/parkingSpots/{parkingSpotId}`: Stores Parking Spots, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.\n*   `/communications/{communicationId}`: Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via `senderId` and `receiverId`."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, role-based access control, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing authorization data, specifically `vendorId` in `endUsers` and `parkingSpots`, which prevents the need for `get()` calls in security rules. The structure is segregated based on roles and entity ownership to maintain a homogeneous security posture within collections. QAPs are supported through structural segregation and path-based ownership for private user data and membership maps where collaboration is needed.\n\nSpecifically, the structure is as follows:\n\n*   `/superAdmins/{superAdminId}`: Stores Super Admin profiles. Only one super admin will be available in the system at any time. Collection enforces that only authenticated super admins can manage super admins profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.\n* `/vendorInvoices/{vendorInvoiceId}`: Stores invoices for vendors. Super Admin has full access.\n*   `/vendors/{vendorId}/endUsers/{endUserId}`: Stores End Users, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.\n*   `/vendors/{vendorId}/parkingSpots/{parkingSpotId}`: Stores Parking Spots, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.\n*   `/communications/{communicationId}`: Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via `senderId` and `receiverId`."
   }
 }

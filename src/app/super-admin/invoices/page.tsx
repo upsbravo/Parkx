@@ -1,10 +1,14 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -12,24 +16,52 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { MoreHorizontal } from "lucide-react";
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { MoreHorizontal } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { vendorInvoices } from "@/lib/data";
+} from '@/components/ui/dropdown-menu';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type VendorInvoice = {
+  id: string;
+  vendorName: string;
+  dueDate: string;
+  amount: number;
+  status: 'Paid' | 'Pending' | 'Overdue';
+};
 
 export default function AllInvoicesPage() {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const firestore = useFirestore();
+  const invoicesQuery = useMemoFirebase(
+    () => collection(firestore, 'vendorInvoices'),
+    [firestore]
+  );
+  const { data: vendorInvoices, isLoading } =
+    useCollection<VendorInvoice>(invoicesQuery);
+
   const statusVariant = {
-    Paid: "default",
-    Pending: "secondary",
-    Overdue: "destructive",
+    Paid: 'default',
+    Pending: 'secondary',
+    Overdue: 'destructive',
+  } as const;
+
+  const formatDate = (dateString: string) => {
+    if (!isClient) return '...';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -62,26 +94,38 @@ export default function AllInvoicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vendorInvoices.length > 0 ? (
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-5 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-32" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-20" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-16" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-8 w-8" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : vendorInvoices && vendorInvoices.length > 0 ? (
                 vendorInvoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">{invoice.id}</TableCell>
                     <TableCell>{invoice.vendorName}</TableCell>
+                    <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                    <TableCell>${invoice.amount.toFixed(2)}</TableCell>
                     <TableCell>
-                      {new Date(invoice.dueDate).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      ${invoice.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          statusVariant[invoice.status] as
-                            | "default"
-                            | "secondary"
-                            | "destructive"
-                        }
-                      >
+                      <Badge variant={statusVariant[invoice.status]}>
                         {invoice.status}
                       </Badge>
                     </TableCell>
