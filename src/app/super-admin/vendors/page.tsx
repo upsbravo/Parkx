@@ -86,6 +86,15 @@ export default function VendorsPage() {
     });
   };
 
+  const handleReactivate = (vendor: Vendor) => {
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { status: "Active" });
+    toast({
+      title: "Vendor Reactivated",
+      description: `${vendor.name} has been marked as active.`,
+    });
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString || !isClient) return "N/A";
     return new Date(dateString).toLocaleDateString();
@@ -204,12 +213,20 @@ export default function VendorsPage() {
                               Adjust Spot Limit
                             </DropdownMenuItem>
                             <DropdownMenuItem>View Invoices</DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => handleDeactivate(vendor)}
-                            >
-                              Deactivate
-                            </DropdownMenuItem>
+                            {vendor.status === 'Inactive' ? (
+                              <DropdownMenuItem
+                                onClick={() => handleReactivate(vendor)}
+                              >
+                                Reactivate
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                onClick={() => handleDeactivate(vendor)}
+                              >
+                                Deactivate
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
