@@ -49,12 +49,13 @@ const seed = async () => {
     console.log('End User profile created/updated in Firestore under vendor.');
 
   } catch (error) {
-    // Only log actual errors
+    console.error('Error seeding End User:', error);
   }
 };
 
 seed().then(() => {
     // process.exit(0);
-}).catch(() => {
+}).catch((err) => {
+    console.error(err);
     // process.exit(1);
 });

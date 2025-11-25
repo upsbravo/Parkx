@@ -21,25 +21,27 @@ const seed = async () => {
   try {
     let userCredential;
     try {
-        // We will attempt to create the user with a specific UID.
-        // This requires an admin SDK, but for client-side seeding, we'll
-        // just create it and hope the UID is what we expect.
-        // A better approach for production is a backend seeding process.
-        // For this demo, we will create the user and update the VENDOR_ID constant if it's different.
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
         if (userCredential.user.uid !== VENDOR_ID) {
-            console.warn(`Vendor UID mismatch. Expected ${VENDOR_ID}, but got ${userCredential.user.uid}. The end-user seed may fail. Please update VENDOR_ID in seed files.`);
+            console.error(`CRITICAL: Vendor user exists but UID does not match. Expected ${VENDOR_ID}, found ${userCredential.user.uid}. Seeding will likely fail.`);
         }
-        console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
+        console.log("Vendor already exists in Auth. Skipping creation.");
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-             userCredential = await signInWithEmailAndPassword(auth, email, password);
-             if (userCredential.user.uid !== VENDOR_ID) {
-                console.error(`CRITICAL: Vendor user exists but UID does not match. Expected ${VENDOR_ID}, found ${userCredential.user.uid}. Seeding will likely fail.`);
-             }
-             console.log("Vendor already exists in Auth. Skipping creation.");
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            // For a demo, it's hard to guarantee a specific UID on creation client-side.
+            // This script assumes the UID will be VENDOR_ID. If it's not, you'd need a backend process
+            // or to adjust the ID after creation. For this project, we'll assume it works or log a big warning.
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            if (userCredential.user.uid !== VENDOR_ID) {
+                console.warn(`********************************************************************************`);
+                console.warn(`* Vendor UID mismatch. Expected ${VENDOR_ID}, but got ${userCredential.user.uid}. *`);
+                console.warn(`* The end-user seed and login will likely fail.                                *`);
+                console.warn(`* To fix: update VENDOR_ID in src/lib/seed/vendor.ts to ${userCredential.user.uid} and re-run. *`);
+                console.warn(`********************************************************************************`);
+            }
+            console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
         } else {
-            throw error;
+            throw error; // Re-throw other errors
         }
     }
     
@@ -66,6 +68,7 @@ const seed = async () => {
 
 seed().then(() => {
     // process.exit(0);
-}).catch(() => {
+}).catch((err) => {
+    console.error(err);
     // process.exit(1);
 });
