@@ -64,9 +64,9 @@ export default function LoginPage() {
       description: `Welcome!`,
     });
 
-    if (values.email.startsWith('super')) {
+    if (values.email.includes('super')) {
       router.push('/super-admin/dashboard');
-    } else if (values.email.startsWith('vendor')) {
+    } else if (values.email.includes('vendor')) {
       router.push('/vendor-admin/dashboard');
     } else {
       router.push('/end-user/dashboard');
