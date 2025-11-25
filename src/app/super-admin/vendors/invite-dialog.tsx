@@ -16,8 +16,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore } from "@/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { Checkbox } from "@/components/ui/checkbox";
+import { initializeApp, deleteApp } from "firebase/app";
+import { firebaseConfig } from "@/firebase/config";
+
 
 export function InviteVendorDialog({
   open,
@@ -46,17 +49,22 @@ export function InviteVendorDialog({
     }
     setIsLoading(true);
 
+    const tempAppName = `temp-vendor-creation-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+    let newUser;
+
+
     try {
-      // We need a separate auth instance to create a user without logging out the current admin
-      const auth = getAuth();
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // Create user in the temporary auth instance
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+      newUser = userCredential.user;
 
       const trialEndDate = new Date();
       trialEndDate.setMonth(trialEndDate.getMonth() + 1);
 
-      // Now create the vendor document in Firestore with the new user's UID
-      await setDoc(doc(firestore, "vendors", user.uid), {
+      // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
+      await setDoc(doc(firestore, "vendors", newUser.uid), {
         name: name,
         email: email,
         status: startTrial ? "Trial" : "Active",
@@ -64,7 +72,7 @@ export function InviteVendorDialog({
         trialEnds: startTrial ? trialEndDate.toISOString() : null,
         spotsUsed: 0,
         spotLimit: spotLimit,
-        id: user.uid,
+        id: newUser.uid,
         role: "vendorAdmin", // Explicitly set the role
       });
 
@@ -72,6 +80,8 @@ export function InviteVendorDialog({
         title: "Vendor Created!",
         description: `${name} can now log in with the temporary password.`,
       });
+      
+      // Reset form and close dialog
       onOpenChange(false);
       setName("");
       setEmail("");
@@ -85,7 +95,13 @@ export function InviteVendorDialog({
         title: "Uh oh! Something went wrong.",
         description: error.message || "There was a problem creating the vendor account.",
       });
+       // Cleanup failed user creation
+      if (newUser) {
+        await deleteUser(newUser);
+      }
     } finally {
+      // Cleanup the temporary app
+      await deleteApp(tempApp);
       setIsLoading(false);
     }
   };
