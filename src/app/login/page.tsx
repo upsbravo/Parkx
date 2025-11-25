@@ -77,7 +77,7 @@ export default function LoginPage() {
         return;
     }
     
-    // 3. Check for End-User role by querying subcollections
+    // 3. Check for End-User role
     const endUserDocRef = doc(firestore, 'users', user.uid);
     const endUserDocSnap = await getDoc(endUserDocRef);
     if (endUserDocSnap.exists()) {
