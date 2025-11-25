@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +65,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 type VendorInvoice = {
   id: string;
@@ -100,12 +101,17 @@ export default function VendorInvoicesPage() {
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
   const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState<number | string>('');
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+  
+  useEffect(() => {
+    if (selectedInvoice) {
+      setPaymentAmount(selectedInvoice.amount);
+    }
+  }, [selectedInvoice]);
 
   const firestore = useFirestore();
 
@@ -129,15 +135,20 @@ export default function VendorInvoicesPage() {
     setRecordPaymentOpen(true);
   };
   
-  const handleConfirmPayment = () => {
-    if (!selectedInvoice || !paymentMethod) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Please select a payment method.' });
-        return;
+  const handleConfirmPayment = (paymentMethod: string) => {
+    if (!selectedInvoice) return;
+    const amount = Number(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Please enter a valid payment amount.' });
+      return;
     }
+
     const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
-    const updatedNotes = `Paid via ${paymentMethod}.${paymentReference ? ` Ref: ${paymentReference}` : ''} | ${selectedInvoice.notes || ''}`;
-    
-    updateDocumentNonBlocking(invoiceRef, { status: 'Paid', notes: updatedNotes });
+    // In a real app, you'd handle partial payments, but for now we'll mark as paid.
+    const newStatus = 'Paid';
+    const updatedNotes = `Paid ${formatCurrency(amount)} via ${paymentMethod}. ${selectedInvoice.notes || ''}`;
+
+    updateDocumentNonBlocking(invoiceRef, { status: newStatus, notes: updatedNotes });
     
     toast({
       title: 'Payment Recorded',
@@ -146,8 +157,7 @@ export default function VendorInvoicesPage() {
 
     setRecordPaymentOpen(false);
     setSelectedInvoice(null);
-    setPaymentMethod('');
-    setPaymentReference('');
+    setPaymentAmount('');
   }
 
   const handleVoidClick = (invoice: VendorInvoice) => {
@@ -435,54 +445,72 @@ export default function VendorInvoicesPage() {
       {/* Record Payment Dialog */}
       {selectedInvoice && (
         <Dialog open={isRecordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                <DialogTitle>Record Payment for Invoice</DialogTitle>
-                <DialogDescription>
-                    Record a payment for {selectedInvoice.vendorName} of {formatCurrency(selectedInvoice.amount)}.
-                </DialogDescription>
+            <DialogContent className="sm:max-w-3xl p-0">
+                <DialogHeader className="p-6 pb-0">
+                    <DialogTitle>New Payment</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label>Payment Method</Label>
-                         <Select onValueChange={setPaymentMethod} value={paymentMethod}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a payment method" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Credit Card">
-                                    <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Credit Card</div>
-                                </SelectItem>
-                                <SelectItem value="Cash">
-                                    <div className="flex items-center gap-2"><Banknote className="h-4 w-4" /> Cash</div>
-                                </SelectItem>
-                                <SelectItem value="Bank Transfer">
-                                    <div className="flex items-center gap-2"><Landmark className="h-4 w-4" /> Bank Transfer</div>
-                                </SelectItem>
-                                <SelectItem value="Other">
-                                    <div className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> Other</div>
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                    <div className="p-6 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="payment-amount">Amount</Label>
+                            <div className="relative">
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
+                                <Input
+                                    id="payment-amount"
+                                    type="number"
+                                    value={paymentAmount}
+                                    onChange={(e) => setPaymentAmount(e.target.value)}
+                                    className="pl-7 text-lg"
+                                />
+                            </div>
+                        </div>
+                        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleConfirmPayment('Swiped Card')}>
+                            <CreditCard className="mr-2" /> Swipe a card
+                        </Button>
+                        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleConfirmPayment('Manual Card Entry')}>
+                            <CreditCard className="mr-2" /> Charge a card manually
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Recorded Card Transaction')}>
+                            <CreditCard className="mr-2" /> Record a card transaction
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Check')}>
+                            <Landmark className="mr-2" /> Receive a check
+                        </Button>
+                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Cash')}>
+                            <Banknote className="mr-2" /> Receive cash
+                        </Button>
+                         <Button variant="ghost" className="w-full text-muted-foreground">
+                            <Ellipsis className="mr-2" /> More Options
+                        </Button>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="payment-ref">Reference / Note (Optional)</Label>
-                        <Input
-                            id="payment-ref"
-                            value={paymentReference}
-                            onChange={(e) => setPaymentReference(e.target.value)}
-                            placeholder="e.g., Stripe ID, Check #, Zelle confirm"
-                        />
+                    <div className="bg-muted/50 p-6 rounded-r-lg space-y-4">
+                        <h3 className="font-semibold text-muted-foreground text-sm">INVOICE #{selectedInvoice.id.substring(0,6).toUpperCase()}</h3>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span>Total Due</span>
+                                <span>{formatCurrency(selectedInvoice.amount)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Paid to Date</span>
+                                <span>$0.00</span>
+                            </div>
+                             <div className="flex justify-between font-semibold">
+                                <span>Amount</span>
+                                <span>- {formatCurrency(Number(paymentAmount))}</span>
+                            </div>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg">
+                                <span>Remaining</span>
+                                <span>{formatCurrency(selectedInvoice.amount - Number(paymentAmount))}</span>
+                        </div>
+                        <Separator />
+                        <div>
+                             <h4 className="font-semibold text-muted-foreground text-sm mb-2">PAYMENTS</h4>
+                             <p className="text-sm text-muted-foreground">No transactions yet</p>
+                        </div>
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setRecordPaymentOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" onClick={handleConfirmPayment}>
-                        Confirm Payment
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
       )}
