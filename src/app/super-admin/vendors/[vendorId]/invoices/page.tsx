@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -61,6 +61,10 @@ import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNon
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 type VendorInvoice = {
   id: string;
@@ -77,6 +81,11 @@ type Vendor = {
     name: string;
 }
 
+type InvoiceLineItem = {
+    description: string;
+    amount: number | '';
+};
+
 export default function VendorInvoicesPage() {
   const params = useParams();
   const vendorId = params.vendorId as string;
@@ -88,8 +97,8 @@ export default function VendorInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
   const { toast } = useToast();
 
-  const [newInvoiceAmount, setNewInvoiceAmount] = useState<number | ''>('');
-  const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -160,24 +169,57 @@ export default function VendorInvoicesPage() {
   };
 
   const handleCreateInvoice = () => {
-    if (!vendor || !newInvoiceAmount) return;
+    if (!vendor) return;
+
+    const totalAmount = lineItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+    if (totalAmount <= 0) {
+        toast({ variant: "destructive", title: "Error", description: "Invoice total must be greater than zero." });
+        return;
+    }
+    if (!dueDate) {
+        toast({ variant: "destructive", title: "Error", description: "Please select a due date." });
+        return;
+    }
+
+    const notes = lineItems.map(item => `${item.description} ($${item.amount})`).join('; ');
+
     const invoicesRef = collection(firestore, 'vendorInvoices');
     addDocumentNonBlocking(invoicesRef, {
       vendorId: vendor.id,
       vendorName: vendor.name,
-      amount: newInvoiceAmount,
-      dueDate: new Date().toISOString(),
+      amount: totalAmount,
+      dueDate: dueDate.toISOString(),
       status: 'Pending',
-      notes: newInvoiceNotes,
+      notes: notes,
     });
     toast({
       title: 'Invoice Created',
-      description: `A new invoice for $${newInvoiceAmount} has been created for ${vendor.name}.`,
+      description: `A new invoice for ${formatCurrency(totalAmount)} has been created for ${vendor.name}.`,
     });
     setCreateInvoiceOpen(false);
-    setNewInvoiceAmount('');
-    setNewInvoiceNotes('');
+    setLineItems([{ description: '', amount: '' }]);
+    setDueDate(new Date());
   }
+
+  const handleLineItemChange = (index: number, field: keyof InvoiceLineItem, value: string | number) => {
+    const newLineItems = [...lineItems];
+    const item = newLineItems[index];
+    if (field === 'amount') {
+        newLineItems[index] = { ...item, [field]: value === '' ? '' : Number(value) };
+    } else {
+        newLineItems[index] = { ...item, [field]: value };
+    }
+    setLineItems(newLineItems);
+  };
+
+  const addLineItem = () => setLineItems([...lineItems, { description: '', amount: '' }]);
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+        setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const invoiceTotal = lineItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
 
   const formatDate = (dateString: string) => {
     if (!isClient || !dateString) return '...';
@@ -308,49 +350,87 @@ export default function VendorInvoicesPage() {
       </div>
 
       {/* Create Invoice Dialog */}
-      <Dialog open={isCreateInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-            <DialogTitle>Create Manual Invoice for {vendor?.name}</DialogTitle>
-            <DialogDescription>
-                Create a one-time invoice for additional charges or fees.
-            </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                    <Label htmlFor="invoice-amount">Amount</Label>
-                    <div className="relative">
-                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
-                        <Input
-                            id="invoice-amount"
-                            type="number"
-                            value={newInvoiceAmount}
-                            onChange={(e) => setNewInvoiceAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                            className="pl-7"
-                            placeholder="0.00"
-                        />
+        <Dialog open={isCreateInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Create Manual Invoice for {vendor?.name}</DialogTitle>
+                    <DialogDescription>
+                        Add line items for one-time charges, fees, or credits.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                    <div className="space-y-4">
+                        <Label>Line Items</Label>
+                        {lineItems.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Description (e.g., Monthly Subscription)"
+                                    value={item.description}
+                                    onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                                    className="flex-grow"
+                                />
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
+                                    <Input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={item.amount}
+                                        onChange={(e) => handleLineItemChange(index, 'amount', e.target.value)}
+                                        className="w-32 pl-7"
+                                    />
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => removeLineItem(index)} disabled={lineItems.length === 1}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </div>
+                        ))}
+                        <Button variant="outline" size="sm" onClick={addLineItem} className="mt-2">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Line Item
+                        </Button>
+                    </div>
+                    
+                    <div className="flex justify-between items-end gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="due-date">Due Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-[240px] justify-start text-left font-normal",
+                                    !dueDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={dueDate}
+                                    onSelect={setDueDate}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="text-right">
+                            <Label className="text-muted-foreground">Total Amount</Label>
+                            <p className="text-2xl font-bold">{formatCurrency(invoiceTotal)}</p>
+                        </div>
                     </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="invoice-notes">Notes / Reason</Label>
-                    <Textarea
-                        id="invoice-notes"
-                        value={newInvoiceNotes}
-                        onChange={(e) => setNewInvoiceNotes(e.target.value)}
-                        placeholder="e.g., One-time cleaning fee"
-                    />
-                </div>
-            </div>
-            <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateInvoiceOpen(false)}>
-                Cancel
-            </Button>
-            <Button type="submit" onClick={handleCreateInvoice}>
-                Create Invoice
-            </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setCreateInvoiceOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" onClick={handleCreateInvoice}>
+                        Create Invoice
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       
       {/* Record Payment Dialog */}
       {selectedInvoice && (
@@ -432,6 +512,3 @@ export default function VendorInvoicesPage() {
     </>
   );
 }
-
-
-    
