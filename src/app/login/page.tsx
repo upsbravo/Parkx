@@ -150,6 +150,7 @@ export default function LoginPage() {
                         placeholder="m@example.com"
                         {...field}
                         disabled={isLoading}
+                        suppressHydrationWarning
                       />
                     </FormControl>
                     <FormMessage />
@@ -167,6 +168,7 @@ export default function LoginPage() {
                         type="password"
                         {...field}
                         disabled={isLoading}
+                        suppressHydrationWarning
                       />
                     </FormControl>
                     <FormMessage />
@@ -175,7 +177,7 @@ export default function LoginPage() {
               />
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning>
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </CardFooter>
