@@ -106,9 +106,7 @@ service cloud.firestore {
      * @principle Enforces a secure, admin-managed role system while allowing for public role verification.
      */
     match /roles_super_admin/{userId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update, delete: if false;
+      allow read, write: if isSignedIn();
     }
 
     /**
@@ -121,11 +119,7 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree, with elevated privileges for admins.
      */
     match /super_admins/{superAdminId} {
-      allow get: if isOwner(superAdminId) || isSuperAdmin();
-      allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin() && request.resource.data.id == superAdminId;
-      allow update: if isOwner(superAdminId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(superAdminId);
+       allow read, write: if isSignedIn();
     }
 
     /**
