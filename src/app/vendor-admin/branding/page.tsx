@@ -73,7 +73,7 @@ export default function BrandingPage() {
     logoUrl: null,
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const vendorRef = useMemoFirebase(
     () => (user ? doc(firestore, 'vendors', user.uid) : null),
@@ -120,11 +120,11 @@ export default function BrandingPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (!user || !vendorData) return;
-    setIsLoading(true);
+    if (!user || !vendorData || !firestore) return;
+    setIsSaving(true);
 
     try {
-      let updatedLogoUrl = vendorData.logoUrl;
+      let updatedLogoUrl = formData.logoUrl;
 
       if (logoFile) {
         const storage = getStorage();
@@ -165,7 +165,7 @@ export default function BrandingPage() {
         description: 'Could not save your changes. Please try again.',
       });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
       setLogoFile(null);
     }
   };
@@ -286,13 +286,11 @@ export default function BrandingPage() {
           )}
         </CardContent>
         <CardFooter>
-          <Button onClick={handleSaveChanges} disabled={isLoading || isPageLoading}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
+          <Button onClick={handleSaveChanges} disabled={isSaving || isPageLoading}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </CardFooter>
       </Card>
     </div>
   );
 }
-
-    
