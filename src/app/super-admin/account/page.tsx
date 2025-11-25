@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, UserPlus } from 'lucide-react';
-import { useAuth, useUser, useFirestore, type Auth, initializeFirebase } from '@/firebase';
+import { useAuth, useUser, useFirestore, type Auth, useDoc, useMemoFirebase } from '@/firebase';
 import { useState, useEffect } from 'react';
 import {
   updateEmail,
@@ -29,6 +29,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { firebaseConfig } from '@/firebase/config';
+
+type SuperAdminProfile = {
+    firstName: string;
+    lastName: string;
+    email: string;
+};
 
 export default function SuperAdminAccountPage() {
   const mainAuth = useAuth();
@@ -47,12 +53,21 @@ export default function SuperAdminAccountPage() {
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
 
+  const adminProfileRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'super_admins', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: adminProfile, isLoading: isAdminProfileLoading } = useDoc<SuperAdminProfile>(adminProfileRef);
+
   useEffect(() => {
-    if (user) {
-      setFullName(user.displayName || 'Super Admin');
-      setEmail(user.email || '');
+    if (user && adminProfile) {
+      setFullName(`${adminProfile.firstName} ${adminProfile.lastName}`);
+      setEmail(user.email || adminProfile.email || '');
+    } else if (user) {
+        setFullName(user.displayName || '');
+        setEmail(user.email || '');
     }
-  }, [user]);
+  }, [user, adminProfile]);
 
   const handleProfileSave = async () => {
     if (!user) return;
@@ -77,6 +92,9 @@ export default function SuperAdminAccountPage() {
         await reauthenticateWithCredential(user, credential);
         await updateEmail(user, email);
       }
+      
+      const [firstName, ...lastNameParts] = fullName.split(' ');
+      const lastName = lastNameParts.join(' ');
 
       if (fullName !== user.displayName) {
         await updateProfile(user, { displayName: fullName });
@@ -84,8 +102,8 @@ export default function SuperAdminAccountPage() {
 
       const userRef = doc(firestore, 'super_admins', user.uid);
       await updateDoc(userRef, {
-        firstName: fullName.split(' ')[0],
-        lastName: fullName.split(' ').slice(1).join(' '),
+        firstName: firstName,
+        lastName: lastName,
         email: email,
       });
 
@@ -209,6 +227,8 @@ export default function SuperAdminAccountPage() {
       setIsCreatingAdmin(false);
     }
   };
+  
+  const pageIsLoading = isUserLoading || isAdminProfileLoading;
 
   return (
     <div className="space-y-6">
@@ -233,7 +253,7 @@ export default function SuperAdminAccountPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {isUserLoading ? (
+            {pageIsLoading ? (
               <>
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-16" />
