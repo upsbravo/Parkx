@@ -13,19 +13,25 @@ import {
   Users,
   ParkingSquare,
   ClipboardList,
-  MessageCircle,
+  MessageSquare,
   Palette,
   Banknote,
+  BadgeCheck,
+  Headset,
+  Settings,
 } from "lucide-react";
 
 const navItems = [
   { href: "/vendor-admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
-  { href: "/vendor-admin/users", icon: <Users />, label: "Users" },
+  { href: "/vendor-admin/users", icon: <Users />, label: "User Management" },
   { href: "/vendor-admin/parking-lot", icon: <ParkingSquare />, label: "Parking Lot" },
-  { href: "/vendor-admin/requests", icon: <ClipboardList />, label: "Requests" },
+  { href: "/vendor-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
   { href: "/vendor-admin/messages", icon: <MessageCircle />, label: "Messages" },
+  { href: "/vendor-admin/invoices", icon: <ClipboardList />, label: "Invoices" },
   { href: "/vendor-admin/branding", icon: <Palette />, label: "Branding" },
-  { href: "/vendor-admin/billing", icon: <Banknote />, label: "Billing & Payouts" },
+  { href: "/vendor-admin/payouts", icon: <Banknote />, label: "Payouts" },
+  { href: "/vendor-admin/support", icon: <Headset />, label: "Support" },
+  { href: "/vendor-admin/account", icon: <Settings />, label: "Account" },
 ];
 
 export default function VendorAdminNav() {
@@ -38,7 +44,7 @@ export default function VendorAdminNav() {
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               asChild
-              isActive={pathname === item.href}
+              isActive={pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <Link href={item.href}>
