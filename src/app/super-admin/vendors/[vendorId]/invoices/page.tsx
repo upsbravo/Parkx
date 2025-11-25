@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -123,7 +123,7 @@ export default function VendorInvoicesPage() {
   }, []);
   
   useEffect(() => {
-    if (selectedInvoice) {
+    if (selectedInvoice && isRecordPaymentOpen) {
         setPaymentDetails({
             amount: selectedInvoice.amount,
             date: new Date(),
@@ -132,11 +132,14 @@ export default function VendorInvoicesPage() {
             venmoId: '',
         });
     }
+  // This should only run when the selected invoice changes, not every time the dialog opens.
   }, [selectedInvoice, isRecordPaymentOpen]);
 
-  const handlePaymentDetailChange = <K extends keyof PaymentDetails>(field: K, value: PaymentDetails[K]) => {
+
+  const handlePaymentDetailChange = useCallback(<K extends keyof PaymentDetails>(field: K, value: PaymentDetails[K]) => {
       setPaymentDetails(prev => ({...prev, [field]: value}));
-  }
+  }, []);
+
 
   const firestore = useFirestore();
 
