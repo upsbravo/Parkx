@@ -28,11 +28,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { endUsers } from "@/lib/data";
 import { InviteUserDialog } from "./invite-user-dialog";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { collection, query } from "firebase/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type EndUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status: 'Active' | 'Pending' | 'Inactive';
+  assignedSpotId: string | null;
+};
+
 
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
+  
+  const firestore = useFirestore();
+  const { user: vendorAdmin, isUserLoading: isVendorLoading } = useUser();
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorAdmin) return null;
+    return query(collection(firestore, "vendors", vendorAdmin.uid, "endUsers"));
+  }, [firestore, vendorAdmin]);
+
+  const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
+  
+  const isLoading = isVendorLoading || areUsersLoading;
 
   const statusVariant = {
     Active: "default",
@@ -52,14 +76,14 @@ export default function UserManagementPage() {
           </div>
           <Button onClick={() => setInviteOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Invite User
+            Create User
           </Button>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>All Users</CardTitle>
             <CardDescription>
-              A list of all users for Acme Parking, including pending registrations and ex-users.
+              A list of all users for your business, including pending and former users.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -75,19 +99,29 @@ export default function UserManagementPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Spot</TableHead>
-                  <TableHead>Spot Since</TableHead>
-                  <TableHead>Next Bill</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {endUsers.length > 0 ? (
+                {isLoading ? (
+                   Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-32 mt-1" />
+                      </TableCell>
+                      <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : endUsers && endUsers.length > 0 ? (
                   endUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
-                        <div className="font-medium">{user.name}</div>
+                        <div className="font-medium">{user.firstName} {user.lastName}</div>
                         <div className="text-sm text-muted-foreground">
                           {user.email}
                         </div>
@@ -104,13 +138,7 @@ export default function UserManagementPage() {
                           {user.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.spotId || 'N/A'}</TableCell>
-                      <TableCell>
-                        {user.spotSince ? new Date(user.spotSince).toLocaleDateString() : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {user.nextBill ? new Date(user.nextBill).toLocaleDateString() : 'N/A'}
-                      </TableCell>
+                      <TableCell>{user.assignedSpotId || 'N/A'}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -138,10 +166,10 @@ export default function UserManagementPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={4}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      No users found.
+                      No users found. Create one to get started.
                     </TableCell>
                   </TableRow>
                 )}
