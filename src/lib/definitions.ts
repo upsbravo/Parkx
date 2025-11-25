@@ -17,6 +17,8 @@ export type EndUser = {
   spotId: string | null;
   vehicle: string;
   plate: string;
+  spotSince: string | null;
+  nextBill: string | null;
 };
 
 export type ParkingSpot = {

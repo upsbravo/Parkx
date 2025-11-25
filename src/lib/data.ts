@@ -9,10 +9,11 @@ export const vendors: Vendor[] = [
 ];
 
 export const endUsers: EndUser[] = [
-  { id: 'u1', name: 'Alice Brown', email: 'alice.b@email.com', status: 'Active', spotId: 'A1', vehicle: 'Toyota Camry', plate: 'XYZ-1234' },
-  { id: 'u2', name: 'Bob Green', email: 'bob.g@email.com', status: 'Active', spotId: 'A2', vehicle: 'Honda Civic', plate: 'ABC-5678' },
-  { id: 'u3', name: 'Charlie White', email: 'charlie.w@email.com', status: 'Pending', spotId: null, vehicle: 'Ford Focus', plate: 'QWE-9101' },
-  { id: 'u4', name: 'Diana Black', email: 'diana.b@email.com', status: 'Inactive', spotId: null, vehicle: 'Tesla Model 3', plate: 'TSL-1121' },
+  { id: 'u1', name: 'Alice Brown', email: 'alice.b@email.com', status: 'Active', spotId: 'A1', vehicle: 'Toyota Camry', plate: 'XYZ-1234', spotSince: '2023-01-20', nextBill: '2023-07-20' },
+  { id: 'u2', name: 'Bob Green', email: 'bob.g@email.com', status: 'Active', spotId: 'A2', vehicle: 'Honda Civic', plate: 'ABC-5678', spotSince: '2023-02-15', nextBill: '2023-07-15' },
+  { id: 'u3', name: 'Charlie White', email: 'charlie.w@email.com', status: 'Pending', spotId: null, vehicle: 'Ford Focus', plate: 'QWE-9101', spotSince: null, nextBill: null },
+  { id: 'u4', name: 'Diana Black', email: 'diana.b@email.com', status: 'Inactive', spotId: null, vehicle: 'Tesla Model 3', plate: 'TSL-1121', spotSince: '2022-10-10', nextBill: null },
+  { id: 'u5', name: 'Evan Gray', email: 'evan.g@email.com', status: 'Active', spotId: 'B5', vehicle: 'Nissan Leaf', plate: 'EV-2024', spotSince: '2023-05-01', nextBill: '2023-08-01' },
 ];
 
 export const parkingSpots: ParkingSpot[] = [
