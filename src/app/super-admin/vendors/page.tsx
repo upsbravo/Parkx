@@ -31,7 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,7 @@ export default function VendorsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const auth = useAuth();
+  const { isUserLoading } = useUser();
 
   useEffect(() => {
     setIsClient(true);
@@ -79,7 +80,10 @@ export default function VendorsPage() {
 
 
   const firestore = useFirestore();
-  const vendorsQuery = useMemoFirebase(() => collection(firestore, 'vendors'), [firestore]);
+  const vendorsQuery = useMemoFirebase(() => {
+    if (isUserLoading || !firestore) return null;
+    return collection(firestore, 'vendors');
+  }, [firestore, isUserLoading]);
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
   const statusVariant = {
@@ -179,6 +183,8 @@ export default function VendorsPage() {
     return null;
   }
 
+  const pageIsLoading = isLoading || isUserLoading;
+
   return (
     <>
       <div className="space-y-4">
@@ -222,7 +228,7 @@ export default function VendorsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {pageIsLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell>
