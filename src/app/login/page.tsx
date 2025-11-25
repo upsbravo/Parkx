@@ -24,7 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useAuth, setDocumentNonBlocking } from '@/firebase';
+import { useAuth } from '@/firebase';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -57,28 +57,43 @@ export default function LoginPage() {
     },
   });
 
-  const handleSuccessfulLogin = (userCredential: UserCredential, message: string) => {
+  const handleSuccessfulLogin = async (userCredential: UserCredential, message: string) => {
     const user = userCredential.user;
     const values = form.getValues();
 
-    toast({
-      title: message,
-      description: `Welcome!`,
-    });
+    try {
+      // If super admin, ensure the superAdmins document exists.
+      // This MUST be awaited to prevent a race condition with data fetching on the next page.
+      if (values.email.startsWith('super')) {
+        const superAdminRef = doc(firestore, 'superAdmins', user.uid);
+        await setDoc(superAdminRef, { 
+          email: user.email,
+          uid: user.uid
+        }, { merge: true });
+      }
 
-    // If super admin, ensure the superAdmins document exists
-    if (values.email.startsWith('super')) {
-      const superAdminRef = doc(firestore, 'superAdmins', user.uid);
-      // Non-blocking write to create/update the super admin record
-      setDocumentNonBlocking(superAdminRef, { 
-        email: user.email,
-        uid: user.uid
-       }, { merge: true });
-      router.push('/super-admin/dashboard');
-    } else if (values.email.startsWith('vendor')) {
-      router.push('/vendor-admin/dashboard');
-    } else {
-      router.push('/end-user/dashboard');
+      toast({
+        title: message,
+        description: `Welcome!`,
+      });
+
+      if (values.email.startsWith('super')) {
+        router.push('/super-admin/dashboard');
+      } else if (values.email.startsWith('vendor')) {
+        router.push('/vendor-admin/dashboard');
+      } else {
+        router.push('/end-user/dashboard');
+      }
+
+    } catch (dbError: any) {
+      console.error('Error creating user role document:', dbError);
+      toast({
+        variant: 'destructive',
+        title: 'Database Error',
+        description: 'Could not set up user role. Please try again.',
+      });
+      // Optionally, sign the user out if role setup is critical
+      // await auth.signOut(); 
     }
   };
 
@@ -87,14 +102,14 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      handleSuccessfulLogin(userCredential, 'Login Successful');
+      await handleSuccessfulLogin(userCredential, 'Login Successful');
 
     } catch (error: any) {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
           // Create the user
           const newUserCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-          handleSuccessfulLogin(newUserCredential, 'Account Created & Logged In');
+          await handleSuccessfulLogin(newUserCredential, 'Account Created & Logged In');
 
         } catch (creationError: any) {
           console.error('Account creation error:', creationError);
