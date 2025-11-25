@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { useFirestore, updateDocumentNonBlocking } from "@/firebase";
-import { doc, collection, addDoc } from "firebase/firestore";
+import { useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { doc, collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 type Vendor = {
@@ -64,9 +64,8 @@ export function AdjustSpotLimitDialog({
         const costPerSpot = 10;
         const invoiceAmount = additionalSpots * costPerSpot;
 
-        // Create a new invoice document
         const invoicesRef = collection(firestore, "vendorInvoices");
-        await addDoc(invoicesRef, {
+        await addDocumentNonBlocking(invoicesRef, {
             vendorId: vendor.id,
             vendorName: vendor.name,
             amount: invoiceAmount,
