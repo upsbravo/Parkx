@@ -24,14 +24,18 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useAuth } from '@/firebase';
+import { useAuth, setDocumentNonBlocking } from '@/firebase';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  UserCredential,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -41,6 +45,7 @@ const formSchema = z.object({
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -52,41 +57,45 @@ export default function LoginPage() {
     },
   });
 
+  const handleSuccessfulLogin = (userCredential: UserCredential, message: string) => {
+    const user = userCredential.user;
+    const values = form.getValues();
+
+    toast({
+      title: message,
+      description: `Welcome!`,
+    });
+
+    // If super admin, ensure the superAdmins document exists
+    if (values.email.startsWith('super')) {
+      const superAdminRef = doc(firestore, 'superAdmins', user.uid);
+      // Non-blocking write to create/update the super admin record
+      setDocumentNonBlocking(superAdminRef, { 
+        email: user.email,
+        uid: user.uid
+       }, { merge: true });
+      router.push('/super-admin/dashboard');
+    } else if (values.email.startsWith('vendor')) {
+      router.push('/vendor-admin/dashboard');
+    } else {
+      router.push('/end-user/dashboard');
+    }
+  };
+
+
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back!`,
-      });
-      // Redirect after successful login
-      if (values.email.startsWith('super')) {
-        router.push('/super-admin/dashboard');
-      } else if (values.email.startsWith('vendor')) {
-        router.push('/vendor-admin/dashboard');
-      } else {
-        router.push('/end-user/dashboard');
-      }
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      handleSuccessfulLogin(userCredential, 'Login Successful');
+
     } catch (error: any) {
-      // If user doesn't exist, create them for demo purposes
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
-          await createUserWithEmailAndPassword(auth, values.email, values.password);
-          // Try signing in again after creating the user
-          await signInWithEmailAndPassword(auth, values.email, values.password);
-          toast({
-            title: 'Account Created & Logged In',
-            description: `Welcome! Your demo account has been created.`,
-          });
-          // Redirect after successful creation and login
-          if (values.email.startsWith('super')) {
-            router.push('/super-admin/dashboard');
-          } else if (values.email.startsWith('vendor')) {
-            router.push('/vendor-admin/dashboard');
-          } else {
-            router.push('/end-user/dashboard');
-          }
+          // Create the user
+          const newUserCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+          handleSuccessfulLogin(newUserCredential, 'Account Created & Logged In');
+
         } catch (creationError: any) {
           console.error('Account creation error:', creationError);
           toast({
