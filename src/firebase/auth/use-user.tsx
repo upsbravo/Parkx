@@ -16,14 +16,16 @@ import { useAuth } from '../provider';
 export function useUser() {
   const auth = useAuth();
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [isUserLoading, setUserLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      setUserLoading(false);
     });
 
     return () => unsubscribe();
   }, [auth]);
 
-  return user;
+  return { user, isUserLoading };
 }
