@@ -25,7 +25,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -52,19 +55,12 @@ export default function LoginPage() {
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        values.email,
-        values.password
-      );
-      
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: 'Login Successful',
         description: `Welcome back!`,
       });
-
-      // Simple routing based on email for demo purposes.
-      // In a real app, you'd use custom claims or a user role document in Firestore.
+      // Redirect after successful login
       if (values.email.startsWith('super')) {
         router.push('/super-admin/dashboard');
       } else if (values.email.startsWith('vendor')) {
@@ -72,14 +68,41 @@ export default function LoginPage() {
       } else {
         router.push('/end-user/dashboard');
       }
-
     } catch (error: any) {
-      console.error('Login error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message || 'An unexpected error occurred.',
-      });
+      // If user doesn't exist, create them for demo purposes
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        try {
+          await createUserWithEmailAndPassword(auth, values.email, values.password);
+          // Try signing in again after creating the user
+          await signInWithEmailAndPassword(auth, values.email, values.password);
+          toast({
+            title: 'Account Created & Logged In',
+            description: `Welcome! Your demo account has been created.`,
+          });
+          // Redirect after successful creation and login
+          if (values.email.startsWith('super')) {
+            router.push('/super-admin/dashboard');
+          } else if (values.email.startsWith('vendor')) {
+            router.push('/vendor-admin/dashboard');
+          } else {
+            router.push('/end-user/dashboard');
+          }
+        } catch (creationError: any) {
+          console.error('Account creation error:', creationError);
+          toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: creationError.message || 'Could not create a demo account.',
+          });
+        }
+      } else {
+        console.error('Login error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: error.message || 'An unexpected error occurred.',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
