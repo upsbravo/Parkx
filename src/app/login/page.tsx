@@ -60,7 +60,7 @@ export default function LoginPage() {
     const user = userCredential.user;
     
     // 1. Check for Super Admin role
-    const superAdminDocRef = doc(firestore, 'superAdmins', user.uid);
+    const superAdminDocRef = doc(firestore, 'super_admins', user.uid);
     const superAdminDocSnap = await getDoc(superAdminDocRef);
     if (superAdminDocSnap.exists()) {
         toast({ title: 'Login Successful', description: `Welcome Super Admin!` });
@@ -78,16 +78,12 @@ export default function LoginPage() {
     }
     
     // 3. Check for End-User role by querying subcollections
-    const allVendorsQuery = collection(firestore, 'vendors');
-    const vendorsSnapshot = await getDocs(allVendorsQuery);
-    for (const vendorDoc of vendorsSnapshot.docs) {
-        const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
-        const endUserDocSnap = await getDoc(endUserDocRef);
-        if (endUserDocSnap.exists()) {
-            toast({ title: 'Login Successful', description: `Welcome!` });
-            router.push('/end-user/dashboard');
-            return;
-        }
+    const endUserDocRef = doc(firestore, 'users', user.uid);
+    const endUserDocSnap = await getDoc(endUserDocRef);
+    if (endUserDocSnap.exists()) {
+        toast({ title: 'Login Successful', description: `Welcome!` });
+        router.push('/end-user/dashboard');
+        return;
     }
 
 

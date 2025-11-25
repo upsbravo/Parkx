@@ -120,7 +120,8 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree, with elevated read for admins.
      */
     match /super_admins/{superAdminId} {
-      allow get, list: if isSuperAdmin();
+      allow get: if isOwner(superAdminId) || isSuperAdmin();
+      allow list: if isSuperAdmin();
       allow create: if isOwner(superAdminId) && request.resource.data.id == superAdminId;
       allow update: if isOwner(superAdminId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(superAdminId);
@@ -137,7 +138,7 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow get, list: if isSignedIn();
       allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin() && resource != null;
+      allow update: if isSuperAdmin() || isOwner(vendorId);
       allow delete: if isSuperAdmin() && resource != null;
     }
 
