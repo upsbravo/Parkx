@@ -160,6 +160,11 @@ service cloud.firestore {
       allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
+    
+    
+    match /vendorInvoices/{invoiceId} {
+      allow read, write: if isSuperAdmin();
+    }
 
 
     // --------------------------------------------------------------------
