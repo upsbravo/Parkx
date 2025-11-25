@@ -33,7 +33,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -58,15 +58,12 @@ export default function LoginPage() {
 
   const handleSuccessfulLogin = async (userCredential: UserCredential) => {
     const user = userCredential.user;
-    toast({
-      title: 'Login Successful',
-      description: `Welcome!`,
-    });
-
+    
     // 1. Check for Super Admin role
     const superAdminDocRef = doc(firestore, 'superAdmins', user.uid);
     const superAdminDocSnap = await getDoc(superAdminDocRef);
     if (superAdminDocSnap.exists()) {
+        toast({ title: 'Login Successful', description: `Welcome Super Admin!` });
         router.push('/super-admin/dashboard');
         return;
     }
@@ -75,19 +72,19 @@ export default function LoginPage() {
     const vendorDocRef = doc(firestore, 'vendors', user.uid);
     const vendorDocSnap = await getDoc(vendorDocRef);
     if (vendorDocSnap.exists()) {
+        toast({ title: 'Login Successful', description: `Welcome Vendor Admin!` });
         router.push('/vendor-admin/dashboard');
         return;
     }
     
     // 3. Check for End-User role by querying subcollections
-    // This is more complex and might be slow, but it's a way to find the user.
-    // A better approach in a large-scale app would be to have a top-level user collection with roles.
     const allVendorsQuery = collection(firestore, 'vendors');
     const vendorsSnapshot = await getDocs(allVendorsQuery);
     for (const vendorDoc of vendorsSnapshot.docs) {
         const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
         const endUserDocSnap = await getDoc(endUserDocRef);
         if (endUserDocSnap.exists()) {
+            toast({ title: 'Login Successful', description: `Welcome!` });
             router.push('/end-user/dashboard');
             return;
         }
@@ -95,7 +92,7 @@ export default function LoginPage() {
 
 
     // 4. If no role is found, default to end-user dashboard as a fallback.
-    // This could also be an error page.
+    toast({ title: 'Login Successful', description: `Welcome!` });
     router.push('/end-user/dashboard');
   };
 
