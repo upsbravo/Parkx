@@ -27,14 +27,13 @@ import {
 import { useAuth } from '@/firebase';
 import {
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   UserCredential,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -57,15 +56,15 @@ export default function LoginPage() {
     },
   });
 
-  const handleSuccessfulLogin = async (userCredential: UserCredential, message: string) => {
+  const handleSuccessfulLogin = async (userCredential: UserCredential) => {
     const user = userCredential.user;
     toast({
-      title: message,
+      title: 'Login Successful',
       description: `Welcome!`,
     });
 
     // 1. Check for Super Admin role
-    const superAdminDocRef = doc(firestore, "superAdmins", user.uid);
+    const superAdminDocRef = doc(firestore, 'superAdmins', user.uid);
     const superAdminDocSnap = await getDoc(superAdminDocRef);
     if (superAdminDocSnap.exists()) {
         router.push('/super-admin/dashboard');
@@ -73,14 +72,30 @@ export default function LoginPage() {
     }
 
     // 2. Check for Vendor Admin role
-    const vendorDocRef = doc(firestore, "vendors", user.uid);
+    const vendorDocRef = doc(firestore, 'vendors', user.uid);
     const vendorDocSnap = await getDoc(vendorDocRef);
     if (vendorDocSnap.exists()) {
         router.push('/vendor-admin/dashboard');
         return;
     }
+    
+    // 3. Check for End-User role by querying subcollections
+    // This is more complex and might be slow, but it's a way to find the user.
+    // A better approach in a large-scale app would be to have a top-level user collection with roles.
+    const allVendorsQuery = collection(firestore, 'vendors');
+    const vendorsSnapshot = await getDocs(allVendorsQuery);
+    for (const vendorDoc of vendorsSnapshot.docs) {
+        const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
+        const endUserDocSnap = await getDoc(endUserDocRef);
+        if (endUserDocSnap.exists()) {
+            router.push('/end-user/dashboard');
+            return;
+        }
+    }
 
-    // 3. Default to End-User
+
+    // 4. If no role is found, default to end-user dashboard as a fallback.
+    // This could also be an error page.
     router.push('/end-user/dashboard');
   };
 
@@ -89,44 +104,17 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      await handleSuccessfulLogin(userCredential, 'Login Successful');
+      await handleSuccessfulLogin(userCredential);
 
     } catch (error: any) {
-      // If user not found, create a demo account
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-          const newUserCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-          const user = newUserCredential.user;
-
-          // Special handling for initial Super Admin setup for demo purposes
-          if (values.email.startsWith('super')) {
-            const superAdminRef = doc(firestore, 'superAdmins', user.uid);
-            await setDoc(superAdminRef, { 
-              id: user.uid,
-              email: user.email,
-              firstName: "Super",
-              lastName: "Admin"
-            }, { merge: true });
-          }
-          
-          await handleSuccessfulLogin(newUserCredential, 'Account Created & Logged In');
-
-        } catch (creationError: any) {
-          console.error('Account creation error:', creationError);
-          toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: creationError.message || 'Could not create a demo account.',
-          });
-        }
-      } else {
-        console.error('Login error:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Login Failed',
-          description: error.message || 'An unexpected error occurred.',
-        });
-      }
+      console.error('Login error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.code === 'auth/invalid-credential'
+          ? 'Invalid email or password. Please try again.'
+          : error.message || 'An unexpected error occurred.',
+      });
     } finally {
       setIsLoading(false);
     }
