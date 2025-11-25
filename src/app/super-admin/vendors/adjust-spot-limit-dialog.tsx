@@ -40,6 +40,11 @@ export function AdjustSpotLimitDialog({
   const [limit, setLimit] = useState(vendor.spotLimit);
 
   const handleSave = async () => {
+    if (!firestore) {
+        toast({ variant: "destructive", title: "Error", description: "Database not available." });
+        return;
+    }
+
     if (limit < (vendor.spotsUsed || 0)) {
         toast({
             variant: "destructive",
@@ -71,7 +76,7 @@ export function AdjustSpotLimitDialog({
             amount: invoiceAmount,
             dueDate: new Date().toISOString(),
             status: "Pending",
-            notes: `Invoice for ${additionalSpots} additional parking spots.`
+            notes: `Invoice for ${additionalSpots} additional parking spots at $${costPerSpot}/spot.`
         });
         
         toast({
@@ -90,7 +95,7 @@ export function AdjustSpotLimitDialog({
         <DialogHeader>
           <DialogTitle>Adjust Spot Limit for {vendor.name}</DialogTitle>
           <DialogDescription>
-            Current usage: {vendor.spotsUsed || 0} / {vendor.spotLimit}. Each additional spot costs $10.
+            Current usage: {vendor.spotsUsed || 0} / {vendor.spotLimit}. Each additional spot costs $10 and will be invoiced immediately.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -112,7 +117,7 @@ export function AdjustSpotLimitDialog({
             Cancel
           </Button>
           <Button type="submit" onClick={handleSave}>
-            Save Changes
+            Save and Invoice
           </Button>
         </DialogFooter>
       </DialogContent>
