@@ -75,6 +75,31 @@
           "type": "string",
           "description": "URL of the vendor's company logo.",
           "format": "uri"
+        },
+        "website": {
+          "type": "string",
+          "description": "The vendor's website URL.",
+          "format": "uri"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The vendor's contact phone number."
+        },
+        "address": {
+          "type": "object",
+          "description": "The vendor's physical address.",
+          "properties": {
+            "street1": { "type": "string" },
+            "street2": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" },
+            "country": { "type": "string" }
+          }
+        },
+        "timeZone": {
+          "type": "string",
+          "description": "The vendor's time zone."
         }
       },
       "required": [
@@ -377,3 +402,5 @@
     "reasoning": "The Firestore structure is designed to ensure Authorization Independence, role-based access control, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing authorization data, specifically `vendorId` in `endUsers` and `parkingSpots`, which prevents the need for `get()` calls in security rules. The structure is segregated based on roles and entity ownership to maintain a homogeneous security posture within collections. QAPs are supported through structural segregation and path-based ownership for private user data and membership maps where collaboration is needed.\n\nSpecifically, the structure is as follows:\n\n*   `/superAdmins/{superAdminId}`: Stores Super Admin profiles. Only one super admin will be available in the system at any time. Collection enforces that only authenticated super admins can manage super admins profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.\n* `/vendorInvoices/{vendorInvoiceId}`: Stores invoices for vendors. Super Admin has full access.\n*   `/vendors/{vendorId}/endUsers/{endUserId}`: Stores End Users, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.\n*   `/vendors/{vendorId}/parkingSpots/{parkingSpotId}`: Stores Parking Spots, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.\n*   `/communications/{communicationId}`: Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via `senderId` and `receiverId`."
   }
 }
+
+    
