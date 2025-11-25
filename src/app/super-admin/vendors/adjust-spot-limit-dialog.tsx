@@ -51,6 +51,15 @@ export function AdjustSpotLimitDialog({
     
     const additionalSpots = limit - vendor.spotLimit;
 
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
+
+    toast({
+      title: "Spot Limit Updated",
+      description: `${vendor.name}'s spot limit has been changed to ${limit}.`,
+    });
+    onOpenChange(false);
+
     if (additionalSpots > 0) {
         const costPerSpot = 10;
         const invoiceAmount = additionalSpots * costPerSpot;
@@ -71,17 +80,9 @@ export function AdjustSpotLimitDialog({
             description: `An invoice for $${invoiceAmount} has been created for ${vendor.name}.`,
         });
 
-        router.push('/super-admin/invoices');
+        router.push(`/super-admin/vendors/${vendor.id}/invoices`);
     }
 
-    const vendorRef = doc(firestore, "vendors", vendor.id);
-    updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
-
-    toast({
-      title: "Spot Limit Updated",
-      description: `${vendor.name}'s spot limit has been changed to ${limit}.`,
-    });
-    onOpenChange(false);
   };
 
   return (

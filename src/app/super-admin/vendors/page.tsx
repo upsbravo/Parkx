@@ -215,7 +215,7 @@ export default function VendorsPage() {
                               Adjust Spot Limit
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
-                              View Invoices
+                              Billings
                             </DropdownMenuItem>
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
