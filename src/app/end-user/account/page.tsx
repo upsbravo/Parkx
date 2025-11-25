@@ -1,3 +1,4 @@
+'use client';
 
 import {
   Card,
@@ -28,8 +29,167 @@ import {
   Upload,
   Lock,
 } from 'lucide-react';
+import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { useState, useEffect } from 'react';
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type EndUser = {
+  id: string;
+  vendorId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  emergencyContact?: {
+    name: string;
+    phone: string;
+  };
+};
 
 export default function AccountSettingsPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [userData, setUserData] = useState<EndUser | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Form states
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [street, setStreet] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zip, setZip] = useState('');
+  const [emergencyName, setEmergencyName] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+
+  // Password states
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const [userDocRef, setUserDocRef] = useState<any>(null);
+
+
+  useEffect(() => {
+    const findUserDocument = async () => {
+      if (isUserLoading || !user || !firestore) return;
+
+      setIsDataLoading(true);
+      // We need to query across all 'endUsers' subcollections to find the one matching our user's ID
+      const vendorsRef = collection(firestore, 'vendors');
+      const vendorSnapshot = await getDocs(vendorsRef);
+      let foundUser = null;
+      let userRef = null;
+
+      for (const vendorDoc of vendorSnapshot.docs) {
+        const userDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          foundUser = { id: userDocSnap.id, ...userDocSnap.data() } as EndUser;
+          userRef = userDocRef;
+          break;
+        }
+      }
+
+      if (foundUser) {
+        setUserData(foundUser);
+        setUserDocRef(userRef);
+        setFullName(`${foundUser.firstName} ${foundUser.lastName}`);
+        setEmail(foundUser.email);
+        setPhone(foundUser.phone || '');
+        setStreet(foundUser.address?.street || '');
+        setCity(foundUser.address?.city || '');
+        setState(foundUser.address?.state || '');
+        setZip(foundUser.address?.zip || '');
+        setEmergencyName(foundUser.emergencyContact?.name || '');
+        setEmergencyPhone(foundUser.emergencyContact?.phone || '');
+
+      } else {
+         // Fallback to auth data if firestore doc is not found
+         setFullName(user.displayName || '');
+         setEmail(user.email || '');
+      }
+      setIsDataLoading(false);
+    };
+
+    findUserDocument();
+  }, [user, isUserLoading, firestore]);
+
+  const handleSaveChanges = async () => {
+    if (!user || !userDocRef) {
+        toast({ variant: 'destructive', title: 'Error', description: 'User data not found.' });
+        return;
+    }
+    
+    try {
+        const [firstName, ...lastName] = fullName.split(' ');
+        const updatedData = {
+            firstName,
+            lastName: lastName.join(' '),
+            email,
+            phone,
+            address: { street, city, state, zip },
+            emergencyContact: { name: emergencyName, phone: emergencyPhone }
+        };
+
+        await updateDoc(userDocRef, updatedData);
+
+        if(user.displayName !== fullName) {
+            await updateProfile(user, { displayName: fullName });
+        }
+
+        toast({ title: 'Success', description: 'Your changes have been saved.' });
+
+    } catch (error: any) {
+        console.error('Failed to save changes:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not save your changes. Please try again.' });
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!user || !user.email) return;
+    if (newPassword !== confirmPassword) {
+      toast({ variant: 'destructive', title: 'Error', description: 'New passwords do not match.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(user, newPassword);
+      toast({
+        title: 'Password Updated',
+        description: 'Your password has been changed successfully. You will be logged out.',
+      });
+      // It's a good practice to sign the user out after a password change
+    } catch (error: any) {
+      console.error('Error updating password:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Password Update Failed',
+        description: error.message || 'Could not update password. Please check your current password.',
+      });
+    }
+  };
+
+  const isLoading = isUserLoading || isDataLoading;
+
   return (
     <div className="space-y-6">
       <div>
@@ -51,18 +211,28 @@ export default function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="full-name">Full Name</Label>
-              <Input id="full-name" defaultValue="John Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" defaultValue="john.doe@example.com" readOnly />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" type="tel" defaultValue="(123) 456-7890" />
-            </div>
+             {isLoading ? (
+                <>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-10 w-full" /></div>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-10 w-full" /></div>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-10 w-full" /></div>
+                </>
+             ) : (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="full-name">Full Name</Label>
+                        <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email Address</Label>
+                        <Input id="email" type="email" value={email} readOnly disabled />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </div>
+                </>
+             )}
           </CardContent>
         </Card>
 
@@ -75,31 +245,38 @@ export default function AccountSettingsPage() {
             <CardDescription>Your primary residence address.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="address-search">Address Search</Label>
-              <Input
-                id="address-search"
-                placeholder="Start typing an address to autofill..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="street-address">Street Address</Label>
-              <Input id="street-address" defaultValue="123 Main St" />
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="city">City</Label>
-                <Input id="city" defaultValue="Anytown" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">State / Province</Label>
-                <Input id="state" defaultValue="CA" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="zip">Zip / Postal Code</Label>
-                <Input id="zip" defaultValue="12345" />
-              </div>
-            </div>
+            {isLoading ? (
+                <div className="space-y-4">
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-10 w-full" /></div>
+                        <div className="space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-10 w-full" /></div>
+                        <div className="space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-10 w-full" /></div>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="street-address">Street Address</Label>
+                        <Input id="street-address" value={street} onChange={(e) => setStreet(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                        <div className="space-y-2">
+                            <Label htmlFor="city">City</Label>
+                            <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="state">State / Province</Label>
+                            <Input id="state" value={state} onChange={(e) => setState(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="zip">Zip / Postal Code</Label>
+                            <Input id="zip" value={zip} onChange={(e) => setZip(e.target.value)} />
+                        </div>
+                    </div>
+                </>
+            )}
           </CardContent>
         </Card>
 
@@ -114,18 +291,23 @@ export default function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="emergency-name">Contact Name</Label>
-              <Input id="emergency-name" defaultValue="Jane Doe" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="emergency-phone">Contact Phone</Label>
-              <Input
-                id="emergency-phone"
-                type="tel"
-                defaultValue="(987) 654-3210"
-              />
-            </div>
+             {isLoading ? (
+                <>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-10 w-full" /></div>
+                    <div className="space-y-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-10 w-full" /></div>
+                </>
+             ) : (
+                <>
+                    <div className="space-y-2">
+                        <Label htmlFor="emergency-name">Contact Name</Label>
+                        <Input id="emergency-name" value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="emergency-phone">Contact Phone</Label>
+                        <Input id="emergency-phone" type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} />
+                    </div>
+                </>
+             )}
           </CardContent>
         </Card>
 
@@ -217,30 +399,40 @@ export default function AccountSettingsPage() {
               <Input
                 id="current-password"
                 type="password"
-                defaultValue="********"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter your current password"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
-              <Input id="new-password" type="password" defaultValue="********" />
+              <Input 
+                id="new-password" 
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm New Password</Label>
               <Input
                 id="confirm-password"
                 type="password"
-                defaultValue="********"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
               />
             </div>
           </CardContent>
           <CardFooter>
-            <Button>Update Password</Button>
+            <Button onClick={handlePasswordUpdate}>Update Password</Button>
           </CardFooter>
         </Card>
 
 
         <div className="flex justify-end">
-          <Button size="lg">Save All Changes</Button>
+          <Button size="lg" onClick={handleSaveChanges}>Save All Changes</Button>
         </div>
       </div>
     </div>
