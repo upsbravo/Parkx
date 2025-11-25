@@ -1,4 +1,4 @@
-import { Vendor, EndUser, ParkingSpot, Message, Invoice } from './definitions';
+import { Vendor, EndUser, ParkingSpot, Message, Invoice, Payout } from './definitions';
 
 export const vendors: Vendor[] = [
   { id: '1', name: 'InnovateCorp', email: 'contact@innovate.com', status: 'Active', joinDate: '2023-01-15', trialEnds: null, spotsUsed: 45, spotLimit: 50 },
@@ -48,6 +48,13 @@ export const vendorInvoices: Invoice[] = [
   { id: 'inv-v003', amount: 200.00, dueDate: '2023-06-15', status: 'Overdue', vendorName: 'CloudNet' },
   { id: 'inv-v004', amount: 500.00, dueDate: '2023-06-01', status: 'Paid', vendorName: 'InnovateCorp' },
   { id: 'inv-v005', amount: 800.00, dueDate: '2023-06-01', status: 'Paid', vendorName: 'DataSys' },
+];
+
+export const payouts: Payout[] = [
+    { date: '2025-10-25', grossAmount: 2450.00, stripeFees: 71.35, netPayout: 2378.65, status: 'Completed' },
+    { date: '2025-09-25', grossAmount: 2200.00, stripeFees: 64.10, netPayout: 2135.90, status: 'Completed' },
+    { date: '2025-08-25', grossAmount: 2300.00, stripeFees: 67.00, netPayout: 2233.00, status: 'Completed' },
+    { date: '2025-07-25', grossAmount: 1500.00, stripeFees: 43.80, netPayout: 1456.20, status: 'In Transit' },
 ];
 
 export const conversationForAI = `Vendor Admin (John from InnovateCorp): Hi, we're really enjoying the ParkX platform. It's streamlined our operations significantly. We're approaching our 50-spot limit and have a waitlist of new customers. We'd like to request an increase to 75 spots.

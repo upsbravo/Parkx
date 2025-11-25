@@ -46,3 +46,11 @@ export type Invoice = {
   userName?: string;
   vendorName?: string;
 };
+
+export type Payout = {
+  date: string;
+  grossAmount: number;
+  stripeFees: number;
+  netPayout: number;
+  status: 'Completed' | 'In Transit';
+};
