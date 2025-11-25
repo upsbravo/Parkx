@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -144,11 +143,21 @@ export default function VendorInvoicesPage() {
       toast({ variant: 'destructive', title: 'Invalid Amount', description: 'Please enter a valid payment amount.' });
       return;
     }
+    
+    let paymentNote = `Paid ${formatCurrency(amount)} via ${paymentMethod}.`;
+
+    if (paymentMethod === 'Check') {
+        const checkNumber = prompt("Please enter the check number:");
+        if (checkNumber) {
+            paymentNote += ` Check #${checkNumber}.`;
+        }
+    }
+
 
     const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
     // In a real app, you'd handle partial payments, but for now we'll mark as paid.
     const newStatus = 'Paid';
-    const updatedNotes = `Paid ${formatCurrency(amount)} via ${paymentMethod}. ${selectedInvoice.notes || ''}`;
+    const updatedNotes = `${paymentNote} ${selectedInvoice.notes || ''}`.trim();
 
     updateDocumentNonBlocking(invoiceRef, { status: newStatus, notes: updatedNotes });
     
@@ -503,17 +512,17 @@ export default function VendorInvoicesPage() {
                                 <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setPaymentView('manualCard')}>
                                     <CreditCard className="mr-2" /> Charge a card manually
                                 </Button>
-                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Recorded Card Transaction')}>
-                                    <CreditCard className="mr-2" /> Record a card transaction
-                                </Button>
                                 <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Check')}>
                                     <Landmark className="mr-2" /> Receive a check
                                 </Button>
                                 <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Cash')}>
                                     <Banknote className="mr-2" /> Receive cash
                                 </Button>
-                                <Button variant="ghost" className="w-full text-muted-foreground">
-                                    <Ellipsis className="mr-2" /> More Options
+                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Venmo')}>
+                                    <Smartphone className="mr-2" /> Receive via Venmo
+                                </Button>
+                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Zelle')}>
+                                    <Smartphone className="mr-2" /> Receive via Zelle
                                 </Button>
                             </>
                         ) : (
