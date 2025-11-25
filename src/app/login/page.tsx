@@ -33,7 +33,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -77,19 +77,28 @@ export default function LoginPage() {
         return;
     }
     
-    // 3. Check for End-User role
-    const endUserDocRef = doc(firestore, 'users', user.uid);
-    const endUserDocSnap = await getDoc(endUserDocRef);
-    if (endUserDocSnap.exists()) {
+    // 3. Check for End-User role by querying all vendor subcollections
+    const vendorsRef = collection(firestore, 'vendors');
+    const vendorSnapshot = await getDocs(vendorsRef);
+
+    for (const vendorDoc of vendorSnapshot.docs) {
+      const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
+      const endUserDocSnap = await getDoc(endUserDocRef);
+      if (endUserDocSnap.exists()) {
         toast({ title: 'Login Successful', description: `Welcome!` });
         router.push('/end-user/dashboard');
         return;
+      }
     }
 
 
     // 4. If no role is found, default to end-user dashboard as a fallback.
-    toast({ title: 'Login Successful', description: `Welcome!` });
-    router.push('/end-user/dashboard');
+    toast({ 
+      variant: 'destructive',
+      title: 'Login Error',
+      description: 'Could not determine user role. Please contact support.' 
+    });
+    // Don't redirect if role is unknown
   };
 
 

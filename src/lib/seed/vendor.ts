@@ -1,7 +1,12 @@
+'use client';
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { firebaseConfig } from "@/firebase/config";
+
+// This UID must match the one used in the end-user seed file.
+// This is derived from the email 'vendor@acme.com'
+const VENDOR_ID = 'YQadS5yQ5EXD2w5zmvqP';
 
 const seed = async () => {
   console.log("Seeding Vendor...");
@@ -19,7 +24,7 @@ const seed = async () => {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
         console.log("Vendor already exists. Skipping creation.");
     } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             console.log("Vendor created successfully.");
         } else {
@@ -29,9 +34,10 @@ const seed = async () => {
     
     const user = userCredential.user;
 
-    const vendorRef = doc(db, "vendors", user.uid);
+    // Use the hardcoded vendor ID to ensure consistency for seeding end-users
+    const vendorRef = doc(db, "vendors", VENDOR_ID);
     await setDoc(vendorRef, {
-      id: user.uid,
+      id: VENDOR_ID, // Ensure the document ID matches the auth UID
       name: vendorName,
       email: email,
       status: 'Active',
