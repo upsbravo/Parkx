@@ -138,7 +138,6 @@ export default function AccountSettingsPage() {
         const updatedData = {
             firstName,
             lastName: lastName.join(' '),
-            email,
             phone,
             address: { street, city, state, zip },
             emergencyContact: { name: emergencyName, phone: emergencyPhone }

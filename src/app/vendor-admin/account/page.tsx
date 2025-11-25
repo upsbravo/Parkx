@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { User, Lock } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useState, useEffect } from 'react';
-import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -41,18 +41,6 @@ export default function VendorAdminAccountPage() {
     if (!user) return;
   
     try {
-      // Update email in Firebase Auth if it changed
-      if (email !== user.email && user.email) {
-        const currentPassword = prompt("Please enter your current password to confirm email change:");
-        if (!currentPassword) {
-          toast({ variant: 'destructive', title: 'Authentication Required', description: 'Password is required to change email.' });
-          return;
-        }
-        const credential = EmailAuthProvider.credential(user.email, currentPassword);
-        await reauthenticateWithCredential(user, credential);
-        await updateEmail(user, email);
-      }
-      
       // Update displayName in Firebase Auth if it changed
       if (fullName !== user.displayName) {
         await updateProfile(user, { displayName: fullName });
@@ -62,7 +50,7 @@ export default function VendorAdminAccountPage() {
       const userRef = doc(firestore, 'vendors', user.uid);
       await updateDoc(userRef, {
         name: fullName,
-        email: email,
+        // email is not updated
       });
   
       toast({
@@ -160,7 +148,8 @@ export default function VendorAdminAccountPage() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    readOnly
+                    disabled
                   />
                 </div>
               </>
