@@ -17,6 +17,7 @@ import { useFirestore } from "@/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function InviteVendorDialog({
   open,
@@ -31,6 +32,7 @@ export function InviteVendorDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [spotLimit, setSpotLimit] = useState(20);
+  const [startTrial, setStartTrial] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateVendor = async () => {
@@ -50,13 +52,16 @@ export function InviteVendorDialog({
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      const trialEndDate = new Date();
+      trialEndDate.setMonth(trialEndDate.getMonth() + 1);
+
       // Now create the vendor document in Firestore with the new user's UID
       await setDoc(doc(firestore, "vendors", user.uid), {
         name: name,
         email: email,
-        status: "Active",
+        status: startTrial ? "Trial" : "Active",
         joinDate: new Date().toISOString(),
-        trialEnds: null,
+        trialEnds: startTrial ? trialEndDate.toISOString() : null,
         spotsUsed: 0,
         spotLimit: spotLimit,
         id: user.uid,
@@ -72,6 +77,7 @@ export function InviteVendorDialog({
       setEmail("");
       setPassword("");
       setSpotLimit(20);
+      setStartTrial(false);
     } catch (error: any) {
       console.error("Error creating vendor: ", error);
       toast({
@@ -90,7 +96,7 @@ export function InviteVendorDialog({
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
-            Create a new vendor account with a minimum of 20 spots. They can log in immediately and should
+            Create a new vendor account. They can log in immediately and should
             change their password.
           </DialogDescription>
         </DialogHeader>
@@ -143,8 +149,14 @@ export function InviteVendorDialog({
               className="col-span-3"
               value={spotLimit}
               onChange={(e) => setSpotLimit(Number(e.target.value))}
-              min={20}
             />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right col-start-1 col-span-1">Trial</Label>
+            <div className="col-span-3 flex items-center space-x-2">
+              <Checkbox id="trial" checked={startTrial} onCheckedChange={(checked) => setStartTrial(Boolean(checked))}/>
+              <Label htmlFor="trial" className="text-sm font-normal">Start 1-month trial</Label>
+            </div>
           </div>
         </div>
         <DialogFooter>

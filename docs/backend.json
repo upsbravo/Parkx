@@ -57,6 +57,19 @@
         "status": {
           "type": "string",
           "description": "Status of the vendor (e.g., Pending, Active, Trial)."
+        },
+        "joinDate": {
+          "type": "string",
+          "description": "The date the vendor joined.",
+          "format": "date-time"
+        },
+        "trialEnds": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the vendor's trial period ends.",
+          "format": "date-time"
         }
       },
       "required": [
@@ -64,7 +77,8 @@
         "name",
         "email",
         "parkingSpotLimit",
-        "status"
+        "status",
+        "joinDate"
       ]
     },
     "EndUser": {

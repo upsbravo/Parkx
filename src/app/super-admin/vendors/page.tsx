@@ -130,6 +130,29 @@ export default function VendorsPage() {
     });
   };
 
+  const handleStartTrial = (vendor: Vendor) => {
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 30);
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { 
+      status: "Trial",
+      trialEnds: trialEndDate.toISOString(),
+    });
+    toast({
+      title: "Trial Started",
+      description: `${vendor.name} has been placed on a 30-day trial.`,
+    });
+  };
+
+  const handleEndTrial = (vendor: Vendor) => {
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { status: "Active", trialEnds: null });
+    toast({
+      title: "Trial Ended",
+      description: `${vendor.name}'s trial has ended and they are now Active.`,
+    });
+  };
+
   const handleSendPasswordReset = async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
@@ -270,6 +293,12 @@ export default function VendorsPage() {
                              <DropdownMenuItem onClick={() => handleSendPasswordReset(vendor.email)}>
                               Send Password Reset
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                             {vendor.status === 'Trial' ? (
+                              <DropdownMenuItem onClick={() => handleEndTrial(vendor)}>End Trial</DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleStartTrial(vendor)}>Start Trial</DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
