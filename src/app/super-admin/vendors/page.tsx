@@ -34,6 +34,7 @@ import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking
 import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 // Define a type for the vendor data coming from Firestore
 // This should align with the structure in your `backend.json` and invite dialog
@@ -55,6 +56,7 @@ export default function VendorsPage() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     setIsClient(true);
@@ -212,7 +214,9 @@ export default function VendorsPage() {
                             >
                               Adjust Spot Limit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>View Invoices</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
+                              View Invoices
+                            </DropdownMenuItem>
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
                                 onClick={() => handleReactivate(vendor)}
