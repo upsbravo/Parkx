@@ -51,7 +51,6 @@ const seed = async () => {
     // CRITICAL: Create the role document for security rules using the hardcoded UID
     const roleRef = doc(db, "roles_super_admin", SUPER_ADMIN_ID);
     await setDoc(roleRef, {
-      id: SUPER_ADMIN_ID,
       active: true,
     });
     console.log("Super Admin role document created in Firestore. Login should now succeed.");
@@ -68,3 +67,4 @@ seed().then(() => {
     console.error(err);
     // process.exit(1);
 });
+

@@ -45,8 +45,6 @@ const seed = async () => {
         }
     }
     
-    const user = userCredential.user;
-
     // Use the PRE-DETERMINED UID as the document ID for the vendor profile.
     const vendorRef = doc(db, "vendors", VENDOR_ID);
     await setDoc(vendorRef, {
