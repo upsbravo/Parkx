@@ -96,16 +96,17 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     /**
-     * @description Controls access to Super Admin role documents. Only other Super Admins
-     *              can read or create these documents.
+     * @description Controls access to Super Admin role documents. Any authenticated user can check
+     *              for a role document to verify permissions, but only existing Super Admins can create new ones.
      * @path /roles_super_admin/{userId}
-     * @allow (get) A Super Admin views another Super Admin's role document.
+     * @allow (get, list) Any authenticated user checks for a role document to determine access level.
      * @allow (create) A Super Admin creates a new role document for another Super Admin.
-     * @deny (update) No client-side updates allowed to prevent privilege modification.
-     * @principle Enforces a secure, admin-managed role system.
+     * @deny (update, delete) No client-side updates/deletes allowed to prevent privilege modification.
+     * @principle Enforces a secure, admin-managed role system while allowing for public role verification.
      */
     match /roles_super_admin/{userId} {
-      allow get, list, create: if isSuperAdmin();
+      allow get, list: if isSignedIn();
+      allow create: if isSuperAdmin();
       allow update, delete: if false;
     }
 
