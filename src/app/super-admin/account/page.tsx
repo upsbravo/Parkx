@@ -125,7 +125,7 @@ export default function SuperAdminAccountPage() {
       setIsCreatingAdmin(true);
 
       try {
-          // Use the auth instance from the hook
+          // Use the auth instance from the hook to avoid conflicts
           const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
           const newAdminUser = userCredential.user;
           
