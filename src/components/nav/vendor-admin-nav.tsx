@@ -19,6 +19,7 @@ import {
   BadgeCheck,
   Headset,
   Settings,
+  MessageCircle,
 } from "lucide-react";
 
 const navItems = [
