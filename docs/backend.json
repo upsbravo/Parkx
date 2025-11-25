@@ -45,7 +45,7 @@
           "type": "string",
           "description": "Name of the vendor."
         },
-        "contactEmail": {
+        "email": {
           "type": "string",
           "description": "Contact email address for the vendor.",
           "format": "email"
@@ -62,7 +62,7 @@
       "required": [
         "id",
         "name",
-        "contactEmail",
+        "email",
         "parkingSpotLimit",
         "status"
       ]

@@ -96,7 +96,7 @@ export default function VendorsPage() {
           </div>
           <Button onClick={() => setInviteOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
-            Invite Vendor
+            Create Vendor
           </Button>
         </div>
         <Card>
