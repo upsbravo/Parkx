@@ -144,7 +144,7 @@ export default function SuperAdminAccountPage() {
           // CRITICAL: Create the role document for security rules to work
           const roleRef = doc(firestore, "roles_super_admin", newAdminUser.uid);
           await setDoc(roleRef, {
-              id: newAdminUser.uid,
+              active: true,
           });
           
           toast({
