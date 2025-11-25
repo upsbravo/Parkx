@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -11,12 +12,16 @@ import {
   Users,
   AreaChart,
 } from "lucide-react";
+import { vendors, endUsers } from "@/lib/data";
 
 export default function SuperAdminDashboard() {
+  const totalVendors = vendors.length;
+  const totalEndUsers = endUsers.length;
+
   const stats = [
     {
       title: "Total Vendors",
-      value: "0",
+      value: totalVendors.toString(),
       description: "Across the platform",
       icon: <Building className="h-4 w-4 text-muted-foreground" />,
     },
@@ -34,7 +39,7 @@ export default function SuperAdminDashboard() {
     },
     {
       title: "Total End Users",
-      value: "0",
+      value: totalEndUsers.toString(),
       description: "Across all vendors",
       icon: <Users className="h-4 w-4 text-muted-foreground" />,
     },
