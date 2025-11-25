@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -12,8 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Vendor } from "@/lib/definitions";
 import { useState } from "react";
+import { useFirestore, updateDocumentNonBlocking } from "@/firebase";
+import { doc } from "firebase/firestore";
+
+type Vendor = {
+  id: string;
+  name: string;
+  spotLimit: number;
+  spotsUsed: number;
+};
 
 export function AdjustSpotLimitDialog({
   vendor,
@@ -25,9 +34,22 @@ export function AdjustSpotLimitDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
+  const firestore = useFirestore();
   const [limit, setLimit] = useState(vendor.spotLimit);
 
   const handleSave = () => {
+    if (limit < (vendor.spotsUsed || 0)) {
+        toast({
+            variant: "destructive",
+            title: "Invalid Limit",
+            description: "New limit cannot be less than the number of spots currently in use.",
+        });
+        return;
+    }
+
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
+
     toast({
       title: "Spot Limit Updated",
       description: `${vendor.name}'s spot limit has been changed to ${limit}.`,
@@ -41,7 +63,7 @@ export function AdjustSpotLimitDialog({
         <DialogHeader>
           <DialogTitle>Adjust Spot Limit for {vendor.name}</DialogTitle>
           <DialogDescription>
-            Current usage: {vendor.spotsUsed} / {vendor.spotLimit}
+            Current usage: {vendor.spotsUsed || 0} / {vendor.spotLimit}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { vendors, Vendor } from "@/lib/data";
 import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
 import {
   DropdownMenu,
@@ -30,11 +30,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Define a type for the vendor data coming from Firestore
+// This should align with the structure in your `backend.json` and invite dialog
+type Vendor = {
+  id: string;
+  name: string;
+  email: string;
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
+  joinDate: string; // ISO string
+  trialEnds: string | null; // ISO string or null
+  spotsUsed: number;
+  spotLimit: number;
+};
+
 
 export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+
+  const firestore = useFirestore();
+  const vendorsQuery = useMemoFirebase(() => collection(firestore, 'vendors'), [firestore]);
+  const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
   const statusVariant = {
     Active: "default",
@@ -46,6 +67,13 @@ export default function VendorsPage() {
   const handleAdjustClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setAdjustOpen(true);
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    // Using toLocaleDateString is fine here as long as we are in a 'use client' component,
+    // as it will consistently render on the client, avoiding mismatches.
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -91,7 +119,21 @@ export default function VendorsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vendors.length > 0 ? (
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-32 mt-1" />
+                      </TableCell>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : vendors && vendors.length > 0 ? (
                   vendors.map((vendor) => (
                     <TableRow key={vendor.id}>
                       <TableCell>
@@ -101,7 +143,7 @@ export default function VendorsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(vendor.joinDate).toLocaleDateString()}
+                        {formatDate(vendor.joinDate)}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -117,12 +159,10 @@ export default function VendorsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {vendor.trialEnds
-                          ? new Date(vendor.trialEnds).toLocaleDateString()
-                          : "N/A"}
+                        {formatDate(vendor.trialEnds)}
                       </TableCell>
                       <TableCell>
-                        {vendor.spotsUsed} / {vendor.spotLimit}
+                        {vendor.spotsUsed || 0} / {vendor.spotLimit}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -159,7 +199,7 @@ export default function VendorsPage() {
                       colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      No vendors found.
+                      No vendors found. Invite one to get started.
                     </TableCell>
                   </TableRow>
                 )}
