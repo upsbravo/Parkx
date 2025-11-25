@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useFirestore } from "@/firebase";
+import { collection, addDoc } from "firebase/firestore";
+import { useState } from "react";
 
 export function InviteVendorDialog({
   open,
@@ -21,13 +24,44 @@ export function InviteVendorDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const [email, setEmail] = useState("");
 
-  const handleInvite = () => {
-    toast({
-      title: "Invitation Sent!",
-      description: "The vendor has been invited to join the platform.",
-    });
-    onOpenChange(false);
+  const handleInvite = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    try {
+      await addDoc(collection(firestore, "vendors"), {
+        email: email,
+        name: "New Vendor", // Default name
+        status: "Pending",
+        joinDate: new Date().toISOString(),
+        trialEnds: null,
+        spotsUsed: 0,
+        spotLimit: 20, // Default limit
+      });
+
+      toast({
+        title: "Invitation Sent!",
+        description: `An invitation has been sent to ${email}.`,
+      });
+      onOpenChange(false);
+      setEmail("");
+    } catch (error) {
+      console.error("Error inviting vendor: ", error);
+      toast({
+        variant: "destructive",
+        title: "Uh oh! Something went wrong.",
+        description: "There was a problem sending the invitation.",
+      });
+    }
   };
 
   return (
@@ -50,6 +84,8 @@ export function InviteVendorDialog({
               type="email"
               placeholder="vendor@example.com"
               className="col-span-3"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
         </div>
