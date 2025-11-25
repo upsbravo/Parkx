@@ -15,10 +15,15 @@ import { useAuth } from '../provider';
  */
 export function useUser() {
   const auth = useAuth();
-  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(auth.currentUser ?? undefined);
   const [isUserLoading, setUserLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setUser(null);
+      setUserLoading(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setUserLoading(false);

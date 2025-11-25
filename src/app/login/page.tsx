@@ -24,7 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { useAuth } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import {
   signInWithEmailAndPassword,
   UserCredential,
@@ -32,7 +32,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { useFirestore } from '@/firebase';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 
@@ -43,8 +42,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const auth = useAuth();
-  const firestore = useFirestore();
+  const {auth, firestore} = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
 
