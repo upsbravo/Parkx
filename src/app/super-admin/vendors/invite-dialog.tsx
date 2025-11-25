@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -59,6 +60,7 @@ export function InviteVendorDialog({
         spotsUsed: 0,
         spotLimit: spotLimit,
         id: user.uid,
+        role: "vendorAdmin", // Explicitly set the role
       });
 
       toast({

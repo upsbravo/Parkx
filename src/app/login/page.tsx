@@ -34,7 +34,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -57,7 +57,8 @@ export default function LoginPage() {
     },
   });
 
-  const handleSuccessfulLogin = (userCredential: UserCredential, message: string) => {
+  const handleSuccessfulLogin = async (userCredential: UserCredential, message: string) => {
+    const user = userCredential.user;
     const values = form.getValues();
     toast({
       title: message,
@@ -66,11 +67,19 @@ export default function LoginPage() {
 
     if (values.email.includes('super')) {
       router.push('/super-admin/dashboard');
-    } else if (values.email.includes('vendor')) {
-      router.push('/vendor-admin/dashboard');
-    } else {
-      router.push('/end-user/dashboard');
+      return;
+    } 
+    
+    // Check for vendor role in Firestore
+    const vendorDocRef = doc(firestore, "vendors", user.uid);
+    const vendorDocSnap = await getDoc(vendorDocRef);
+    if (vendorDocSnap.exists() && vendorDocSnap.data().role === 'vendorAdmin') {
+        router.push('/vendor-admin/dashboard');
+        return;
     }
+
+    // Default to end-user
+    router.push('/end-user/dashboard');
   };
 
 
