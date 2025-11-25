@@ -1,3 +1,4 @@
+
 /**
  * This Firestore Security Ruleset is designed for the ParkX application,
  * implementing a role-based and ownership-based access control model.
