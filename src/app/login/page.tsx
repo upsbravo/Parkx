@@ -57,10 +57,10 @@ export default function LoginPage() {
   const handleSuccessfulLogin = async (userCredential: UserCredential) => {
     const user = userCredential.user;
     
-    // 1. Check for Super Admin role
-    const superAdminDocRef = doc(firestore, 'super_admins', user.uid);
-    const superAdminDocSnap = await getDoc(superAdminDocRef);
-    if (superAdminDocSnap.exists()) {
+    // 1. Check for Super Admin role by looking in roles_super_admin
+    const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
+    const superAdminRoleSnap = await getDoc(superAdminRoleRef);
+    if (superAdminRoleSnap.exists()) {
         toast({ title: 'Login Successful', description: `Welcome Super Admin!` });
         router.push('/super-admin/dashboard');
         return;

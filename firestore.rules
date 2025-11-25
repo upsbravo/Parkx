@@ -105,8 +105,7 @@ service cloud.firestore {
      * @principle Enforces a secure, admin-managed role system.
      */
     match /roles_super_admin/{userId} {
-      allow get, list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
+      allow get, list, create: if isSuperAdmin();
       allow update, delete: if false;
     }
 

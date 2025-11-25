@@ -31,6 +31,7 @@ const seed = async () => {
     
     const user = userCredential.user;
 
+    // Create the main profile document
     const superAdminRef = doc(db, "super_admins", user.uid);
     await setDoc(superAdminRef, {
       id: user.uid,
@@ -39,6 +40,14 @@ const seed = async () => {
       lastName: lastName,
     });
     console.log("Super Admin profile created/updated in Firestore.");
+
+    // Create the role document for security rules
+    const roleRef = doc(db, "roles_super_admin", user.uid);
+    await setDoc(roleRef, {
+      id: user.uid, // Add some data to the document
+    });
+    console.log("Super Admin role document created in Firestore.");
+
 
   } catch (error) {
     console.error("Error seeding Super Admin:", error);

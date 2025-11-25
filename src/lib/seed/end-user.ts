@@ -1,12 +1,8 @@
-'use client';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
-
-// This is the hardcoded UID for the seeded vendor 'vendor@acme.com'
-// In a real application, you wouldn't hardcode this, but it's necessary for seeding.
-const VENDOR_ID = 'YQadS5yQ5EXD2w5zmvqP';
+import { VENDOR_ID } from './vendor';
 
 const seed = async () => {
   console.log('Seeding End User...');
