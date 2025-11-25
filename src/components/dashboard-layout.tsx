@@ -38,6 +38,14 @@ export default function DashboardLayout({
   vendorLogo?: string | null;
   vendorName?: string | null;
 }) {
+  let accountPageUrl = "/end-user/account";
+  if (role === "Super Admin") {
+    accountPageUrl = "/super-admin/account";
+  } else if (role === "Vendor Admin") {
+    accountPageUrl = "/vendor-admin/account";
+  }
+
+
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full bg-background">
@@ -92,9 +100,11 @@ export default function DashboardLayout({
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{role} Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
+                <DropdownMenuItem asChild>
+                  <Link href={accountPageUrl}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
