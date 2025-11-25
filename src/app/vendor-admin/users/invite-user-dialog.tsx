@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, useAuth } from "@/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { useFirestore, useUser } from "@/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -50,7 +50,7 @@ export function InviteUserDialog({
         toast({
             variant: "destructive",
             title: "Error",
-            description: "You must be logged in to create a user.",
+            description: "You must be logged in as a Vendor Admin to create a user.",
         });
         return;
     }
@@ -63,11 +63,14 @@ export function InviteUserDialog({
 
 
     try {
+      // 1. Create the user in the temporary Auth instance
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       newUser = userCredential.user;
 
-      // Create the user document in the endUsers subcollection of the current vendor
-      await setDoc(doc(firestore, "vendors", vendorAdmin.uid, "endUsers", newUser.uid), {
+      // 2. Create the user document in Firestore under the currently logged-in vendor admin's subcollection
+      // This part uses the main app's firestore instance, which is authenticated as the vendor admin.
+      const userDocRef = doc(firestore, "vendors", vendorAdmin.uid, "endUsers", newUser.uid);
+      await setDoc(userDocRef, {
         id: newUser.uid,
         vendorId: vendorAdmin.uid,
         firstName: firstName,
@@ -91,6 +94,7 @@ export function InviteUserDialog({
 
     } catch (error: any) {
       console.error("Error creating user: ", error);
+       // If Auth user was created but Firestore failed, we should clean up the auth user.
        if (newUser) {
         await deleteUser(newUser);
       }
@@ -100,6 +104,7 @@ export function InviteUserDialog({
         description: error.message || "There was a problem creating the user account.",
       });
     } finally {
+      // 4. Clean up the temporary app instance
       await deleteApp(tempApp);
       setIsLoading(false);
     }
