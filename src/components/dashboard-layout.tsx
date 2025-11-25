@@ -29,17 +29,24 @@ export default function DashboardLayout({
   children,
   nav,
   role = "User",
+  vendorLogo,
+  vendorName,
 }: {
   children: ReactNode;
   nav: ReactNode;
   role?: string;
+  vendorLogo?: string | null;
+  vendorName?: string | null;
 }) {
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full bg-background">
         <Sidebar>
           <SidebarHeader>
-            <Logo />
+            <Logo
+              logoUrl={role === "Vendor Admin" && vendorLogo ? vendorLogo : undefined}
+              name={role === "Vendor Admin" && vendorName ? vendorName : undefined}
+            />
           </SidebarHeader>
           {nav}
           <SidebarFooter>
