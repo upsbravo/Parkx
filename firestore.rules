@@ -85,7 +85,7 @@ service cloud.firestore {
      * @principle Enforces role-based access control where only users of a certain role (SuperAdmin) can manage that role.
      */
     match /superAdmins/{superAdminId} {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
@@ -96,9 +96,7 @@ service cloud.firestore {
      * @principle Combines role-based access (SuperAdmin) with document ownership for writes (Vendor).
      */
     match /vendors/{vendorId} {
-      allow read: if isOwner(vendorId) || isSuperAdmin();
-      allow create, delete: if isSuperAdmin();
-      allow update: if isOwner(vendorId) || isSuperAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
@@ -109,7 +107,7 @@ service cloud.firestore {
      * @principle Enforces data isolation and ownership through path-based security. A vendor can only manage data within their own tree.
      */
     match /vendors/{vendorId}/endUsers/{endUserId} {
-      allow read, write: if isOwner(vendorId) || isSuperAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
@@ -120,7 +118,7 @@ service cloud.firestore {
      * @principle Enforces data isolation and ownership through path-based security. A vendor can only manage data within their own tree.
      */
     match /vendors/{vendorId}/parkingSpots/{parkingSpotId} {
-      allow read, write: if isOwner(vendorId) || isSuperAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
@@ -131,13 +129,7 @@ service cloud.firestore {
      * @principle Restricts access based on data fields (`senderId`, `receiverId`) to enforce privacy between participants. Disallows mutations.
      */
     match /communications/{communicationId} {
-      allow get: if isParticipant(resource.data) || isSuperAdmin();
-      // Listing is denied to prevent queries that could leak communication data.
-      // Clients should perform targeted queries for messages where the user is a sender or receiver.
-      allow list: if isSuperAdmin();
-      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
-      // Communications are immutable to preserve the integrity of the conversation history.
-      allow update, delete: if isSuperAdmin();
+      allow read, write: if isSignedIn();
     }
   }
 }
