@@ -59,26 +59,28 @@ export default function LoginPage() {
 
   const handleSuccessfulLogin = async (userCredential: UserCredential, message: string) => {
     const user = userCredential.user;
-    const values = form.getValues();
     toast({
       title: message,
       description: `Welcome!`,
     });
 
-    if (values.email.includes('super')) {
-      router.push('/super-admin/dashboard');
-      return;
-    } 
-    
-    // Check for vendor role in Firestore
+    // 1. Check for Super Admin role
+    const superAdminDocRef = doc(firestore, "superAdmins", user.uid);
+    const superAdminDocSnap = await getDoc(superAdminDocRef);
+    if (superAdminDocSnap.exists()) {
+        router.push('/super-admin/dashboard');
+        return;
+    }
+
+    // 2. Check for Vendor Admin role
     const vendorDocRef = doc(firestore, "vendors", user.uid);
     const vendorDocSnap = await getDoc(vendorDocRef);
-    if (vendorDocSnap.exists() && vendorDocSnap.data().role === 'vendorAdmin') {
+    if (vendorDocSnap.exists()) {
         router.push('/vendor-admin/dashboard');
         return;
     }
 
-    // Default to end-user
+    // 3. Default to End-User
     router.push('/end-user/dashboard');
   };
 
@@ -90,17 +92,20 @@ export default function LoginPage() {
       await handleSuccessfulLogin(userCredential, 'Login Successful');
 
     } catch (error: any) {
+      // If user not found, create a demo account
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         try {
           const newUserCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
           const user = newUserCredential.user;
 
-          // If super admin, ensure the superAdmins document exists.
+          // Special handling for initial Super Admin setup for demo purposes
           if (values.email.startsWith('super')) {
             const superAdminRef = doc(firestore, 'superAdmins', user.uid);
             await setDoc(superAdminRef, { 
+              id: user.uid,
               email: user.email,
-              uid: user.uid
+              firstName: "Super",
+              lastName: "Admin"
             }, { merge: true });
           }
           
