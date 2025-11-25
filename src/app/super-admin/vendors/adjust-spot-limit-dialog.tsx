@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useFirestore, updateDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, collection, addDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 type Vendor = {
   id: string;
@@ -35,9 +36,10 @@ export function AdjustSpotLimitDialog({
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const router = useRouter();
   const [limit, setLimit] = useState(vendor.spotLimit);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (limit < (vendor.spotsUsed || 0)) {
         toast({
             variant: "destructive",
@@ -45,6 +47,31 @@ export function AdjustSpotLimitDialog({
             description: "New limit cannot be less than the number of spots currently in use.",
         });
         return;
+    }
+    
+    const additionalSpots = limit - vendor.spotLimit;
+
+    if (additionalSpots > 0) {
+        const costPerSpot = 10;
+        const invoiceAmount = additionalSpots * costPerSpot;
+
+        // Create a new invoice document
+        const invoicesRef = collection(firestore, "vendorInvoices");
+        await addDoc(invoicesRef, {
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+            amount: invoiceAmount,
+            dueDate: new Date().toISOString(),
+            status: "Pending",
+            notes: `Invoice for ${additionalSpots} additional parking spots.`
+        });
+        
+        toast({
+            title: "Invoice Generated",
+            description: `An invoice for $${invoiceAmount} has been created for ${vendor.name}.`,
+        });
+
+        router.push('/super-admin/invoices');
     }
 
     const vendorRef = doc(firestore, "vendors", vendor.id);
@@ -63,7 +90,7 @@ export function AdjustSpotLimitDialog({
         <DialogHeader>
           <DialogTitle>Adjust Spot Limit for {vendor.name}</DialogTitle>
           <DialogDescription>
-            Current usage: {vendor.spotsUsed || 0} / {vendor.spotLimit}
+            Current usage: {vendor.spotsUsed || 0} / {vendor.spotLimit}. Each additional spot costs $10.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

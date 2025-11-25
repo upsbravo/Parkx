@@ -30,9 +30,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 // Define a type for the vendor data coming from Firestore
 // This should align with the structure in your `backend.json` and invite dialog
@@ -53,6 +54,7 @@ export default function VendorsPage() {
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsClient(true);
@@ -73,6 +75,15 @@ export default function VendorsPage() {
   const handleAdjustClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setAdjustOpen(true);
+  };
+
+  const handleDeactivate = (vendor: Vendor) => {
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    updateDocumentNonBlocking(vendorRef, { status: "Inactive" });
+    toast({
+      title: "Vendor Deactivated",
+      description: `${vendor.name} has been marked as inactive.`,
+    });
   };
 
   const formatDate = (dateString: string | null) => {
@@ -193,7 +204,10 @@ export default function VendorsPage() {
                               Adjust Spot Limit
                             </DropdownMenuItem>
                             <DropdownMenuItem>View Invoices</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                            <DropdownMenuItem
+                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              onClick={() => handleDeactivate(vendor)}
+                            >
                               Deactivate
                             </DropdownMenuItem>
                           </DropdownMenuContent>

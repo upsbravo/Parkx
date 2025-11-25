@@ -88,7 +88,7 @@ export function InviteVendorDialog({
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
-            Create a new vendor account. They can log in immediately and should
+            Create a new vendor account with a minimum of 20 spots. They can log in immediately and should
             change their password.
           </DialogDescription>
         </DialogHeader>
@@ -141,6 +141,7 @@ export function InviteVendorDialog({
               className="col-span-3"
               value={spotLimit}
               onChange={(e) => setSpotLimit(Number(e.target.value))}
+              min={20}
             />
           </div>
         </div>
