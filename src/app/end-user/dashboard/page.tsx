@@ -1,110 +1,77 @@
-import Image from "next/image";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { userInvoices, vendorUserMessages } from "@/lib/data";
-import { Car, FileText, MessageCircle, Map } from "lucide-react";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Badge } from "@/components/ui/badge";
-
-const vehicleImage = PlaceHolderImages.find((img) => img.id === 'vehicle-1');
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, CheckCircle, ParkingSquare } from 'lucide-react';
 
 export default function EndUserDashboard() {
-  const latestInvoice = userInvoices.find(inv => inv.userName === 'Alice Brown');
-  const recentMessages = vendorUserMessages.filter(msg => msg.recipient.includes('Alice Brown')).slice(0, 2);
+  const recentActivities = [
+    {
+      title: 'Spot A-12 Assigned',
+      description: 'Your request for spot A-12 was approved.',
+      time: '6 minutes ago',
+    },
+  ];
 
   return (
-    <div className="grid gap-6">
-      <h1 className="text-2xl font-semibold">Welcome back, Alice!</h1>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-3xl font-bold">Welcome, John</h1>
+        <p className="text-muted-foreground">
+          Manage your assigned spot and view recent activity.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>My Parking Spot</CardTitle>
-            <CardDescription>Your assigned spot and vehicle details.</CardDescription>
+            <div className="flex items-center gap-2">
+              <ParkingSquare className="h-6 w-6 text-primary" />
+              <CardTitle>Current Spot</CardTitle>
+            </div>
+            <CardDescription>
+              Details about your currently assigned parking spot.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                    <p className="text-sm text-muted-foreground">Assigned Spot</p>
-                    <p className="text-2xl font-bold">A1</p>
-                </div>
-                <Car className="h-8 w-8 text-primary" />
+            <div className="space-y-1">
+              <p className="text-5xl font-bold">A-12</p>
+              <p className="text-muted-foreground">Assigned: Nov 25, 2025</p>
             </div>
-             <div className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                    <p className="text-sm text-muted-foreground">Vehicle</p>
-                    <p className="font-semibold">Toyota Camry</p>
-                    <p className="text-sm text-muted-foreground">Plate: XYZ-1234</p>
-                </div>
-                {vehicleImage && (
-                    <Image 
-                        src={vehicleImage.imageUrl} 
-                        alt="My Vehicle" 
-                        width={100} 
-                        height={75} 
-                        className="rounded-md object-cover"
-                        data-ai-hint={vehicleImage.imageHint}
-                    />
-                )}
-            </div>
-            <Button variant="outline" className="w-full">
-                <Map className="mr-2 h-4 w-4" /> View Parking Lot Map
+            <Button variant="destructive">
+              <ArrowRight className="mr-2 h-4 w-4 -scale-x-100" />
+              Request Cancellation
             </Button>
           </CardContent>
         </Card>
-        
-        <div className="space-y-6">
-            <Card>
-            <CardHeader>
-                <CardTitle>Recent Messages</CardTitle>
-                <CardDescription>From your Vendor Admin.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ul className="space-y-4">
-                {recentMessages.map(msg => (
-                    <li key={msg.id} className="flex items-start gap-4">
-                        <MessageCircle className="h-5 w-5 text-muted-foreground mt-1" />
-                        <div>
-                            <p className="text-sm font-medium">{msg.subject}</p>
-                            <p className="text-sm text-muted-foreground truncate">{msg.body}</p>
-                        </div>
-                    </li>
-                ))}
-                </ul>
-            </CardContent>
-            </Card>
-
-            <Card>
-            <CardHeader>
-                <CardTitle>Billing</CardTitle>
-                <CardDescription>Your latest invoice.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {latestInvoice ? (
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <FileText className="h-6 w-6 text-muted-foreground" />
-                        <div>
-                            <p className="font-semibold">Invoice #{latestInvoice.id.split('-')[1]}</p>
-                            <p className="text-sm text-muted-foreground">Due: {latestInvoice.dueDate}</p>
-                        </div>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-semibold">${latestInvoice.amount.toFixed(2)}</p>
-                        <Badge variant={latestInvoice.status === 'Paid' ? 'default' : 'destructive'}>{latestInvoice.status}</Badge>
-                    </div>
-                </div>
-                ) : (
-                <p>No invoices found.</p>
-                )}
-            </CardContent>
-            </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-4">
+              {recentActivities.map((activity, index) => (
+                <li key={index} className="flex items-start gap-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold">{activity.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {activity.description}
+                    </p>
+                  </div>
+                  <time className="text-xs text-muted-foreground">
+                    {activity.time}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

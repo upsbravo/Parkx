@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
-  Car,
   User,
   FileText,
   MessageCircle,
@@ -18,10 +17,9 @@ import {
 
 const navItems = [
   { href: "/end-user/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
-  { href: "/end-user/my-spot", icon: <Car />, label: "My Spot" },
-  { href: "/end-user/profile", icon: <User />, label: "Profile" },
-  { href: "/end-user/billing", icon: <FileText />, label: "Billing" },
+  { href: "/end-user/invoices", icon: <FileText />, label: "Invoices" },
   { href: "/end-user/messages", icon: <MessageCircle />, label: "Messages" },
+  { href: "/end-user/account", icon: <User />, label: "Account" },
 ];
 
 export default function EndUserNav() {
@@ -34,7 +32,7 @@ export default function EndUserNav() {
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
               asChild
-              isActive={pathname === item.href}
+              isActive={pathname.startsWith(item.href)}
               tooltip={item.label}
             >
               <Link href={item.href}>
