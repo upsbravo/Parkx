@@ -72,7 +72,7 @@ export default function VendorsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const auth = useAuth();
-  const { isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     setIsClient(true);
@@ -81,9 +81,9 @@ export default function VendorsPage() {
 
   const firestore = useFirestore();
   const vendorsQuery = useMemoFirebase(() => {
-    if (isUserLoading || !firestore) return null;
+    if (isUserLoading || !user || !firestore) return null;
     return collection(firestore, 'vendors');
-  }, [firestore, isUserLoading]);
+  }, [firestore, user, isUserLoading]);
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
   const statusVariant = {
