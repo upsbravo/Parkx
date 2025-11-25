@@ -57,7 +57,6 @@ export default function LoginPage() {
         values.email,
         values.password
       );
-      const user = userCredential.user;
       
       toast({
         title: 'Login Successful',
@@ -145,11 +144,11 @@ export default function LoginPage() {
         </Form>
         <CardFooter className="flex flex-col gap-4">
             <p className="text-xs text-muted-foreground text-center">For demonstration purposes:</p>
-            <div className="grid grid-cols-1 gap-2 w-full text-center text-sm">
-              <Link href="/super-admin/dashboard" className="text-primary hover:underline">Log in as Super Admin</Link>
-              <Link href="/vendor-admin/dashboard" className="text-primary hover:underline">Log in as Vendor Admin</Link>
-              <Link href="/end-user/dashboard" className="text-primary hover:underline">Log in as End User</Link>
-            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              super@parkx.com / password<br />
+              vendor@acme.com / password<br />
+              user@example.com / password
+            </p>
         </CardFooter>
       </Card>
       <p className="mt-4 text-center text-sm text-muted-foreground">
