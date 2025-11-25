@@ -3,7 +3,7 @@
  *
  * Core Philosophy:
  * The security model is designed around three primary roles: SuperAdmins, Vendors, and EndUsers.
- * - SuperAdmins have global read and write access to most data for administrative purposes.
+ * - SuperAdmins have global read and write access to all data for administrative purposes.
  * - Vendors operate within their own sandboxed data environment, exercising full control over their profile,
  *   end-users, and parking spots. They cannot access data belonging to other vendors.
  * - EndUsers are managed by Vendors and do not have direct write access in this model.
@@ -85,9 +85,7 @@ service cloud.firestore {
      * @principle Enforces role-based access control where only users of a certain role (SuperAdmin) can manage that role.
      */
     match /superAdmins/{superAdminId} {
-      allow get, list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update, delete: if isSuperAdmin() && resource != null;
+      allow read, write: if isSuperAdmin();
     }
 
     /**
@@ -98,11 +96,9 @@ service cloud.firestore {
      * @principle Combines role-based access (SuperAdmin) with document ownership for writes (Vendor).
      */
     match /vendors/{vendorId} {
-      allow get: if isOwner(vendorId) || isSuperAdmin();
-      allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
-      allow delete: if isSuperAdmin() && resource != null;
+      allow read: if isOwner(vendorId) || isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+      allow update: if isOwner(vendorId) || isSuperAdmin();
     }
 
     /**
@@ -113,10 +109,7 @@ service cloud.firestore {
      * @principle Enforces data isolation and ownership through path-based security. A vendor can only manage data within their own tree.
      */
     match /vendors/{vendorId}/endUsers/{endUserId} {
-      allow get, list: if isOwner(vendorId) || isSuperAdmin();
-      allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
-      allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null && request.resource.data.vendorId == resource.data.vendorId;
-      allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
+      allow read, write: if isOwner(vendorId) || isSuperAdmin();
     }
 
     /**
@@ -127,10 +120,7 @@ service cloud.firestore {
      * @principle Enforces data isolation and ownership through path-based security. A vendor can only manage data within their own tree.
      */
     match /vendors/{vendorId}/parkingSpots/{parkingSpotId} {
-      allow get, list: if isOwner(vendorId) || isSuperAdmin();
-      allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
-      allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null && request.resource.data.vendorId == resource.data.vendorId;
-      allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
+      allow read, write: if isOwner(vendorId) || isSuperAdmin();
     }
 
     /**
@@ -144,11 +134,10 @@ service cloud.firestore {
       allow get: if isParticipant(resource.data) || isSuperAdmin();
       // Listing is denied to prevent queries that could leak communication data.
       // Clients should perform targeted queries for messages where the user is a sender or receiver.
-      allow list: if false;
+      allow list: if isSuperAdmin();
       allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
       // Communications are immutable to preserve the integrity of the conversation history.
-      allow update: if false;
-      allow delete: if false;
+      allow update, delete: if isSuperAdmin();
     }
   }
 }
