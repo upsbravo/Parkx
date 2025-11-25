@@ -57,7 +57,7 @@ export default function LoginPage() {
   const handleSuccessfulLogin = async (userCredential: UserCredential) => {
     const user = userCredential.user;
     
-    // 1. Check for Super Admin role by looking in roles_super_admin
+    // 1. Check for Super Admin role
     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
     const superAdminRoleSnap = await getDoc(superAdminRoleRef);
     if (superAdminRoleSnap.exists()) {
@@ -79,6 +79,7 @@ export default function LoginPage() {
     try {
         const vendorsQuery = query(collection(firestore, 'vendors'));
         const vendorsSnapshot = await getDocs(vendorsQuery);
+
         for (const vendorDoc of vendorsSnapshot.docs) {
             const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
             const endUserDocSnap = await getDoc(endUserDocRef);
