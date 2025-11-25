@@ -95,6 +95,7 @@ export default function VendorInvoicesPage() {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isCreateInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [isRecordPaymentOpen, setRecordPaymentOpen] = useState(false);
+  const [paymentView, setPaymentView] = useState('options');
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
   const { toast } = useToast();
 
@@ -132,6 +133,7 @@ export default function VendorInvoicesPage() {
 
   const handleRecordPaymentClick = (invoice: VendorInvoice) => {
     setSelectedInvoice(invoice);
+    setPaymentView('options');
     setRecordPaymentOpen(true);
   };
   
@@ -245,6 +247,15 @@ export default function VendorInvoicesPage() {
   };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
+  
+  const cardFormIcons = (
+    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center gap-1 pr-3">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 38 24" fill="none" className="h-4 w-6"><rect width="38" height="24" rx="4" fill="#1a1a1a"></rect><circle cx="10" cy="12" r="5" fill="#eb001b"></circle><circle cx="28" cy="12" r="5" fill="#f79e1b"></circle><path d="M23 12c0-2.761 2.239-5 5-5s5 2.239 5 5-2.239 5-5 5-5-2.239-5-5z" fill="#ff5f00"></path></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18.84 4.42a1.2 1.2 0 0 0-1.68 0L9.32 12l-2.4-2.4a1.2 1.2 0 0 0-1.68 0L.42 14.44a1.2 1.2 0 0 0 0 1.68l3.62 3.62a1.2 1.2 0 0 0 1.68 0L13.56 12l2.4 2.4a1.2 1.2 0 0 0 1.68 0l4.82-4.82a1.2 1.2 0 0 0 0-1.68Z" /><path d="M12 11.5 2.22 1.72" /><path d="m21.8 2.2-9.8 9.8" /></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /></svg>
+    </div>
+  );
 
   return (
     <>
@@ -445,43 +456,115 @@ export default function VendorInvoicesPage() {
       {/* Record Payment Dialog */}
       {selectedInvoice && (
         <Dialog open={isRecordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
-            <DialogContent className="sm:max-w-3xl p-0">
+            <DialogContent className="sm:max-w-4xl p-0">
                 <DialogHeader className="p-6 pb-0">
-                    <DialogTitle>New Payment</DialogTitle>
+                    <DialogTitle>
+                    {paymentView === 'options' ? (
+                        'New Payment'
+                    ) : (
+                        <Button variant="ghost" onClick={() => setPaymentView('options')} className="h-auto p-0 justify-start">
+                            <ArrowLeft className="h-4 w-4 mr-2"/>
+                            Charge a card manually
+                        </Button>
+                    )}
+                    </DialogTitle>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2">
                     <div className="p-6 space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="payment-amount">Amount</Label>
-                            <div className="relative">
-                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
-                                <Input
-                                    id="payment-amount"
-                                    type="number"
-                                    value={paymentAmount}
-                                    onChange={(e) => setPaymentAmount(e.target.value)}
-                                    className="pl-7 text-lg"
-                                />
+                        {paymentView === 'options' ? (
+                             <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="payment-amount">Amount</Label>
+                                    <div className="relative">
+                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
+                                        <Input
+                                            id="payment-amount"
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => setPaymentAmount(e.target.value)}
+                                            className="pl-7 text-lg"
+                                        />
+                                    </div>
+                                </div>
+                                <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => setPaymentView('manualCard')}>
+                                    <CreditCard className="mr-2" /> Charge a card manually
+                                </Button>
+                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Recorded Card Transaction')}>
+                                    <CreditCard className="mr-2" /> Record a card transaction
+                                </Button>
+                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Check')}>
+                                    <Landmark className="mr-2" /> Receive a check
+                                </Button>
+                                <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Cash')}>
+                                    <Banknote className="mr-2" /> Receive cash
+                                </Button>
+                                <Button variant="ghost" className="w-full text-muted-foreground">
+                                    <Ellipsis className="mr-2" /> More Options
+                                </Button>
+                            </>
+                        ) : (
+                            <div className="space-y-4">
+                                 <div className="space-y-1">
+                                    <div className="relative">
+                                        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
+                                        <Input
+                                            id="payment-amount-charge"
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => setPaymentAmount(e.target.value)}
+                                            className="pl-7 text-2xl font-bold h-12"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="card-number">Card Number</Label>
+                                    <div className="relative">
+                                        <Input id="card-number" placeholder="1234 1234 1234 1234" />
+                                        {cardFormIcons}
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="expiration-date">Expiration Date</Label>
+                                        <Input id="expiration-date" placeholder="MM / YY" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="security-code">Security Code</Label>
+                                         <div className="relative">
+                                            <Input id="security-code" placeholder="CVC" />
+                                            <CreditCard className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        </div>
+                                    </div>
+                                </div>
+                                 <div className="space-y-2">
+                                    <Label htmlFor="country">Country</Label>
+                                    <Select defaultValue="US">
+                                        <SelectTrigger id="country">
+                                            <SelectValue placeholder="Select a country" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="US">United States</SelectItem>
+                                            <SelectItem value="CA">Canada</SelectItem>
+                                            <SelectItem value="MX">Mexico</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="zip-code">ZIP Code</Label>
+                                    <Input id="zip-code" placeholder="12345" />
+                                </div>
+                                <Button className="w-full" onClick={() => handleConfirmPayment(`Manual Card Charge: ${formatCurrency(Number(paymentAmount))}`)}>
+                                    Charge {formatCurrency(Number(paymentAmount))}
+                                </Button>
+                                <p className="text-xs text-muted-foreground text-center flex items-center justify-center">
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    Secure Payment. PCI Service Provider Level 1 Certified.
+                                </p>
                             </div>
-                        </div>
-                        <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleConfirmPayment('Manual Card Entry')}>
-                            <CreditCard className="mr-2" /> Charge a card manually
-                        </Button>
-                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Recorded Card Transaction')}>
-                            <CreditCard className="mr-2" /> Record a card transaction
-                        </Button>
-                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Check')}>
-                            <Landmark className="mr-2" /> Receive a check
-                        </Button>
-                        <Button variant="outline" className="w-full" onClick={() => handleConfirmPayment('Cash')}>
-                            <Banknote className="mr-2" /> Receive cash
-                        </Button>
-                         <Button variant="ghost" className="w-full text-muted-foreground">
-                            <Ellipsis className="mr-2" /> More Options
-                        </Button>
+                        )}
                     </div>
                     <div className="bg-muted/50 p-6 rounded-r-lg space-y-4">
-                        <h3 className="font-semibold text-muted-foreground text-sm">INVOICE #{selectedInvoice.id.substring(0,6).toUpperCase()}</h3>
+                        <h3 className="font-semibold text-muted-foreground text-sm">ESTIMATE #{selectedInvoice.id.substring(0,6).toUpperCase()}</h3>
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <span>Total Due</span>
@@ -497,7 +580,7 @@ export default function VendorInvoicesPage() {
                             </div>
                         </div>
                         <Separator />
-                        <div className="flex justify-between font-bold text-lg">
+                        <div className="flex justify-between font-bold text-lg text-green-600">
                                 <span>Remaining</span>
                                 <span>{formatCurrency(selectedInvoice.amount - Number(paymentAmount))}</span>
                         </div>
