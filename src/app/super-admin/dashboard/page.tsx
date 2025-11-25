@@ -6,116 +6,78 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { vendors } from "@/lib/data";
-import { DollarSign, Users, Building, Hourglass } from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+  Building,
+  DollarSign,
+  Users,
+  AreaChart,
+} from "lucide-react";
 
 export default function SuperAdminDashboard() {
-  const activeVendors = vendors.filter((v) => v.status === 'Active').length;
-  const pendingVendors = vendors.filter((v) => v.status === 'Pending').length;
-  const totalSpots = vendors.reduce((acc, v) => acc + v.spotLimit, 0);
-  const totalSpotsUsed = vendors.reduce((acc, v) => acc + v.spotsUsed, 0);
-
-  const statusVariant = {
-    Active: "default",
-    Pending: "secondary",
-    Trial: "outline",
-    Inactive: "destructive",
-  };
+  const stats = [
+    {
+      title: "Total Vendors",
+      value: "0",
+      description: "Across the platform",
+      icon: <Building className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "Active Subscriptions",
+      value: "0",
+      description: "Vendors on a plan",
+      icon: <AreaChart className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "Monthly Recurring Revenue",
+      value: "$0",
+      description: "Based on active subscriptions",
+      icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "Total End Users",
+      value: "0",
+      description: "Across all vendors",
+      icon: <Users className="h-4 w-4 text-muted-foreground" />,
+    },
+  ];
 
   return (
-    <div className="grid gap-6">
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Vendors</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeVendors}</div>
-            <p className="text-xs text-muted-foreground">out of {vendors.length} total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Spot Occupancy</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalSpotsUsed} / {totalSpots}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {((totalSpotsUsed / totalSpots) * 100).toFixed(1)}% utilized
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <Hourglass className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{pendingVendors}</div>
-            <p className="text-xs text-muted-foreground">New vendors waiting</p>
-          </CardContent>
-        </Card>
+    <div className="flex-1 space-y-4">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Super Admin Dashboard
+        </h1>
+        <p className="text-muted-foreground">
+          Global overview of the ParkX platform.
+        </p>
       </div>
-
-      <Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.title}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              {stat.icon}
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {stat.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="col-span-1 lg:col-span-3">
         <CardHeader>
-          <CardTitle>Recent Vendor Signups</CardTitle>
-          <CardDescription>A list of the most recent vendors who joined the platform.</CardDescription>
+          <CardTitle>Recent Platform Activity</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Spot Usage</TableHead>
-                <TableHead>Registration Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vendors.slice(0, 5).map((vendor) => (
-                <TableRow key={vendor.id}>
-                  <TableCell>
-                    <div className="font-medium">{vendor.name}</div>
-                    <div className="text-sm text-muted-foreground">{vendor.email}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[vendor.status] as "default" | "secondary" | "outline" | "destructive"}>
-                      {vendor.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {vendor.spotsUsed} / {vendor.spotLimit}
-                  </TableCell>
-                  <TableCell>{vendor.registrationDate}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="pl-2">
+          <div className="flex h-48 items-center justify-center">
+            <p className="text-sm text-muted-foreground">
+              No recent activity to display.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
