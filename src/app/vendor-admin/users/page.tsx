@@ -32,6 +32,8 @@ import { InviteUserDialog } from "./invite-user-dialog";
 import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AssignSpotDialog } from "./assign-spot-dialog";
+import { UserDetailsDialog } from "./user-details-dialog";
 
 type EndUser = {
   id: string;
@@ -45,6 +47,9 @@ type EndUser = {
 
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
+  const [isDetailsOpen, setDetailsOpen] = useState(false);
+  const [isAssignSpotOpen, setAssignSpotOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<EndUser | null>(null);
   
   const firestore = useFirestore();
   const { user: vendorAdmin, isUserLoading: isVendorLoading } = useUser();
@@ -62,6 +67,16 @@ export default function UserManagementPage() {
     Active: "default",
     Pending: "secondary",
     Inactive: "destructive",
+  };
+
+  const handleViewDetails = (user: EndUser) => {
+    setSelectedUser(user);
+    setDetailsOpen(true);
+  };
+
+  const handleAssignSpot = (user: EndUser) => {
+    setSelectedUser(user);
+    setAssignSpotOpen(true);
   };
 
   return (
@@ -153,8 +168,8 @@ export default function UserManagementPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Assign Spot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewDetails(user)}>View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Spot</DropdownMenuItem>
                              <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                               Deactivate User
                             </DropdownMenuItem>
@@ -179,6 +194,20 @@ export default function UserManagementPage() {
         </Card>
       </div>
       <InviteUserDialog open={isInviteOpen} onOpenChange={setInviteOpen} />
+      {selectedUser && (
+        <>
+          <UserDetailsDialog
+            user={selectedUser}
+            open={isDetailsOpen}
+            onOpenChange={setDetailsOpen}
+          />
+          <AssignSpotDialog
+            user={selectedUser}
+            open={isAssignSpotOpen}
+            onOpenChange={setAssignSpotOpen}
+          />
+        </>
+      )}
     </>
   );
 }
