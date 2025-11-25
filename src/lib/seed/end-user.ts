@@ -10,7 +10,7 @@ const VENDOR_ID = 'YQadS5yQ5EXD2w5zmvqP';
 
 const seed = async () => {
   console.log('Seeding End User...');
-  const app = initializeApp(firebaseConfig);
+  const app = initializeApp(firebaseConfig, 'endUserSeed');
   const auth = getAuth(app);
   const db = getFirestore(app);
 
@@ -22,7 +22,7 @@ const seed = async () => {
   try {
     let userCredential;
     try {
-      // Check if user already exists in Auth
+      // Check if user already exists in Auth by trying to sign in
       userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log('End user already exists in Auth. Skipping creation.');
     } catch (error: any) {
@@ -57,4 +57,8 @@ const seed = async () => {
   }
 };
 
-seed();
+seed().then(() => {
+    // process.exit(0);
+}).catch(() => {
+    // process.exit(1);
+});
