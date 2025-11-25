@@ -23,7 +23,7 @@ import {
 } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import Link from "next/link";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, ShieldCheck } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -68,10 +68,18 @@ export default function DashboardLayout({
                   size="icon"
                   className="overflow-hidden rounded-full"
                 >
-                  <Avatar>
-                    <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="User avatar" />
-                    <AvatarFallback>{role.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  {role === 'Super Admin' ? (
+                     <Avatar>
+                        <AvatarFallback>
+                          <ShieldCheck className="h-5 w-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                  ) : (
+                    <Avatar>
+                      <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="User avatar" />
+                      <AvatarFallback>{role.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">

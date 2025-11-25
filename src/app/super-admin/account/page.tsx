@@ -13,10 +13,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, UserPlus } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useEffect } from 'react';
 import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -47,29 +46,28 @@ export default function SuperAdminAccountPage() {
 
   const handleProfileSave = async () => {
     if (!user) return;
-
+  
     try {
       // Update email in Firebase Auth if it changed
       if (email !== user.email && user.email) {
-         // Reauthentication might be needed for this sensitive operation
         const currentPassword = prompt("Please enter your current password to confirm email change:");
         if (!currentPassword) {
-            toast({ variant: 'destructive', title: 'Authentication Required', description: 'Password is required to change email.' });
-            return;
+          toast({ variant: 'destructive', title: 'Authentication Required', description: 'Password is required to change email.' });
+          return;
         }
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
         await reauthenticateWithCredential(user, credential);
         await updateEmail(user, email);
       }
-      
+  
       // Update profile in Firestore
       const userRef = doc(firestore, 'superAdmins', user.uid);
-      updateDocumentNonBlocking(userRef, {
+      await updateDoc(userRef, {
         firstName: fullName.split(' ')[0],
         lastName: fullName.split(' ')[1] || '',
         email: email,
       });
-
+  
       toast({
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
