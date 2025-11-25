@@ -12,9 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, UserPlus } from 'lucide-react';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, type Auth } from '@/firebase';
 import { useState, useEffect } from 'react';
-import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, getAuth, updateProfile } from 'firebase/auth';
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -125,9 +125,8 @@ export default function SuperAdminAccountPage() {
       setIsCreatingAdmin(true);
 
       try {
-          // Use a separate Auth instance to create a new user without logging out the current admin
-          const secondaryAuth = getAuth();
-          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newAdminEmail, newAdminPassword);
+          // Use the auth instance from the hook
+          const userCredential = await createUserWithEmailAndPassword(auth, newAdminEmail, newAdminPassword);
           const newAdminUser = userCredential.user;
           
           await updateProfile(newAdminUser, { displayName: newAdminFullName });
