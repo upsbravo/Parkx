@@ -80,6 +80,10 @@ export default function VendorsPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  if (!isClient) {
+    return null;
+  }
+
   return (
     <>
       <div className="space-y-4">
