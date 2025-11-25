@@ -10,16 +10,16 @@ import {
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
-  User,
   FileText,
   MessageCircle,
+  Settings,
 } from "lucide-react";
 
 const navItems = [
   { href: "/end-user/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
   { href: "/end-user/invoices", icon: <FileText />, label: "Invoices" },
   { href: "/end-user/messages", icon: <MessageCircle />, label: "Messages" },
-  { href: "/end-user/account", icon: <User />, label: "Account" },
+  { href: "/end-user/account", icon: <Settings />, label: "Account" },
 ];
 
 export default function EndUserNav() {
