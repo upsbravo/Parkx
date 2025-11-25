@@ -41,5 +41,6 @@ export type Invoice = {
   amount: number;
   dueDate: string;
   status: 'Paid' | 'Pending' | 'Overdue';
-  userName: string;
+  userName?: string;
+  vendorName?: string;
 };

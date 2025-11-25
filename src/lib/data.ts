@@ -35,10 +35,18 @@ export const vendorUserMessages: Message[] = [
 ];
 
 export const userInvoices: Invoice[] = [
-  { id: 'inv-001', amount: 50.00, dueDate: '2023-07-01', status: 'Paid', userName: 'Alice Brown' },
-  { id: 'inv-002', amount: 50.00, dueDate: '2023-06-01', status: 'Paid', userName: 'Alice Brown' },
-  { id: 'inv-003', amount: 75.00, dueDate: '2023-07-01', status: 'Pending', userName: 'Bob Green' },
-  { id: 'inv-004', amount: 75.00, dueDate: '2023-06-01', status: 'Paid', userName: 'Bob Green' },
+  { id: 'inv-u001', amount: 50.00, dueDate: '2023-07-01', status: 'Paid', userName: 'Alice Brown' },
+  { id: 'inv-u002', amount: 50.00, dueDate: '2023-06-01', status: 'Paid', userName: 'Alice Brown' },
+  { id: 'inv-u003', amount: 75.00, dueDate: '2023-07-01', status: 'Pending', userName: 'Bob Green' },
+  { id: 'inv-u004', amount: 75.00, dueDate: '2023-06-01', status: 'Paid', userName: 'Bob Green' },
+];
+
+export const vendorInvoices: Invoice[] = [
+  { id: 'inv-v001', amount: 500.00, dueDate: '2023-07-01', status: 'Paid', vendorName: 'InnovateCorp' },
+  { id: 'inv-v002', amount: 800.00, dueDate: '2023-07-01', status: 'Pending', vendorName: 'DataSys' },
+  { id: 'inv-v003', amount: 200.00, dueDate: '2023-06-15', status: 'Overdue', vendorName: 'CloudNet' },
+  { id: 'inv-v004', amount: 500.00, dueDate: '2023-06-01', status: 'Paid', vendorName: 'InnovateCorp' },
+  { id: 'inv-v005', amount: 800.00, dueDate: '2023-06-01', status: 'Paid', vendorName: 'DataSys' },
 ];
 
 export const conversationForAI = `Vendor Admin (John from InnovateCorp): Hi, we're really enjoying the ParkX platform. It's streamlined our operations significantly. We're approaching our 50-spot limit and have a waitlist of new customers. We'd like to request an increase to 75 spots.
