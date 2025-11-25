@@ -11,12 +11,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock } from 'lucide-react';
+import { User, Lock, UserPlus } from 'lucide-react';
 import { useAuth, useUser, useFirestore } from '@/firebase';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useEffect } from 'react';
-import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -31,6 +31,12 @@ export default function SuperAdminAccountPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  const [newAdminFullName, setNewAdminFullName] = useState('');
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+
 
   useEffect(() => {
     if (user) {
@@ -43,8 +49,16 @@ export default function SuperAdminAccountPage() {
     if (!user) return;
 
     try {
-      // Update email in Firebase Auth
-      if (email !== user.email) {
+      // Update email in Firebase Auth if it changed
+      if (email !== user.email && user.email) {
+         // Reauthentication might be needed for this sensitive operation
+        const currentPassword = prompt("Please enter your current password to confirm email change:");
+        if (!currentPassword) {
+            toast({ variant: 'destructive', title: 'Authentication Required', description: 'Password is required to change email.' });
+            return;
+        }
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
         await updateEmail(user, email);
       }
       
@@ -99,6 +113,51 @@ export default function SuperAdminAccountPage() {
         });
     }
   };
+  
+  const handleCreateAdmin = async () => {
+      if (!newAdminEmail || !newAdminPassword || !newAdminFullName) {
+          toast({ variant: "destructive", title: "Error", description: "Please fill out all fields for the new admin." });
+          return;
+      }
+      setIsCreatingAdmin(true);
+
+      try {
+          // Use a separate Auth instance to create a new user without logging out the current admin
+          const secondaryAuth = getAuth();
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newAdminEmail, newAdminPassword);
+          const newAdminUser = userCredential.user;
+
+          // Create the document in the superAdmins collection
+          const adminRef = doc(firestore, "superAdmins", newAdminUser.uid);
+          await setDoc(adminRef, {
+              id: newAdminUser.uid,
+              email: newAdminEmail,
+              firstName: newAdminFullName.split(' ')[0],
+              lastName: newAdminFullName.split(' ').slice(1).join(' '),
+          });
+          
+          toast({
+              title: "Super Admin Created",
+              description: `${newAdminFullName} can now log in with the provided credentials.`,
+          });
+          
+          // Clear fields
+          setNewAdminFullName('');
+          setNewAdminEmail('');
+          setNewAdminPassword('');
+
+      } catch (error: any) {
+          console.error("Error creating super admin:", error);
+          toast({
+              variant: "destructive",
+              title: "Creation Failed",
+              description: error.message || "There was a problem creating the new super admin.",
+          });
+      } finally {
+          setIsCreatingAdmin(false);
+      }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -161,6 +220,58 @@ export default function SuperAdminAccountPage() {
           <Button onClick={handleProfileSave}>Save Changes</Button>
         </CardFooter>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <UserPlus className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Create New Super Admin</CardTitle>
+          </div>
+          <CardDescription>
+            Create an additional Super Admin account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+           <div className="space-y-2">
+              <Label htmlFor="new-admin-full-name">Full Name</Label>
+              <Input
+                id="new-admin-full-name"
+                value={newAdminFullName}
+                onChange={(e) => setNewAdminFullName(e.target.value)}
+                placeholder="Jane Doe"
+                disabled={isCreatingAdmin}
+              />
+            </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-admin-email">Email Address</Label>
+            <Input
+              id="new-admin-email"
+              type="email"
+              value={newAdminEmail}
+              onChange={(e) => setNewAdminEmail(e.target.value)}
+              placeholder="new.admin@parkx.com"
+              disabled={isCreatingAdmin}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-admin-password">Temporary Password</Label>
+            <Input
+              id="new-admin-password"
+              type="password"
+              value={newAdminPassword}
+              onChange={(e) => setNewAdminPassword(e.target.value)}
+              placeholder="Set a strong temporary password"
+              disabled={isCreatingAdmin}
+            />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleCreateAdmin} disabled={isCreatingAdmin}>
+            {isCreatingAdmin ? 'Creating...' : 'Create Admin'}
+          </Button>
+        </CardFooter>
+      </Card>
+
 
       <Card>
         <CardHeader>
