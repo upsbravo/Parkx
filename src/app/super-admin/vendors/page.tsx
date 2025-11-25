@@ -31,12 +31,23 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail } from "firebase/auth";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 // Define a type for the vendor data coming from Firestore
 // This should align with the structure in your `backend.json` and invite dialog
@@ -55,6 +66,7 @@ type Vendor = {
 export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
@@ -89,6 +101,24 @@ export default function VendorsPage() {
       title: "Vendor Deactivated",
       description: `${vendor.name} has been marked as inactive.`,
     });
+  };
+  
+  const handleDeleteClick = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setDeleteAlertOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!selectedVendor) return;
+    const vendorRef = doc(firestore, "vendors", selectedVendor.id);
+    deleteDocumentNonBlocking(vendorRef);
+    toast({
+      variant: 'destructive',
+      title: 'Vendor Deleted',
+      description: `${selectedVendor.name} has been permanently deleted.`,
+    });
+    setDeleteAlertOpen(false);
+    setSelectedVendor(null);
   };
 
   const handleReactivate = (vendor: Vendor) => {
@@ -255,6 +285,12 @@ export default function VendorsPage() {
                                 Deactivate
                               </DropdownMenuItem>
                             )}
+                             <DropdownMenuItem
+                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              onClick={() => handleDeleteClick(vendor)}
+                            >
+                              Delete Vendor
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -283,6 +319,26 @@ export default function VendorsPage() {
           onOpenChange={setAdjustOpen}
         />
       )}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the vendor
+              and all of their associated data, including users, spots, and invoices.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
