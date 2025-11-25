@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -52,6 +52,12 @@ export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
 
   const firestore = useFirestore();
   const vendorsQuery = useMemoFirebase(() => collection(firestore, 'vendors'), [firestore]);
@@ -70,9 +76,7 @@ export default function VendorsPage() {
   };
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    // Using toLocaleDateString is fine here as long as we are in a 'use client' component,
-    // as it will consistently render on the client, avoiding mismatches.
+    if (!dateString || !isClient) return "N/A";
     return new Date(dateString).toLocaleDateString();
   };
 
