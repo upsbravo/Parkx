@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +50,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -77,11 +84,15 @@ export default function VendorInvoicesPage() {
   const [isClient, setIsClient] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isCreateInvoiceOpen, setCreateInvoiceOpen] = useState(false);
+  const [isRecordPaymentOpen, setRecordPaymentOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
   const { toast } = useToast();
 
-  const [newInvoiceAmount, setNewInvoiceAmount] = useState(0);
+  const [newInvoiceAmount, setNewInvoiceAmount] = useState<number | ''>('');
   const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
+  
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
 
   useEffect(() => {
     setIsClient(true);
@@ -104,15 +115,31 @@ export default function VendorInvoicesPage() {
     Overdue: 'destructive',
   } as const;
 
-  const handleMarkAsPaid = (invoice: VendorInvoice) => {
-    if (invoice.status === 'Paid') return;
-    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
-    updateDocumentNonBlocking(invoiceRef, { status: 'Paid' });
-    toast({
-      title: 'Invoice Updated',
-      description: `Invoice for ${invoice.vendorName} marked as Paid.`,
-    });
+  const handleRecordPaymentClick = (invoice: VendorInvoice) => {
+    setSelectedInvoice(invoice);
+    setRecordPaymentOpen(true);
   };
+  
+  const handleConfirmPayment = () => {
+    if (!selectedInvoice || !paymentMethod) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Please select a payment method.' });
+        return;
+    }
+    const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
+    const updatedNotes = `Paid via ${paymentMethod}.${paymentReference ? ` Ref: ${paymentReference}` : ''} | ${selectedInvoice.notes || ''}`;
+    
+    updateDocumentNonBlocking(invoiceRef, { status: 'Paid', notes: updatedNotes });
+    
+    toast({
+      title: 'Payment Recorded',
+      description: `Invoice for ${selectedInvoice.vendorName} marked as Paid.`,
+    });
+
+    setRecordPaymentOpen(false);
+    setSelectedInvoice(null);
+    setPaymentMethod('');
+    setPaymentReference('');
+  }
 
   const handleVoidClick = (invoice: VendorInvoice) => {
     setSelectedInvoice(invoice);
@@ -133,7 +160,7 @@ export default function VendorInvoicesPage() {
   };
 
   const handleCreateInvoice = () => {
-    if (!vendor) return;
+    if (!vendor || !newInvoiceAmount) return;
     const invoicesRef = collection(firestore, 'vendorInvoices');
     addDocumentNonBlocking(invoicesRef, {
       vendorId: vendor.id,
@@ -148,7 +175,7 @@ export default function VendorInvoicesPage() {
       description: `A new invoice for $${newInvoiceAmount} has been created for ${vendor.name}.`,
     });
     setCreateInvoiceOpen(false);
-    setNewInvoiceAmount(0);
+    setNewInvoiceAmount('');
     setNewInvoiceNotes('');
   }
 
@@ -178,7 +205,7 @@ export default function VendorInvoicesPage() {
             </Button>
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">
-                    Invoices for {isVendorLoading ? <Skeleton className="h-8 w-48 inline-block" /> : vendor?.name}
+                    Billings for {isVendorLoading ? <Skeleton className="h-8 w-48 inline-block" /> : vendor?.name}
                 </h1>
                 <p className="text-muted-foreground">
                     Track and manage this vendor's subscription invoices.
@@ -252,7 +279,7 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleMarkAsPaid(invoice)}>Mark as Paid</DropdownMenuItem>
+                             {invoice.status !== 'Paid' && <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>}
                             <DropdownMenuItem
                               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                               onClick={() => handleVoidClick(invoice)}
@@ -280,6 +307,7 @@ export default function VendorInvoicesPage() {
         </Card>
       </div>
 
+      {/* Create Invoice Dialog */}
       <Dialog open={isCreateInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
         <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -297,7 +325,7 @@ export default function VendorInvoicesPage() {
                             id="invoice-amount"
                             type="number"
                             value={newInvoiceAmount}
-                            onChange={(e) => setNewInvoiceAmount(Number(e.target.value))}
+                            onChange={(e) => setNewInvoiceAmount(e.target.value === '' ? '' : Number(e.target.value))}
                             className="pl-7"
                             placeholder="0.00"
                         />
@@ -323,8 +351,64 @@ export default function VendorInvoicesPage() {
             </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Record Payment Dialog */}
+      {selectedInvoice && (
+        <Dialog open={isRecordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                <DialogTitle>Record Payment for Invoice</DialogTitle>
+                <DialogDescription>
+                    Record a payment for {selectedInvoice.vendorName} of {formatCurrency(selectedInvoice.amount)}.
+                </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Payment Method</Label>
+                         <Select onValueChange={setPaymentMethod} value={paymentMethod}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a payment method" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Credit Card">
+                                    <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Credit Card</div>
+                                </SelectItem>
+                                <SelectItem value="Cash">
+                                    <div className="flex items-center gap-2"><Banknote className="h-4 w-4" /> Cash</div>
+                                </SelectItem>
+                                <SelectItem value="Bank Transfer">
+                                    <div className="flex items-center gap-2"><Landmark className="h-4 w-4" /> Bank Transfer</div>
+                                </SelectItem>
+                                <SelectItem value="Other">
+                                    <div className="flex items-center gap-2"><Smartphone className="h-4 w-4" /> Other</div>
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="payment-ref">Reference / Note (Optional)</Label>
+                        <Input
+                            id="payment-ref"
+                            value={paymentReference}
+                            onChange={(e) => setPaymentReference(e.target.value)}
+                            placeholder="e.g., Stripe ID, Check #, Zelle confirm"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setRecordPaymentOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" onClick={handleConfirmPayment}>
+                        Confirm Payment
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
 
 
+      {/* Void Invoice Alert */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -349,3 +433,5 @@ export default function VendorInvoicesPage() {
   );
 }
 
+
+    
