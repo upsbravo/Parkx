@@ -23,7 +23,7 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all
     match /vendors/{vendorId} {
-      allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
+      allow read: if isSuperAdmin() || request.auth.uid == vendorId;
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
       // End-users can read their own spot, admins can manage all spots
