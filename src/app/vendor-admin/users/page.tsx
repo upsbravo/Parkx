@@ -225,7 +225,7 @@ export default function UserManagementPage() {
                             <DropdownMenuItem asChild>
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Car Spot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Parking Lot</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (

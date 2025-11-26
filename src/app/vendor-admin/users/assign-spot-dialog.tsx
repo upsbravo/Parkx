@@ -105,8 +105,8 @@ export function AssignSpotDialog({
     try {
         await batch.commit();
         toast({
-            title: "Car Spot Assigned",
-            description: `${user.firstName} ${user.lastName} has been assigned a new car spot.`,
+            title: "Parking Lot Assigned",
+            description: `${user.firstName} ${user.lastName} has been assigned a new parking lot.`,
         });
         onOpenChange(false);
     } catch(e) {
@@ -124,13 +124,13 @@ export function AssignSpotDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Car Spot to {user.firstName}</DialogTitle>
+          <DialogTitle>Assign Parking Lot to {user.firstName}</DialogTitle>
           <DialogDescription>
-            Select an available car spot from your lot. This is for standard vehicles.
+            Select an available parking lot from your list. This is for standard vehicles.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-            <Label htmlFor="spot-select">Available Parking Spots</Label>
+            <Label htmlFor="spot-select">Available Parking Lots</Label>
             {isLoading ? (
                 <Skeleton className="h-10 w-full" />
             ): (
