@@ -152,10 +152,8 @@ service cloud.firestore {
        * @principle Enforces strict data ownership at the subcollection level.
        */
       match /endUsers/{userId} {
-        allow get, list: if isOwner(vendorId) || isSuperAdmin();
+        allow get, list, update, delete: if isOwner(vendorId) || isSuperAdmin();
         allow create: if isOwner(vendorId); // Vendor Admin can create users for their own company.
-        allow update: if isOwner(vendorId) || isSuperAdmin();
-        allow delete: if isOwner(vendorId) || isSuperAdmin();
       }
     }
 
