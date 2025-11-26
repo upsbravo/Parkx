@@ -13,9 +13,10 @@ import {
   Users,
   AreaChart,
 } from "lucide-react";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SUPER_ADMIN_ID } from "@/lib/seed/super-admin";
 
 type Vendor = {
   id: string;
@@ -26,21 +27,29 @@ type Vendor = {
 
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
+  const { user, isUserLoading: isAuthLoading } = useUser();
 
   const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  // This query is safe for a Super Admin, as the security rules allow them to list all users.
-  const usersQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
+  // This query is safe for a Super Admin. Let's ensure it ONLY runs for the super admin.
+  const isSuperAdmin = user?.uid === SUPER_ADMIN_ID;
+  const usersQuery = useMemoFirebase(() => {
+    if (firestore && isSuperAdmin) {
+      return collection(firestore, 'users');
+    }
+    return null;
+  }, [firestore, isSuperAdmin]);
+
   const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
 
-  const isLoading = vendorsLoading || usersLoading;
+  const isLoading = isAuthLoading || vendorsLoading || (isSuperAdmin && usersLoading);
 
   const totalVendors = vendors?.length ?? 0;
   const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
-  const totalEndUsers = users?.length ?? 0; // Correctly get the length from the fetched users data.
+  const totalEndUsers = users?.length ?? 0;
   // Placeholder for MRR calculation
-  const monthlyRecurringRevenue = activeSubscriptions * 250; // Assuming a placeholder value
+  const monthlyRecurringRevenue = activeSubscriptions * 250; 
 
   const stats = [
     {
