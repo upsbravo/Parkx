@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { Trash2 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,7 +62,7 @@ export default function ParkingLotPage() {
   const { data: parkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(spotsCollectionRef);
 
   const usersCollectionRef = useMemoFirebase(
-    () => (user ? collection(firestore, 'users') : null),
+    () => (user ? query(collection(firestore, 'users'), where('vendorId', '==', user.uid)) : null),
     [user, firestore]
   );
   const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersCollectionRef);
