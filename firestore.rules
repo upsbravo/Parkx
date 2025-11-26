@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -16,17 +15,19 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
-    // ==================== VENDORS – VENDOR MUST READ THEIR OWN DOC ====================
+    // ==================== VENDORS – FIXED FOR DASHBOARD SELF-READ ====================
     match /vendors/{vendorId} {
+      // Vendors can read their OWN document (for dashboard)
       allow read: if isSuperAdmin() || request.auth.uid == vendorId;
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
+      // Subcollections (e.g., parking spots)
       match /parkingSpots/{spotId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
     }
 
-    // ==================== USERS – ALREADY PERFECT ====================
+    // ==================== USERS – UNCHANGED, ALREADY PERFECT ====================
     match /users/{userId} {
       allow get: if
         request.auth.uid == userId ||
