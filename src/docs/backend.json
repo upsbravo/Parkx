@@ -198,26 +198,50 @@
           "description": "The license plate or tag number of the user's truck."
         },
         "phone": {
-            "type": "string",
-            "description": "Phone number of the end-user."
+          "type": "string",
+          "description": "Phone number of the end-user."
         },
         "address": {
           "type": "object",
           "description": "The end-user's physical address.",
           "properties": {
-            "street": { "type": "string" },
-            "city": { "type": "string" },
-            "state": { "type": "string" },
-            "zip": { "type": "string" }
+            "street": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "zip": {
+              "type": "string"
+            }
           }
         },
         "emergencyContact": {
           "type": "object",
           "description": "The end-user's emergency contact.",
           "properties": {
-              "name": { "type": "string" },
-              "phone": { "type": "string" }
+            "name": {
+              "type": "string"
+            },
+            "phone": {
+              "type": "string"
+            }
           }
+        },
+        "waiverSigned": {
+          "type": "boolean",
+          "description": "Indicates if the user has signed the liability waiver."
+        },
+        "waiverSignedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the user signed the waiver.",
+          "format": "date-time"
         }
       },
       "required": [
@@ -405,6 +429,43 @@
         "dueDate",
         "status"
       ]
+    },
+    "UserDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserDocument",
+      "type": "object",
+      "description": "Represents a document associated with a user, such as a signed waiver.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "vendorId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the document, e.g., 'Parking Agreement'."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full text or content of the signed document."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "vendorId",
+        "name",
+        "content",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -520,6 +581,26 @@
         }
       },
       {
+        "path": "/vendors/{vendorId}/userDocuments/{userDocumentId}",
+        "definition": {
+          "entityName": "UserDocument",
+          "schema": {
+            "$ref": "#/backend/entities/UserDocument"
+          },
+          "description": "Stores documents for an end user, such as signed waivers.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the Vendor document."
+            },
+            {
+              "name": "userDocumentId",
+              "description": "The unique identifier for the UserDocument document."
+            }
+          ]
+        }
+      },
+      {
         "path": "/communications/{communicationId}",
         "definition": {
           "entityName": "Communication",
@@ -536,6 +617,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor."
   }
 }

@@ -29,11 +29,12 @@ import {
   Upload,
   Lock,
   ScanLine,
+  Download,
 } from 'lucide-react';
-import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase, useDoc, useCollection } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TextScanner } from '@/components/text-scanner';
@@ -42,7 +43,7 @@ type EndUser = {
   id: string;
   vendorId: string;
   firstName: string;
-  lastName: string;
+  lastName:string;
   email: string;
   phone?: string;
   address?: {
@@ -59,6 +60,13 @@ type EndUser = {
   truckUnitNumber?: string;
   vinNumber?: string;
   tagNumber?: string;
+};
+
+type UserDocument = {
+    id: string;
+    name: string;
+    createdAt: string; // ISO string
+    content: string;
 };
 
 export default function AccountSettingsPage() {
@@ -95,6 +103,16 @@ export default function AccountSettingsPage() {
   }, [user, firestore]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
+  
+  const documentsQuery = useMemoFirebase(() => {
+      if (!firestore || !userProfile) return null;
+      return query(
+          collection(firestore, 'vendors', userProfile.vendorId, 'userDocuments'),
+          where('userId', '==', userProfile.id)
+      );
+  }, [firestore, userProfile]);
+  
+  const { data: userDocuments, isLoading: areDocumentsLoading } = useCollection<UserDocument>(documentsQuery);
 
   useEffect(() => {
     if (userProfile) {
@@ -194,7 +212,19 @@ export default function AccountSettingsPage() {
     }
   }
 
-  const isLoading = isUserLoading || isProfileLoading;
+  const handleDownloadDocument = (doc: UserDocument) => {
+    const blob = new Blob([doc.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${doc.name.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const isLoading = isUserLoading || isProfileLoading || areDocumentsLoading;
 
   return (
     <>
@@ -398,8 +428,7 @@ export default function AccountSettingsPage() {
                 <CardTitle>My Documents</CardTitle>
               </div>
               <CardDescription>
-                Documents related to your parking agreement uploaded by your
-                administrator.
+                Documents related to your parking agreement.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -412,11 +441,31 @@ export default function AccountSettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
-                      No documents found.
-                    </TableCell>
-                  </TableRow>
+                  {isLoading ? (
+                     Array.from({ length: 1 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+                      </TableRow>
+                     ))
+                  ) : userDocuments && userDocuments.length > 0 ? (
+                    userDocuments.map((doc) => (
+                        <TableRow key={doc.id}>
+                            <TableCell className="font-medium">{doc.name}</TableCell>
+                            <TableCell>{new Date(doc.createdAt).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" onClick={() => handleDownloadDocument(doc)}>
+                                    <Download className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center">
+                        No documents found.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

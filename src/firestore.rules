@@ -24,15 +24,27 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
-      
+
       // End-users can read their own spot, admins can manage all spots
-      match /parkingSpots/{spotId} { 
-        allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() || resource.data.userId == request.auth.uid;
-        allow write: if isSuperAdmin() || request.auth.uid == vendorId; 
+      match /parkingSpots/{spotId} {
+        allow read: if
+          isSuperAdmin() ||
+          request.auth.uid == vendorId ||
+          isPrivilegedVendor() ||
+          (
+            // Allow end-user to read the spot if it is assigned to them in their user document
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId
+          );
+        allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
-      
+
       // Vendor Admins can manage invoices within their own subcollection
       match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
+      
+      // Vendor Admins can manage documents for their own users
+      match /userDocuments/{docId} { 
+        allow read, write: if request.auth.uid == vendorId;
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -43,7 +55,7 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
 
-      allow list: if isSuperAdmin() || isPrivilegedVendor() || 
+      allow list: if isSuperAdmin() || isPrivilegedVendor() ||
                       (isVendorAdmin() && request.query.where != null &&
                        size(request.query.where) > 0 &&
                        request.query.where[0].field == "vendorId" &&
@@ -58,6 +70,13 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
+    
+    // User Documents: End user can read their own documents. Vendor Admin can also read.
+    match /vendors/{vendorId}/userDocuments/{docId} {
+        allow read: if request.auth.uid == resource.data.userId || request.auth.uid == vendorId;
+        allow write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId;
+    }
+
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
 

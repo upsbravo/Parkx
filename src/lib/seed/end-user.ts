@@ -47,6 +47,8 @@ const seed = async () => {
       assignedSpotId: null,
       cancellationRequested: false,
       role: 'endUser',
+      waiverSigned: false, // Default to not signed
+      waiverSignedDate: null,
     });
     console.log('End User profile created/updated in Firestore /users collection.');
 
