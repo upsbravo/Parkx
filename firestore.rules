@@ -25,6 +25,8 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       match /parkingSpots/{spotId} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor(); }
+      // Vendor Admins can manage invoices within their own subcollection
+      match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -37,7 +39,10 @@ service cloud.firestore {
 
       allow list: if isSuperAdmin() || isPrivilegedVendor() || 
                       (isVendorAdmin() && request.query.where != null &&
-                       request.query.where[0] == ["vendorId", "==", request.auth.uid]);
+                       size(request.query.where) > 0 &&
+                       request.query.where[0].field == "vendorId" &&
+                       request.query.where[0].op == "==" &&
+                       request.query.where[0].value == request.auth.uid);
 
       allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
 
