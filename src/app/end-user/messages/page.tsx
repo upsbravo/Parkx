@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -36,16 +36,12 @@ type Vendor = {
 type Message = {
   id: string;
   senderId: string;
-  message: string;
+  text: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
-
-const getConversationId = (uid1: string, uid2: string) => {
-    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
-}
 
 export default function EndUserMessagesPage() {
   const { user: endUser, isUserLoading } = useUser();
@@ -65,37 +61,26 @@ export default function EndUserMessagesPage() {
   }, [firestore, userData]);
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const conversationId = useMemo(() => {
-    if (!endUser || !userData?.vendorId) return null;
-    return getConversationId(endUser.uid, userData.vendorId);
-  }, [endUser, userData]);
-
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !conversationId) return null;
-    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
-  }, [firestore, conversationId]);
+    if (!firestore || !endUser) return null;
+    return query(collection(firestore, 'users', endUser.uid, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, endUser]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !endUser || !userData?.vendorId || !conversationId) return;
+    if ((!messageText && !attachment) || !endUser || !userData?.vendorId) return;
 
     setIsSending(true);
 
-    const conversationRef = doc(firestore, 'conversations', conversationId);
-    const messagesRef = collection(conversationRef, 'messages');
-
-    // Ensure conversation document exists
-    await setDoc(conversationRef, {
-        participants: [endUser.uid, userData.vendorId],
-    }, { merge: true });
+    const messagesRef = collection(firestore, 'users', endUser.uid, 'messages');
 
     let attachmentData: Partial<Message> = {};
 
     if (attachment) {
         try {
             const storage = getStorage();
-            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
+            const fileRef = storageRef(storage, `users/${endUser.uid}/messages/${Date.now()}_${attachment.name}`);
             const snapshot = await uploadBytes(fileRef, attachment);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
@@ -114,7 +99,7 @@ export default function EndUserMessagesPage() {
     
     await addDocumentNonBlocking(messagesRef, {
       senderId: endUser.uid,
-      message: messageText,
+      text: messageText,
       timestamp: new Date().toISOString(),
       ...attachmentData
     });
@@ -175,7 +160,7 @@ export default function EndUserMessagesPage() {
                         )}
                         <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === endUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorName}</p>
-                            <p>{msg.message}</p>
+                            <p>{msg.text}</p>
                              {msg.attachmentUrl && (
                                 <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
                                     <Download className="h-3 w-3" />

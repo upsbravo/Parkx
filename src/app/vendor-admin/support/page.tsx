@@ -22,7 +22,7 @@ import {
   useMemoFirebase,
   addDocumentNonBlocking,
 } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -34,16 +34,12 @@ const SUPER_ADMIN_ID = 'PH1p3JvXPSNh2CfiSxzOW2sjlDf1';
 type Message = {
   id: string;
   senderId: string;
-  message: string;
+  text: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
-
-const getConversationId = (uid1: string, uid2: string) => {
-    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
-}
 
 export default function VendorSupportPage() {
   const { user: vendorAdmin, isUserLoading } = useUser();
@@ -54,75 +50,32 @@ export default function VendorSupportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const conversationId = useMemo(() => {
-    if (!vendorAdmin) return null;
-    return getConversationId(vendorAdmin.uid, SUPER_ADMIN_ID);
-  }, [vendorAdmin]);
-
   const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !conversationId) return null;
-    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
-  }, [firestore, conversationId]);
+    // This now points to a non-existent path. We are keeping the component
+    // but the functionality is now handled by the Super Admin messages page.
+    // A real implementation might point to a vendor-specific support thread.
+    // For now, it will just be an empty, read-only conversation.
+    if (!firestore || !vendorAdmin) return null;
+    return query(collection(firestore, 'vendors', vendorAdmin.uid, 'supportMessages'), orderBy('timestamp', 'asc'));
+  }, [firestore, vendorAdmin]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
 
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !vendorAdmin || !conversationId) return;
-
-    setIsSending(true);
-
-    const conversationRef = doc(firestore, 'conversations', conversationId);
-    const messagesRef = collection(conversationRef, 'messages');
-    
-    // Ensure conversation document exists
-    await setDoc(conversationRef, {
-        participants: [vendorAdmin.uid, SUPER_ADMIN_ID]
-    }, { merge: true });
-
-
-    let attachmentData: Partial<Message> = {};
-
-    if (attachment) {
-        try {
-            const storage = getStorage();
-            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
-            const snapshot = await uploadBytes(fileRef, attachment);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            attachmentData = {
-                attachmentUrl: downloadURL,
-                attachmentName: attachment.name,
-                attachmentType: attachment.type.startsWith('image/') ? 'image' : 'file',
-            };
-        } catch (error) {
-            console.error("Error uploading file:", error);
-            toast({ variant: "destructive", title: "Attachment Error", description: "Could not upload the attachment." });
-            setIsSending(false);
-            return;
-        }
-    }
-    
-    await addDocumentNonBlocking(messagesRef, {
-      senderId: vendorAdmin.uid,
-      message: messageText,
-      timestamp: new Date().toISOString(),
-      ...attachmentData
+    toast({
+        title: "Feature Not Available",
+        description: "Please ask your Super Admin to message you from their dashboard.",
     });
-    
-    setMessageText('');
-    setAttachment(null);
-    setIsSending(false);
   };
   
-  const handleAttachmentClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          setAttachment(e.target.files[0]);
-          setMessageText(e.target.files[0].name); // Show filename in text area
-      }
+  const handleAttachmentClick = () => {
+     toast({
+        title: "Feature Not Available",
+        description: "Please ask your Super Admin to message you from their dashboard.",
+    });
   };
+
 
   const isLoading = isUserLoading || messagesLoading;
 
@@ -131,7 +84,7 @@ export default function VendorSupportPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Contact Support</h1>
         <p className="text-muted-foreground">
-          Send a message to the ParkX support team for platform-level issues or questions.
+          For support, please ask your Super Admin to initiate a conversation with you from their dashboard.
         </p>
       </div>
 
@@ -142,7 +95,7 @@ export default function VendorSupportPage() {
             <div>
               <CardTitle>Your Conversation with Support</CardTitle>
               <CardDescription>
-                Describe your issue below. Please be as detailed as possible.
+                This is a read-only view of your support conversations.
               </CardDescription>
             </div>
           </div>
@@ -160,7 +113,7 @@ export default function VendorSupportPage() {
                         )}
                         <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === vendorAdmin?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             <p className="font-bold mb-1">{msg.senderId === vendorAdmin?.uid ? 'You' : 'Support'}</p>
-                            <p>{msg.message}</p>
+                            <p>{msg.text}</p>
                             {msg.attachmentUrl && (
                                 <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
                                     <Download className="h-3 w-3" />
@@ -179,7 +132,7 @@ export default function VendorSupportPage() {
                 ))
             ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                    No messages yet. Send a message to start the conversation.
+                    No support messages yet.
                 </div>
             )
           }
@@ -188,21 +141,19 @@ export default function VendorSupportPage() {
         <CardFooter className="border-t p-4">
           <div className="relative w-full">
             <Textarea
-              placeholder={attachment ? attachment.name : "Type your message..."}
+              placeholder="This is a read-only message view."
               className="pr-20"
               rows={1}
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              readOnly={!!attachment}
-              disabled={isLoading || isSending}
+              value={""}
+              readOnly
+              disabled={true}
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex gap-1">
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <Button type="button" size="icon" variant="ghost" onClick={handleAttachmentClick} disabled={isLoading || isSending}>
+                <Button type="button" size="icon" variant="ghost" onClick={handleAttachmentClick} disabled={true}>
                     <Paperclip className="h-4 w-4" />
                 </Button>
-                <Button type="submit" size="icon" onClick={handleSendMessage} disabled={isLoading || isSending}>
-                    {isSending ? <Skeleton className="h-4 w-4 rounded-full"/> : <Send className="h-4 w-4" />}
+                <Button type="submit" size="icon" onClick={handleSendMessage} disabled={true}>
+                    <Send className="h-4 w-4" />
                     <span className="sr-only">Send</span>
                 </Button>
             </div>
@@ -212,5 +163,3 @@ export default function VendorSupportPage() {
     </div>
   );
 }
-
-    
