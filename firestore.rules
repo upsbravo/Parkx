@@ -61,6 +61,11 @@ service cloud.firestore {
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
+      
+      // VENDOR'S OWN DOCUMENTS – THIS FIXES THE ERROR
+      match /vendorDocuments/{docId} {
+        allow read, write: if request.auth.uid == vendorId || isSuperAdmin();
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
