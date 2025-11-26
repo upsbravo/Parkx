@@ -56,7 +56,7 @@ service cloud.firestore {
         allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
       }
 
-      // VENDOR <> SUPER ADMIN MESSAGES
+      // VENDOR <> SUPER ADMIN MESSAGES (THE FIX)
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
