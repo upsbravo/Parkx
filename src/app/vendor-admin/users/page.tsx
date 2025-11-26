@@ -165,7 +165,7 @@ export default function UserManagementPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Spot</TableHead>
-                  <TableHead>Truck Spots</TableHead>
+                  <TableHead>Truck Parks</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>

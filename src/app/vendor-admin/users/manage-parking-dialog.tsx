@@ -82,7 +82,7 @@ nge: (open: boolean) => void;
             amount: totalAmount,
             dueDate: dueDate.toISOString(),
             status: "Pending",
-            notes: `Invoice for ${spots} truck spot(s) on a ${billingCycle} basis. Recurring: ${isRecurring ? 'Yes' : 'No'}.`,
+            notes: `Invoice for ${spots} truck park(s) on a ${billingCycle} basis. Recurring: ${isRecurring ? 'Yes' : 'No'}.`,
         });
     }
 
@@ -118,7 +118,7 @@ nge: (open: boolean) => void;
         </DialogHeader>
         <div className="space-y-6 py-4">
             <div className="space-y-2">
-                <Label htmlFor="spots">Number of Truck Spots</Label>
+                <Label htmlFor="spots">Number of Truck Parks</Label>
                 <Input 
                     id="spots"
                     type="number"
