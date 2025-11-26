@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useFirebase } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, type User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -47,40 +47,45 @@ export default function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
+  const handleSuccessfulLogin = async (user: User) => {
+    // 1. Super Admin
+    const superRef = doc(firestore, 'roles_super_admin', user.uid);
+    if ((await getDoc(superRef)).exists()) {
+      toast({ title: 'Welcome Super Admin!' });
+      router.push('/super-admin/dashboard');
+      return;
+    }
+  
+    // 2. Vendor Admin
+    const vendorRef = doc(firestore, 'vendors', user.uid);
+    if ((await getDoc(vendorRef)).exists()) {
+      toast({ title: 'Welcome Vendor Admin!' });
+      router.push('/vendor-admin/dashboard');
+      return;
+    }
+  
+    // 3. End User – NEW: check top-level users collection
+    const userRef = doc(firestore, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      toast({ title: 'Welcome!' });
+      router.push('/end-user/dashboard');
+      return;
+    }
+  
+    // 4. Still no role → show error
+    toast({
+      variant: 'destructive',
+      title: 'Access Denied',
+      description: 'Your account exists but has no assigned role. Contact support.',
+    });
+  };
+
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
       const { user } = await signInWithEmailAndPassword(auth, values.email, values.password);
-
-      // 1. Super Admin – check dedicated collection
-      const superAdminDoc = await getDoc(doc(firestore, 'roles_super_admin', user.uid));
-      if (superAdminDoc.exists()) {
-        toast({ title: 'Login Successful', description: 'Welcome back, Super Admin!' });
-        router.push('/super-admin/dashboard');
-        return;
-      }
-
-      // 2. Vendor Admin – check top-level vendors collection
-      const vendorDoc = await getDoc(doc(firestore, 'vendors', user.uid));
-      if (vendorDoc.exists()) {
-        toast({ title: 'Login Successful', description: 'Welcome back, Vendor Admin!' });
-        router.push('/vendor-admin/dashboard');
-        return;
-      }
-
-      // 3. End User – check top-level users collection
-      const endUserDoc = await getDoc(doc(firestore, 'users', user.uid));
-      if (endUserDoc.exists()) {
-        toast({ title: 'Login Successful', description: 'Welcome back!' });
-        router.push('/end-user/dashboard');
-        return;
-      }
-
-      toast({
-        variant: 'destructive',
-        title: 'Access Denied',
-        description: 'Your account exists but has no assigned role. Contact support.',
-      });
+      await handleSuccessfulLogin(user);
     } catch (error: any) {
       toast({
         variant: 'destructive',
