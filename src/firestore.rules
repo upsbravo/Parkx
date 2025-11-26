@@ -24,7 +24,13 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
-      match /parkingSpots/{spotId} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor(); }
+      
+      // End-users can read their own spot, admins can manage all spots
+      match /parkingSpots/{spotId} { 
+        allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() || resource.data.userId == request.auth.uid;
+        allow write: if isSuperAdmin() || request.auth.uid == vendorId; 
+      }
+      
       // Vendor Admins can manage invoices within their own subcollection
       match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
     }
