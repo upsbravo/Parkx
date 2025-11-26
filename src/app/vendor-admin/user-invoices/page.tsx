@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Search, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, Search, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,7 +47,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useDoc } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -73,6 +73,16 @@ type PaymentDetails = {
     note: string;
     checkNumber: string;
     venmoId: string;
+}
+
+type Vendor = {
+  name: string;
+  address?: {
+    street1?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  }
 }
 
 export default function UserInvoicesPage() {
@@ -108,6 +118,9 @@ export default function UserInvoicesPage() {
 
   const firestore = useFirestore();
   const { user: vendorAdmin } = useUser();
+
+  const vendorRef = useMemoFirebase(() => vendorAdmin ? doc(firestore, 'vendors', vendorAdmin.uid) : null, [vendorAdmin, firestore]);
+  const {data: vendorData} = useDoc<Vendor>(vendorRef);
 
   const invoicesQuery = useMemoFirebase(
     () => (firestore && vendorAdmin ? collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices') : null),
@@ -193,6 +206,50 @@ export default function UserInvoicesPage() {
     if (!isClient || typeof amount !== 'number') return '...';
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
+  
+  const generateInvoiceContent = (invoice: UserInvoice): string => {
+    const vendorAddress = vendorData?.address ? `${vendorData.address.street1 || ''}\n${vendorData.address.city || ''}, ${vendorData.address.state || ''} ${vendorData.address.zip || ''}` : '';
+    return `
+INVOICE
+---------------------
+Invoice ID: ${invoice.id}
+Date Due: ${formatDate(invoice.dueDate)}
+Status: ${invoice.status}
+
+FROM:
+${vendorData?.name || 'Your Company'}
+${vendorAddress}
+
+BILLED TO:
+${invoice.userName}
+
+---------------------
+DESCRIPTION
+${invoice.notes || 'Parking Fee'}
+
+AMOUNT
+${formatCurrency(invoice.amount)}
+---------------------
+
+Total Due: ${formatCurrency(invoice.amount)}
+
+Thank you for your business.
+    `.trim();
+  };
+
+  const handleDownloadInvoice = (invoice: UserInvoice) => {
+    const textContent = generateInvoiceContent(invoice);
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${invoice.userName.replace(/\s+/g, '_')}_${invoice.id.substring(0, 6)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
 
   const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
     <div className="space-y-4">
@@ -264,6 +321,10 @@ export default function UserInvoicesPage() {
                           <DropdownMenuTrigger asChild><Button aria-haspopup="true" size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /><span className="sr-only">Toggle menu</span></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                             <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                <span>Download</span>
+                            </DropdownMenuItem>
                             {invoice.status !== 'Paid' ? (
                                 <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>
                              ) : (

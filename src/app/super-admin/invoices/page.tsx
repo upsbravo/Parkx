@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Search } from 'lucide-react';
+import { MoreHorizontal, Search, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,6 +125,44 @@ export default function AllInvoicesPage() {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+  };
+  
+  const generateInvoiceContent = (invoice: VendorInvoice): string => {
+    return `
+INVOICE FROM PARKX
+---------------------
+Invoice ID: ${invoice.id}
+Date Due: ${formatDate(invoice.dueDate)}
+Status: ${invoice.status}
+
+BILLED TO:
+${invoice.vendorName}
+
+---------------------
+DESCRIPTION
+${invoice.notes || 'Subscription Fee'}
+
+AMOUNT
+${formatCurrency(invoice.amount)}
+---------------------
+
+Total Due: ${formatCurrency(invoice.amount)}
+
+Thank you for your business.
+    `.trim();
+  };
+  
+  const handleDownloadInvoice = (invoice: VendorInvoice) => {
+    const textContent = generateInvoiceContent(invoice);
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${invoice.vendorName.replace(/\s+/g, '_')}_${invoice.id.substring(0, 6)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const getAgingStatus = (invoice: VendorInvoice) => {
@@ -242,7 +280,10 @@ export default function AllInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                <span>Download</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleMarkAsPaid(invoice)}>Mark as Paid</DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
