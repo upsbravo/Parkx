@@ -76,22 +76,30 @@ export default function LoginPage() {
     }
     
     // 3. Check for End-User role by querying all vendor subcollections
-    // This is the corrected logic.
     try {
-        const endUserQuery = query(collection(firestore, 'users'), where('id', '==', user.uid));
-        const endUserSnapshot = await getDocs(endUserQuery);
-
-        if (!endUserSnapshot.empty) {
-            const userDoc = endUserSnapshot.docs[0];
-            if (userDoc.data().role === 'endUser') {
-                 toast({ title: 'Login Successful', description: `Welcome!` });
-                 router.push('/end-user/dashboard');
-                 return;
+        const vendorsSnapshot = await getDocs(collection(firestore, 'vendors'));
+        for (const vendorDoc of vendorsSnapshot.docs) {
+            const userDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data();
+                if (userData.role === 'endUser') {
+                    toast({ title: 'Login Successful', description: `Welcome!` });
+                    router.push('/end-user/dashboard');
+                    return;
+                }
             }
         }
     } catch (error) {
         console.error("Error checking for end user role:", error);
+        toast({ 
+          variant: 'destructive',
+          title: 'Login Error',
+          description: 'An error occurred while trying to verify your role.' 
+        });
+        return; // Stop execution if there's an error
     }
+
 
     // 4. If no role is found after checking all possibilities, show an error.
     toast({ 
