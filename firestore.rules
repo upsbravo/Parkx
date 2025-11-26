@@ -4,6 +4,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ==================== BASIC HELPERS ====================
     function isSignedIn() { return request.auth != null; }
 
     function isSuperAdmin() {
@@ -21,88 +22,57 @@ service cloud.firestore {
         get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
     }
 
-    function isParticipant(conversationId) {
-      return request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    function isParticipant(convId) {
+      return request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
     }
 
-    // VENDORS – self access + privileged read all + end-user read own vendor
+    // ==================== VENDORS + SUBCOLLECTIONS ====================
     match /vendors/{vendorId} {
-      allow read: if isSuperAdmin() || 
-                   request.auth.uid == vendorId || 
-                   isPrivilegedVendor() ||
-                   (
-                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId
-                   );
+      allow read: if isSuperAdmin() ||
+                     request.auth.uid == vendorId ||
+                     isPrivilegedVendor() ||
+                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
+
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
-      // End-users can read their own spot, admins can manage all spots
       match /parkingSpots/{spotId} {
-        allow read: if
-          isSuperAdmin() ||
-          request.auth.uid == vendorId ||
-          isPrivilegedVendor() ||
-          (
-            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId
-          );
+        allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId);
         allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
 
-      // Vendor Admins can manage invoices within their own subcollection
-      match /userInvoices/{invoiceId} { allow read, list, write: if request.auth.uid == vendorId; }
-      
-      // Vendor Admins can manage documents for their own users
-      match /userDocuments/{docId} { 
-        allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
-      }
+      match /userInvoices/{any}   { allow read, list, write: if request.auth.uid == vendorId; }
+      match /userDocuments/{doc}  { allow read, list, write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId; }
     }
 
-    // USERS – privileged vendors see all, normal vendors see only theirs
+    // ==================== USERS ====================
     match /users/{userId} {
-      allow get: if
-        request.auth.uid == userId ||
-        isSuperAdmin() ||
-        isPrivilegedVendor() ||
-        (resource != null && resource.data.vendorId == request.auth.uid);
+      allow get: if request.auth.uid == userId || isSuperAdmin() || isPrivilegedVendor() ||
+                   (resource != null && resource.data.vendorId == request.auth.uid);
 
       allow list: if isSuperAdmin() || isPrivilegedVendor() ||
-                      (isVendorAdmin() && request.query.where != null &&
-                       size(request.query.where) > 0 &&
-                       request.query.where[0].field == "vendorId" &&
-                       request.query.where[0].op == "==" &&
-                       request.query.where[0].value == request.auth.uid);
+                    (isVendorAdmin() &&
+                     request.query.where != null &&
+                     request.query.where.hasAny([["vendorId", "==", request.auth.uid]]));
 
       allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
-
-      allow update, delete: if
-        request.auth.uid == userId ||
-        isSuperAdmin() ||
-        isPrivilegedVendor() ||
-        (resource != null && resource.data.vendorId == request.auth.uid);
+      allow update, delete: if request.auth.uid == userId || isSuperAdmin() || isPrivilegedVendor() ||
+                              (resource != null && resource.data.vendorId == request.auth.uid);
     }
-    
-    // CONVERSATIONS - FINAL VERSION THAT WORKS WITH orderBy, limit, etc.
+
+    // ==================== CONVERSATIONS & MESSAGES – BULLETPROOF 2025 EDITION ====================
     match /conversations/{conversationId} {
 
-      allow get: if isSuperAdmin() || isParticipant(conversationId);
+      allow get:    if isSuperAdmin() || isParticipant(conversationId);
 
-      // This is the one that fixes everything
-      allow list: if
-        isSuperAdmin() ||
-        (
-          request.query.where != null &&
-          request.query.where.any(c => 
-            c.field == "participants" && 
-            c.op == "array-contains" && 
-            c.value == request.auth.uid
-          )
-        );
+      // This works with orderBy, limit, startAfter, everything
+      allow list:   if isSuperAdmin() ||
+                      (request.query.where != null &&
+                       request.query.where.hasAny([["participants", "array-contains", request.auth.uid]]));
 
-      allow create: if
-        isSuperAdmin() ||
-        (request.auth.uid in request.resource.data.participants);
-
+      allow create: if isSuperAdmin() || (request.auth.uid in request.resource.data.participants);
       allow update: if isSuperAdmin() || isParticipant(conversationId);
 
       match /messages/{messageId} {
@@ -110,9 +80,15 @@ service cloud.firestore {
       }
     }
 
-    match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
+    // ==================== SUPER ADMIN ROLE ====================
+    match /roles_super_admin/{any} {
+      allow get, list: if isSignedIn();
+      allow create: if isSuperAdmin();
+    }
 
-    // Catch-all for other collections
-    match /{document=**} { allow read, write: if isSuperAdmin(); }
+    // ==================== CATCH-ALL ====================
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
   }
 }
