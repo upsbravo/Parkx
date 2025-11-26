@@ -22,6 +22,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNo
 import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 type EndUser = {
   id: string;
