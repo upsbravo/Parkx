@@ -61,16 +61,16 @@ export default function ParkingLotPage() {
   );
   const { data: parkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(spotsCollectionRef);
 
-  const usersCollectionRef = useMemoFirebase(
+  const usersQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'users'), where('vendorId', '==', user.uid)) : null),
     [user, firestore]
   );
-  const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersCollectionRef);
+  const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
 
   const isLoading = isUserLoading || isVendorLoading || areSpotsLoading || areUsersLoading;
 
   const totalSpots = vendorData?.spotLimit ?? 0;
-  const usedSpots = parkingSpots?.filter((spot) => !spot.isAvailable).length ?? 0;
+  const usedSpots = parkingSpots?.length ? parkingSpots.filter((spot) => !spot.isAvailable).length : 0;
 
   const getUserName = (userId: string | null) => {
     if (!userId || !endUsers) return 'Unassigned';
@@ -144,7 +144,7 @@ export default function ParkingLotPage() {
                 </span>
               )}
             </div>
-            <Progress value={isLoading ? 0 : (usedSpots / totalSpots) * 100} />
+            <Progress value={isLoading || totalSpots === 0 ? 0 : (usedSpots / totalSpots) * 100} />
           </div>
 
           <div className="flex w-full max-w-sm items-center space-x-2">
