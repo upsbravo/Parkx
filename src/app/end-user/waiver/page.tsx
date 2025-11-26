@@ -19,6 +19,12 @@ type EndUser = {
   firstName: string;
   lastName: string;
   truckCompanyName?: string;
+  address?: { street?: string; city?: string; state?: string; zip?: string; };
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  licensePlate?: string;
+  trailerPlate?: string;
 };
 
 type Vendor = {
@@ -34,8 +40,10 @@ type Vendor = {
 const getAgreementText = (vendor: Vendor | null, user: EndUser | null) => {
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const vendorName = vendor?.name || '[Your Company Name]';
-    const vendorAddress = `${vendor?.address?.street1 || ''}, ${vendor?.address?.city || ''}, ${vendor?.address?.state || ''} ${vendor?.address?.zip || ''}`.trim();
+    const vendorAddress = `${vendor?.address?.street1 || '[Vendor Street]'}, ${vendor?.address?.city || '[Vendor City]'}, ${vendor?.address?.state || '[Vendor State]'} ${vendor?.address?.zip || '[Vendor Zip]'}`.trim();
     const userName = user?.truckCompanyName || `${user?.firstName || ''} ${user?.lastName || ''}`;
+    const userAddress = `${user?.address?.street || ''}, ${user?.address?.city || ''}, ${user?.address?.state || ''} ${user?.address?.zip || ''}`.trim();
+    const vehicleInfo = `${user?.vehicleYear || ''} ${user?.vehicleMake || ''} ${user?.vehicleModel || ''}`.trim();
 
     return `
 PARKING AUTHORIZATION AND LIABILITY WAIVER AGREEMENT
@@ -45,20 +53,20 @@ This Parking Authorization and Liability Waiver Agreement (“Agreement”) is e
 
 Property Owner/Operator:
 ${vendorName}
-Address: ${vendorAddress || '______________________________________________'}
+Address: ${vendorAddress}
 (“Property Owner”)
 
 and
 
 Parking User:
 ${userName}
-Address: ______________________________________________
-Vehicle: _______________ [Year/Make/Model]
-License Plate: _______________   Trailer Plate (if any): _______________
+Address: ${userAddress || '______________________________________________'}
+Vehicle: ${vehicleInfo || '_______________ [Year/Make/Model]'}
+License Plate: ${user?.licensePlate || '_______________'}   Trailer Plate (if any): ${user?.trailerPlate || '_______________'}
 (“User”)
 
 1. Authorization to Park
-Property Owner hereby grants User a revocable, non-exclusive license to park the above-described vehicle on the private property located at ${vendorAddress || '____________________________'} from _______________ to _______________ [start and end dates/times, or “at will until revoked”].
+Property Owner hereby grants User a revocable, non-exclusive license to park the above-described vehicle on the private property located at ${vendorAddress} from at will until revoked.
 
 2. No Bailment Created
 User acknowledges that no bailment is created and Property Owner is not providing a parking service. Property Owner is merely granting permission to use the space. Property Owner has no duty to guard, protect, or insure the vehicle or its contents.
@@ -217,3 +225,5 @@ Date: ${new Date().toLocaleDateString()}
     </div>
   );
 }
+
+    

@@ -49,6 +49,7 @@ const seed = async () => {
       role: 'endUser',
       waiverSigned: false, // Default to not signed
       waiverSignedDate: null,
+      profileComplete: false, // Start with an incomplete profile
     });
     console.log('End User profile created/updated in Firestore /users collection.');
 
@@ -63,3 +64,5 @@ seed().then(() => {
     console.error(err);
     // process.exit(1);
 });
+
+    

@@ -81,6 +81,8 @@ export function InviteUserDialog({
         status: "Active",
         assignedSpotId: null,
         role: "endUser",
+        profileComplete: false, // <-- New field
+        waiverSigned: false, // <-- New field
       });
 
       toast({
@@ -186,3 +188,5 @@ export function InviteUserDialog({
     </Dialog>
   );
 }
+
+    

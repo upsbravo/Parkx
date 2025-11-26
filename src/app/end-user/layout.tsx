@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 type EndUser = {
   id: string;
+  profileComplete?: boolean;
   waiverSigned?: boolean;
 };
 
@@ -30,50 +31,54 @@ export default function EndUserLayout({
   const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
 
   useEffect(() => {
-    // Wait until user data is loaded to make a decision
     if (isUserLoading || isUserDataLoading) {
-      return;
+      return; // Wait for data to load
     }
     
-    // If the user is loaded, has a profile, but hasn't signed the waiver
-    if (user && userData && !userData.waiverSigned) {
-      // And they are not already on the waiver page
-      if (pathname !== '/end-user/waiver') {
+    // If user is loaded and has a profile
+    if (user && userData) {
+      // 1. If profile is not complete, redirect to complete it
+      if (!userData.profileComplete && pathname !== '/end-user/complete-profile') {
+        router.replace('/end-user/complete-profile');
+      }
+      // 2. If profile is complete but waiver is not signed, redirect to waiver
+      else if (userData.profileComplete && !userData.waiverSigned && pathname !== '/end-user/waiver') {
         router.replace('/end-user/waiver');
       }
     }
   }, [user, userData, isUserLoading, isUserDataLoading, pathname, router]);
 
-  // While checking, show a loading state instead of the actual layout to prevent flashing
-  if (isUserLoading || isUserDataLoading) {
+  const isLoading = isUserLoading || isUserDataLoading;
+
+  // Show a loading skeleton while we determine the user's state
+  if (isLoading) {
     return (
       <DashboardLayout nav={<EndUserNav />} role="End User">
-        <div className="space-y-4">
+        <div className="space-y-4 p-4 md:p-6">
           <Skeleton className="h-8 w-1/4" />
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-64 w-full" />
         </div>
       </DashboardLayout>
     );
   }
+  
+  const isAllowedToSeeContent = 
+    (pathname === '/end-user/complete-profile' && !userData?.profileComplete) ||
+    (pathname === '/end-user/waiver' && userData?.profileComplete && !userData?.waiverSigned) ||
+    (userData?.profileComplete && userData?.waiverSigned);
 
-  // If user must sign waiver, and they aren't on the waiver page yet, render null
-  // The useEffect above will handle the redirection.
-  if (userData && !userData.waiverSigned && pathname !== '/end-user/waiver') {
+  // Render a loading state for a frame while redirection happens
+  // This prevents flashing content that the user shouldn't see
+  if (!isAllowedToSeeContent) {
      return (
-      <DashboardLayout nav={<EndUserNav />} role="End User">
-         {/* Render only children if it is the waiver page */}
-        {pathname === '/end-user/waiver' ? children : (
-             <div className="space-y-4">
-              <Skeleton className="h-8 w-1/4" />
-              <Skeleton className="h-48 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
-        )}
+       <DashboardLayout nav={<EndUserNav />} role="End User">
+        <div className="space-y-4 p-4 md:p-6">
+          <Skeleton className="h-8 w-1/4" />
+          <Skeleton className="h-64 w-full" />
+        </div>
       </DashboardLayout>
-    );
+     )
   }
-
 
   return (
     <DashboardLayout nav={<EndUserNav />} role="End User">
@@ -81,3 +86,5 @@ export default function EndUserLayout({
     </DashboardLayout>
   );
 }
+
+    

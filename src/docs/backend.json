@@ -242,6 +242,30 @@
           ],
           "description": "The date the user signed the waiver.",
           "format": "date-time"
+        },
+        "profileComplete": {
+          "type": "boolean",
+          "description": "Indicates if the user has completed the initial profile setup."
+        },
+        "vehicleYear": {
+          "type": "string",
+          "description": "The year of the user's vehicle."
+        },
+        "vehicleMake": {
+          "type": "string",
+          "description": "The make of the user's vehicle."
+        },
+        "vehicleModel": {
+          "type": "string",
+          "description": "The model of the user's vehicle."
+        },
+        "licensePlate": {
+          "type": "string",
+          "description": "The license plate of the user's vehicle."
+        },
+        "trailerPlate": {
+          "type": "string",
+          "description": "The trailer plate of the user's vehicle, if any."
         }
       },
       "required": [
@@ -620,3 +644,5 @@
     "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor."
   }
 }
+
+    
