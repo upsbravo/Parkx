@@ -6,7 +6,7 @@ import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useState } from 'react';
 import { MessageFeed } from '@/components/MessageFeed';
 import { SendMessageBox } from '@/components/SendMessageBox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -46,7 +46,8 @@ export default function VendorMessages() {
     <div className="grid h-[calc(100vh-6rem)] md:grid-cols-4">
       <Card className="md:col-span-1 flex flex-col rounded-r-none">
           <CardHeader>
-            <CardTitle>Your Users</CardTitle>
+            <CardTitle>User Conversations</CardTitle>
+            <CardDescription>Select a user to view their message thread.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto">
             {areUsersLoading ? (
@@ -80,8 +81,17 @@ export default function VendorMessages() {
       <div className="md:col-span-3 flex flex-col border-t md:border-t-0 md:border-l">
         {selectedUserId && selectedUser ? (
           <>
-            <MessageFeed messages={messages || []} isLoading={areMessagesLoading} contactName={`${selectedUser.firstName} ${selectedUser.lastName}`} contactInitial={`${selectedUser.firstName?.[0] || ''}${selectedUser.lastName?.[0] || ''}`} />
-            <SendMessageBox targetUserId={selectedUserId} />
+            <MessageFeed 
+                messages={messages || []} 
+                isLoading={areMessagesLoading} 
+                contactName={`${selectedUser.firstName} ${selectedUser.lastName}`} 
+                contactInitial={`${selectedUser.firstName?.[0] || ''}${selectedUser.lastName?.[0] || ''}`}
+                currentUserId={vendorAdmin?.uid}
+             />
+            <SendMessageBox 
+                targetCollectionPath={`users/${selectedUserId}/messages`} 
+                senderId={vendorAdmin!.uid}
+            />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">

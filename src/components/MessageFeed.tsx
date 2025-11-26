@@ -1,7 +1,6 @@
 // src/components/MessageFeed.tsx
 'use client';
 
-import { useUser } from '@/firebase';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
@@ -14,8 +13,15 @@ type Message = {
     timestamp: any; // Can be a Date or a Firestore Timestamp
 };
 
-export function MessageFeed({ messages, isLoading, contactName, contactInitial }: { messages: Message[], isLoading?: boolean, contactName: string, contactInitial: string }) {
-    const { user } = useUser();
+type MessageFeedProps = {
+    messages: Message[],
+    isLoading?: boolean,
+    contactName: string,
+    contactInitial: string,
+    currentUserId?: string | null;
+}
+
+export function MessageFeed({ messages, isLoading, contactName, contactInitial, currentUserId }: MessageFeedProps) {
     
     return (
         <ScrollArea className="flex-1 p-6">
@@ -23,7 +29,7 @@ export function MessageFeed({ messages, isLoading, contactName, contactInitial }
           {isLoading ? <Skeleton className="h-20 w-full" /> :
             messages && messages.length > 0 ? (
                 messages.map((msg) => {
-                    const isSender = msg.senderId === user?.uid;
+                    const isSender = msg.senderId === currentUserId;
                     const timestamp = msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'p') : '...';
 
                     return (

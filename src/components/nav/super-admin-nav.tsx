@@ -22,7 +22,7 @@ const navItems = [
   { href: "/super-admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
   { href: "/super-admin/vendors", icon: <Building />, label: "Vendor Management" },
   { href: "/super-admin/invoices", icon: <FileText />, label: "All Invoices" },
-  { href: "/super-admin/messages", icon: <MessageSquare />, label: "Vendor Messages" },
+  { href: "/super-admin/messages", icon: <MessageSquare />, label: "Vendor Tickets" },
   { href: "/super-admin/payments", icon: <CreditCard />, label: "Platform Payments" },
   { href: "/super-admin/access-control", icon: <ShieldCheck />, label: "Access Control" },
   { href: "/super-admin/account", icon: <Settings />, label: "Account" },

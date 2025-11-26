@@ -2,29 +2,33 @@
 'use client';
 
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export function SendMessageBox({ targetUserId }: { targetUserId: string }) {
+type SendMessageBoxProps = {
+    targetCollectionPath: string;
+    senderId: string;
+}
+
+export function SendMessageBox({ targetCollectionPath, senderId }: SendMessageBoxProps) {
   const [text, setText] = useState('');
   const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
 
   const send = async () => {
-    if (!text.trim() || !user) {
+    if (!text.trim() || !senderId) {
         return;
     }
 
     try {
-      const messagesRef = collection(firestore, 'users', targetUserId, 'messages');
+      const messagesRef = collection(firestore, targetCollectionPath);
       await addDoc(messagesRef, {
         text: text.trim(),
-        senderId: user.uid,
+        senderId: senderId,
         timestamp: serverTimestamp(),
         read: false
       });

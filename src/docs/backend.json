@@ -318,32 +318,25 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Message",
       "type": "object",
-      "description": "Represents a single message within a conversation.",
+      "description": "Represents a single message within a conversation between an end user and their vendor.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "senderId": {
-          "type": "string"
-        },
-        "text": {
-          "type": "string"
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "attachmentUrl": {
-          "type": "string",
-          "format": "uri"
-        },
-        "attachmentName": {
-          "type": "string"
-        },
-        "attachmentType": {
-          "type": "string",
-          "enum": ["image", "file"]
-        }
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
+    },
+    "SupportMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SupportMessage",
+      "type": "object",
+      "description": "Represents a single message within a support conversation between a vendor and a super admin.",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "senderId", "text", "timestamp"]
     },
@@ -531,6 +524,18 @@
         }
       },
       {
+        "path": "/vendors/{vendorId}/support-messages/{messageId}",
+        "definition": {
+          "entityName": "SupportMessage",
+          "schema": { "$ref": "#/backend/entities/SupportMessage" },
+          "description": "Stores support messages between a Vendor and the Super Admin, nested under the vendor.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the Vendor document." },
+            { "name": "messageId", "description": "The unique ID for the support message." }
+          ]
+        }
+      },
+      {
         "path": "/vendorInvoices/{vendorInvoiceId}",
         "definition": {
           "entityName": "VendorInvoice",
@@ -643,6 +648,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins."
   }
 }
