@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -29,8 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { InviteUserDialog } from "./invite-user-dialog";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, doc } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssignSpotDialog } from "./assign-spot-dialog";
 import Link from "next/link";
@@ -44,6 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useToast } from "@/hooks/use-toast";
 
 type EndUser = {
   id: string;
@@ -58,7 +60,9 @@ type EndUser = {
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAssignSpotOpen, setAssignSpotOpen] = useState(false);
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<EndUser | null>(null);
+  const { toast } = useToast();
   
   const firestore = useFirestore();
   const { user: vendorAdmin, isUserLoading: isVendorLoading } = useUser();
@@ -81,6 +85,44 @@ export default function UserManagementPage() {
   const handleAssignSpot = (user: EndUser) => {
     setSelectedUser(user);
     setAssignSpotOpen(true);
+  };
+  
+  const handleDeactivate = (user: EndUser) => {
+    if (!firestore || !vendorAdmin) return;
+    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', user.id);
+    updateDocumentNonBlocking(userRef, { status: 'Inactive' });
+    toast({
+      title: 'User Deactivated',
+      description: `${user.firstName} ${user.lastName} has been set to Inactive.`,
+    });
+  };
+
+  const handleReactivate = (user: EndUser) => {
+    if (!firestore || !vendorAdmin) return;
+    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', user.id);
+    updateDocumentNonBlocking(userRef, { status: 'Active' });
+    toast({
+      title: 'User Reactivated',
+      description: `${user.firstName} ${user.lastName} has been set to Active.`,
+    });
+  };
+
+  const handleDeleteClick = (user: EndUser) => {
+    setSelectedUser(user);
+    setDeleteAlertOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!selectedUser || !firestore || !vendorAdmin) return;
+    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', selectedUser.id);
+    deleteDocumentNonBlocking(userRef);
+    toast({
+      variant: 'destructive',
+      title: 'User Deleted',
+      description: `${selectedUser.firstName} ${selectedUser.lastName} has been permanently deleted.`,
+    });
+    setDeleteAlertOpen(false);
+    setSelectedUser(null);
   };
 
   return (
@@ -176,8 +218,21 @@ export default function UserManagementPage() {
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Spot</DropdownMenuItem>
-                             <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                              Deactivate User
+                            <DropdownMenuSeparator />
+                            {user.status === 'Inactive' ? (
+                               <DropdownMenuItem onClick={() => handleReactivate(user)}>
+                                 Reactivate User
+                               </DropdownMenuItem>
+                             ) : (
+                               <DropdownMenuItem onClick={() => handleDeactivate(user)}>
+                                 Deactivate User
+                               </DropdownMenuItem>
+                             )}
+                             <DropdownMenuItem
+                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              onClick={() => handleDeleteClick(user)}
+                             >
+                              Delete User
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -201,14 +256,32 @@ export default function UserManagementPage() {
       </div>
       <InviteUserDialog open={isInviteOpen} onOpenChange={setInviteOpen} />
       {selectedUser && (
-        <>
-          <AssignSpotDialog
-            user={selectedUser}
-            open={isAssignSpotOpen}
-            onOpenChange={setAssignSpotOpen}
-          />
-        </>
+        <AssignSpotDialog
+          user={selectedUser}
+          open={isAssignSpotOpen}
+          onOpenChange={setAssignSpotOpen}
+        />
       )}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user
+              and their associated data. They will lose access immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Continue & Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
