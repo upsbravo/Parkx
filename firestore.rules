@@ -22,6 +22,7 @@ service cloud.firestore {
     }
 
     function isParticipant(conversationId) {
+      // This function is still useful for sub-collection rules where we already have the conversationId
       return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
@@ -44,8 +45,16 @@ service cloud.firestore {
         allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
 
-      // Vendor Admins can manage invoices within their own subcollection
-      match /userInvoices/{invoiceId} { allow read, list, write: if request.auth.uid == vendorId; }
+      // Vendor Admins can manage invoices; End Users can only list their own
+      match /userInvoices/{invoiceId} { 
+          allow read, write: if request.auth.uid == vendorId;
+          allow list: if (isVendorAdmin() && request.auth.uid == vendorId) || 
+                         (isSignedIn() && request.query.where != null &&
+                          size(request.query.where) > 0 &&
+                          request.query.where[0].field == "userId" &&
+                          request.query.where[0].op == "==" &&
+                          request.query.where[0].value == request.auth.uid);
+      }
       
       // Vendor Admins can manage documents for their own users
       match /userDocuments/{docId} { 
@@ -80,13 +89,15 @@ service cloud.firestore {
     // CONVERSATIONS - new secure rules
     match /conversations/{conversationId} {
       // Allow a user to get a conversation if they are a participant.
-      allow get: if isParticipant(conversationId);
+      allow get: if isSuperAdmin() || request.auth.uid in resource.data.participants;
 
       // Allow a user to list conversations only if they are querying for conversations they are a part of.
       allow list: if isSignedIn() && request.query.where != null && size(request.query.where) > 0 && request.query.where[0].field == "participants" && request.query.where[0].op == "array-contains" && request.query.where[0].value == request.auth.uid;
       
       // Allow create if the user is one of the participants being added.
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
+      
+      allow update: if isSuperAdmin() || request.auth.uid in resource.data.participants;
       
       // MESSAGES SUBCOLLECTION - secured by the parent conversation's security
       match /messages/{messageId} {
