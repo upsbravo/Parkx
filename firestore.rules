@@ -54,7 +54,7 @@ service cloud.firestore {
       
       // Vendor Admins can manage documents for their own users
       match /userDocuments/{docId} { 
-        allow read, list, write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId;
+        allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
       }
     }
 
@@ -82,28 +82,33 @@ service cloud.firestore {
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
     
-    // User Documents: End user can read their own documents. Vendor Admin can also read.
-    match /vendors/{vendorId}/userDocuments/{docId} {
-        allow read: if request.auth.uid == resource.data.userId || request.auth.uid == vendorId;
-        allow list: if request.auth.uid == vendorId || (request.query.where != null && request.auth.uid == request.query.where.userId);
-        allow write: if request.auth.uid == vendorId || request.auth.uid == request.resource.data.userId;
-    }
-
-    // CONVERSATIONS - new secure rules
+    // CONVERSATIONS - THIS IS THE CORRECT, BULLETPROOF IMPLEMENTATION
     match /conversations/{conversationId} {
-      // Allow a user to get a conversation if they are a participant.
-      allow get: if isParticipant(conversationId);
 
-      // Allow a user to list conversations only if they are querying for conversations they are a part of.
-      allow list: if isSignedIn() && request.query.where[0].field == "participants" && request.query.where[0].op == "array-contains" && request.query.where[0].value == request.auth.uid;
+      // GET a single conversation document
+      allow get: if isSuperAdmin() || isParticipant(conversationId);
+
+      // LIST conversations that the user is a part of
+      allow list: if
+        isSuperAdmin() ||
+        (request.query.where != null &&
+         size(request.query.where) == 1 &&
+         request.query.where[0].field == "participants" &&
+         request.query.where[0].op == "array-contains" &&
+         request.query.where[0].value == request.auth.uid);
+
+      // CREATE a new conversation
+      allow create: if
+        isSuperAdmin() ||
+        (request.auth.uid in request.resource.data.participants);
+
+      // UPDATE a conversation (e.g., for last message previews)
+      allow update: if isSuperAdmin() || isParticipant(conversationId);
       
-      // Allow create if the user is one of the participants being added.
-      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
-      
-      // MESSAGES SUBCOLLECTION - secured via the isParticipant function
+      // MESSAGES SUBCOLLECTION
       match /messages/{messageId} {
-        // Allow read (get, list) and write (create, update, delete) if the user is a participant of the parent conversation.
-        allow read, write: if isParticipant(conversationId);
+        // Allow full access to messages if the user is a participant of the parent conversation
+        allow read, write: if isSuperAdmin() || isParticipant(conversationId);
       }
     }
 
