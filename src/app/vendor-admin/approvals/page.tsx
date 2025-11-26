@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, Check, X } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 
@@ -31,6 +31,7 @@ type EndUser = {
   assignedSpotId: string | null;
   cancellationRequested: boolean;
   cancellationRequestDate?: string; // ISO string
+  vendorId: string;
 };
 
 type ParkingSpot = {
@@ -48,7 +49,8 @@ export default function ApprovalsPage() {
   const requestsQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin) return null;
     return query(
-      collection(firestore, 'vendors', vendorAdmin.uid, 'endUsers'),
+      collection(firestore, 'users'),
+      where('vendorId', '==', vendorAdmin.uid),
       where('cancellationRequested', '==', true)
     );
   }, [firestore, vendorAdmin]);
@@ -60,8 +62,8 @@ export default function ApprovalsPage() {
 
     const batch = writeBatch(firestore);
 
-    // 1. Update the user
-    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', request.id);
+    // 1. Update the user in the /users collection
+    const userRef = doc(firestore, 'users', request.id);
     batch.update(userRef, {
       assignedSpotId: null,
       cancellationRequested: false,
@@ -94,7 +96,7 @@ export default function ApprovalsPage() {
 
   const handleDeny = (request: EndUser) => {
     if (!firestore || !vendorAdmin) return;
-    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', request.id);
+    const userRef = doc(firestore, 'users', request.id);
     updateDocumentNonBlocking(userRef, {
       cancellationRequested: false,
       cancellationRequestDate: null,

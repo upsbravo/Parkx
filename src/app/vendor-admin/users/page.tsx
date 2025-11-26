@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/card";
 import { InviteUserDialog } from "./invite-user-dialog";
 import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, doc } from "firebase/firestore";
+import { collection, query, doc, where } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssignSpotDialog } from "./assign-spot-dialog";
 import Link from "next/link";
@@ -54,6 +54,7 @@ type EndUser = {
   email: string;
   status: 'Active' | 'Pending' | 'Inactive';
   assignedSpotId: string | null;
+  vendorId: string;
 };
 
 
@@ -69,7 +70,7 @@ export default function UserManagementPage() {
 
   const usersQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin) return null;
-    return query(collection(firestore, "vendors", vendorAdmin.uid, "endUsers"));
+    return query(collection(firestore, "users"), where("vendorId", "==", vendorAdmin.uid));
   }, [firestore, vendorAdmin]);
 
   const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
@@ -89,7 +90,7 @@ export default function UserManagementPage() {
   
   const handleDeactivate = (user: EndUser) => {
     if (!firestore || !vendorAdmin) return;
-    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', user.id);
+    const userRef = doc(firestore, 'users', user.id);
     updateDocumentNonBlocking(userRef, { status: 'Inactive' });
     toast({
       title: 'User Deactivated',
@@ -99,7 +100,7 @@ export default function UserManagementPage() {
 
   const handleReactivate = (user: EndUser) => {
     if (!firestore || !vendorAdmin) return;
-    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', user.id);
+    const userRef = doc(firestore, 'users', user.id);
     updateDocumentNonBlocking(userRef, { status: 'Active' });
     toast({
       title: 'User Reactivated',
@@ -114,7 +115,7 @@ export default function UserManagementPage() {
 
   const handleDeleteConfirm = () => {
     if (!selectedUser || !firestore || !vendorAdmin) return;
-    const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', selectedUser.id);
+    const userRef = doc(firestore, 'users', selectedUser.id);
     deleteDocumentNonBlocking(userRef);
     setDeleteAlertOpen(false);
     setSelectedUser(null);

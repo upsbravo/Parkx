@@ -25,103 +25,70 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useFirebase } from '@/firebase';
-import {
-  signInWithEmailAndPassword,
-  UserCredential,
-} from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
-
+import { doc, getDoc } from 'firebase/firestore';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  email: z.string().email(),
+  password: z.string().min(6),
 });
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const {auth, firestore} = useFirebase();
+  const { auth, firestore } = useFirebase();
   const router = useRouter();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    defaultValues: { email: '', password: '' },
   });
-
-  const handleSuccessfulLogin = async (userCredential: UserCredential) => {
-    const user = userCredential.user;
-    
-    // 1. Check for Super Admin role
-    const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
-    const superAdminRoleSnap = await getDoc(superAdminRoleRef);
-    if (superAdminRoleSnap.exists()) {
-        toast({ title: 'Login Successful', description: `Welcome Super Admin!` });
-        router.push('/super-admin/dashboard');
-        return;
-    }
-
-    // 2. Check for Vendor Admin role
-    const vendorDocRef = doc(firestore, 'vendors', user.uid);
-    const vendorDocSnap = await getDoc(vendorDocRef);
-    if (vendorDocSnap.exists()) {
-        toast({ title: 'Login Successful', description: `Welcome Vendor Admin!` });
-        router.push('/vendor-admin/dashboard');
-        return;
-    }
-    
-    // 3. Check for End-User role by querying all vendor subcollections
-    try {
-        const vendorsSnapshot = await getDocs(collection(firestore, 'vendors'));
-        for (const vendorDoc of vendorsSnapshot.docs) {
-            const userDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                // If the document exists in ANY vendor's subcollection, they are an end user.
-                toast({ title: 'Login Successful', description: `Welcome!` });
-                router.push('/end-user/dashboard');
-                return;
-            }
-        }
-    } catch (error) {
-        console.error("Error checking for end user role:", error);
-        toast({ 
-          variant: 'destructive',
-          title: 'Login Error',
-          description: 'An error occurred while trying to verify your role.' 
-        });
-        return; // Stop execution if there's an error
-    }
-
-
-    // 4. If no role is found after checking all possibilities, show an error.
-    toast({ 
-      variant: 'destructive',
-      title: 'Login Error',
-      description: 'Could not determine user role. Please contact support.' 
-    });
-  };
-
 
   const handleLogin = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      await handleSuccessfulLogin(userCredential);
+      const { user } = await signInWithEmailAndPassword(auth, values.email, values.password);
 
+      // 1. Super Admin – check dedicated collection
+      const superAdminDoc = await getDoc(doc(firestore, 'roles_super_admin', user.uid));
+      if (superAdminDoc.exists()) {
+        toast({ title: 'Login Successful', description: 'Welcome back, Super Admin!' });
+        router.push('/super-admin/dashboard');
+        return;
+      }
+
+      // 2. Vendor Admin – check top-level vendors collection
+      const vendorDoc = await getDoc(doc(firestore, 'vendors', user.uid));
+      if (vendorDoc.exists()) {
+        toast({ title: 'Login Successful', description: 'Welcome back, Vendor Admin!' });
+        router.push('/vendor-admin/dashboard');
+        return;
+      }
+
+      // 3. End User – check top-level users collection
+      const endUserDoc = await getDoc(doc(firestore, 'users', user.uid));
+      if (endUserDoc.exists()) {
+        toast({ title: 'Login Successful', description: 'Welcome back!' });
+        router.push('/end-user/dashboard');
+        return;
+      }
+
+      toast({
+        variant: 'destructive',
+        title: 'Access Denied',
+        description: 'Your account exists but has no assigned role. Contact support.',
+      });
     } catch (error: any) {
-      console.error('Login error:', error);
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.code === 'auth/invalid-credential'
-          ? 'Invalid email or password. Please try again.'
-          : error.message || 'An unexpected error occurred.',
+        description:
+          error.code === 'auth/invalid-credential'
+            ? 'Wrong email or password.'
+            : 'Something went wrong. Try again.',
       });
     } finally {
       setIsLoading(false);
@@ -130,75 +97,50 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="mb-8">
-        <Logo />
-      </div>
+      <div className="mb-8"><Logo /></div>
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your credentials to access your dashboard.
-          </CardDescription>
+          <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleLogin)}>
             <CardContent className="grid gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="m@example.com"
-                        {...field}
-                        disabled={isLoading}
-                        suppressHydrationWarning
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        {...field}
-                        disabled={isLoading}
-                        suppressHydrationWarning
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="you@example.com" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="password" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} disabled={isLoading} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning>
+            <CardFooter>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign in'}
               </Button>
             </CardFooter>
           </form>
         </Form>
-        <CardFooter className="flex flex-col gap-4">
-            <p className="text-xs text-muted-foreground text-center">For demonstration purposes:</p>
-            <p className="text-xs text-muted-foreground text-center">
+        <CardFooter className="flex flex-col gap-4 text-xs text-muted-foreground text-center">
+            <p>Demo accounts:</p>
+            <p>
               super@parkx.com / password<br />
               vendor@acme.com / password<br />
               user@example.com / password
             </p>
         </CardFooter>
       </Card>
-      <p className="mt-4 text-center text-sm text-muted-foreground">
-        Registration is by invitation only.
-      </p>
     </div>
   );
 }

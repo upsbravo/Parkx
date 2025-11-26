@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
 import { collection, doc, query, where, writeBatch } from "firebase/firestore";
 import { useState, useMemo } from "react";
 import {
@@ -60,11 +60,11 @@ export function AssignSpotDialog({
   }, [firestore, vendorAdmin]);
   const { data: availableSpots, isLoading: isLoadingSpots } = useCollection<ParkingSpot>(spotsQuery);
   
-  const currentSpotQuery = useMemoFirebase(() => {
+  const currentSpotRef = useMemoFirebase(() => {
       if(!firestore || !vendorAdmin || !user.assignedSpotId) return null;
       return doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", user.assignedSpotId);
   }, [firestore, vendorAdmin, user.assignedSpotId]);
-  const { data: currentSpot, isLoading: isLoadingCurrentSpot } = useCollection<ParkingSpot>(currentSpotQuery);
+  const { data: currentSpot, isLoading: isLoadingCurrentSpot } = useDoc<ParkingSpot>(currentSpotRef);
 
   const allSpots = useMemo(() => {
     let spots = availableSpots ? [...availableSpots] : [];
@@ -81,7 +81,7 @@ export function AssignSpotDialog({
     
     const batch = writeBatch(firestore);
 
-    const userRef = doc(firestore, "vendors", vendorAdmin.uid, "endUsers", user.id);
+    const userRef = doc(firestore, "users", user.id);
 
     // Case 1: Un-assigning the current spot
     if (user.assignedSpotId && !selectedSpotId) {

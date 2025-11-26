@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
 import { VENDOR_ID } from './vendor';
@@ -25,6 +25,7 @@ const seed = async () => {
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         // If user doesn't exist, create them
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: `${firstName} ${lastName}` });
         console.log('End user created successfully in Auth.');
       } else {
         // Rethrow other auth errors
@@ -34,8 +35,8 @@ const seed = async () => {
 
     const user = userCredential.user;
 
-    // Create the EndUser document inside the specific vendor's 'endUsers' subcollection
-    const userRef = doc(db, 'vendors', VENDOR_ID, 'endUsers', user.uid);
+    // Create the EndUser document in the top-level /users collection
+    const userRef = doc(db, 'users', user.uid);
     await setDoc(userRef, {
       id: user.uid,
       vendorId: VENDOR_ID,
@@ -45,8 +46,9 @@ const seed = async () => {
       status: 'Active',
       assignedSpotId: null,
       cancellationRequested: false,
+      role: 'endUser',
     });
-    console.log('End User profile created/updated in Firestore under vendor.');
+    console.log('End User profile created/updated in Firestore /users collection.');
 
   } catch (error) {
     console.error('Error seeding End User:', error);

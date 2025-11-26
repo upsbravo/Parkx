@@ -18,6 +18,7 @@ type EndUser = {
   id: string;
   firstName: string;
   lastName: string;
+  vendorId: string;
   assignedSpotId: string | null;
   cancellationRequested?: boolean;
 };
@@ -32,38 +33,25 @@ export default function EndUserDashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // Find the user's document path is tricky. For now, assuming we can find it.
-  // In a real app, this might come from a context or a more direct query.
-  // This hook is just a placeholder for the logic to find the user's doc ref.
   const userDocRef = useMemoFirebase(() => {
-      // This is a simplified lookup. A real app would need a more robust way
-      // to find which vendor subcollection the user belongs to.
-      // For this demo, we'll assume the user's vendor ID is known or stored somewhere.
-      // Let's pretend it's in user.customClaims or we query for it.
-      if (!user || !firestore) return null;
-      // This is still a guess. In a real app, you MUST know the vendorId.
-      // For now, this will not work unless we hardcode a vendorId or find it.
-      // Let's assume we can't find it for now and handle the UI.
-      return null; // This will be updated in a future step.
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   
-  // This is a temporary solution for the demo.
-  // We'll replace this with a proper lookup.
-  const {data: userData, isLoading: isUserDocLoading} = useDoc<EndUser>(user?.uid ? doc(firestore, 'vendors/YQadS5yQ5EXD2w5zmvqP/endUsers', user.uid) : null);
+  const {data: userData, isLoading: isUserDocLoading} = useDoc<EndUser>(userDocRef);
   
   const spotDocRef = useMemoFirebase(() => {
-    if (!firestore || !userData?.assignedSpotId) return null;
-    return doc(firestore, 'vendors/YQadS5yQ5EXD2w5zmvqP/parkingSpots', userData.assignedSpotId);
+    if (!firestore || !userData?.assignedSpotId || !userData?.vendorId) return null;
+    return doc(firestore, 'vendors', userData.vendorId, 'parkingSpots', userData.assignedSpotId);
   }, [firestore, userData]);
+
   const { data: spotData, isLoading: isSpotLoading } = useDoc<ParkingSpot>(spotDocRef);
 
 
   const handleRequestCancellation = () => {
-      if (!user) return;
-      // We need the *actual* ref to the user doc.
-      const actualUserDocRef = doc(firestore, 'vendors/YQadS5yQ5EXD2w5zmvqP/endUsers', user.uid);
+      if (!userDocRef) return;
 
-      updateDocumentNonBlocking(actualUserDocRef, {
+      updateDocumentNonBlocking(userDocRef, {
         cancellationRequested: true,
         cancellationRequestDate: new Date().toISOString(),
       });
@@ -74,9 +62,8 @@ export default function EndUserDashboard() {
   };
   
   const handleWithdrawCancellation = () => {
-    if (!user) return;
-    const actualUserDocRef = doc(firestore, 'vendors/YQadS5yQ5EXD2w5zmvqP/endUsers', user.uid);
-     updateDocumentNonBlocking(actualUserDocRef, {
+    if (!userDocRef) return;
+     updateDocumentNonBlocking(userDocRef, {
         cancellationRequested: false,
         cancellationRequestDate: null,
       });

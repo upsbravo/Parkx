@@ -29,10 +29,10 @@ import {
   Upload,
   Lock,
 } from 'lucide-react';
-import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { useState, useEffect } from 'react';
-import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -61,8 +61,7 @@ export default function AccountSettingsPage() {
   const { toast } = useToast();
 
   const [userData, setUserData] = useState<EndUser | null>(null);
-  const [isDataLoading, setIsDataLoading] = useState(true);
-
+  
   // Form states
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -73,59 +72,37 @@ export default function AccountSettingsPage() {
   const [zip, setZip] = useState('');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
-
+  
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
-  const [userDocRef, setUserDocRef] = useState<any>(null);
+  const userDocRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
 
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
 
   useEffect(() => {
-    const findUserDocument = async () => {
-      if (isUserLoading || !user || !firestore) return;
-
-      setIsDataLoading(true);
-      // We need to query across all 'endUsers' subcollections to find the one matching our user's ID
-      const vendorsRef = collection(firestore, 'vendors');
-      const vendorSnapshot = await getDocs(vendorsRef);
-      let foundUser = null;
-      let userRef = null;
-
-      for (const vendorDoc of vendorSnapshot.docs) {
-        const userDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          foundUser = { id: userDocSnap.id, ...userDocSnap.data() } as EndUser;
-          userRef = userDocRef;
-          break;
-        }
-      }
-
-      if (foundUser) {
-        setUserData(foundUser);
-        setUserDocRef(userRef);
-        setFullName(`${foundUser.firstName} ${foundUser.lastName}`);
-        setEmail(foundUser.email);
-        setPhone(foundUser.phone || '');
-        setStreet(foundUser.address?.street || '');
-        setCity(foundUser.address?.city || '');
-        setState(foundUser.address?.state || '');
-        setZip(foundUser.address?.zip || '');
-        setEmergencyName(foundUser.emergencyContact?.name || '');
-        setEmergencyPhone(foundUser.emergencyContact?.phone || '');
-
-      } else {
-         // Fallback to auth data if firestore doc is not found
-         setFullName(user.displayName || '');
-         setEmail(user.email || '');
-      }
-      setIsDataLoading(false);
-    };
-
-    findUserDocument();
-  }, [user, isUserLoading, firestore]);
+    if (userProfile) {
+        setUserData(userProfile);
+        setFullName(`${userProfile.firstName} ${userProfile.lastName}`);
+        setEmail(userProfile.email);
+        setPhone(userProfile.phone || '');
+        setStreet(userProfile.address?.street || '');
+        setCity(userProfile.address?.city || '');
+        setState(userProfile.address?.state || '');
+        setZip(userProfile.address?.zip || '');
+        setEmergencyName(userProfile.emergencyContact?.name || '');
+        setEmergencyPhone(userProfile.emergencyContact?.phone || '');
+    } else if (user) {
+        // Fallback for when profile is loading
+        setFullName(user.displayName || '');
+        setEmail(user.email || '');
+    }
+  }, [userProfile, user]);
 
   const handleSaveChanges = async () => {
     if (!user || !userDocRef) {
@@ -187,7 +164,7 @@ export default function AccountSettingsPage() {
     }
   };
 
-  const isLoading = isUserLoading || isDataLoading;
+  const isLoading = isUserLoading || isProfileLoading;
 
   return (
     <div className="space-y-6">

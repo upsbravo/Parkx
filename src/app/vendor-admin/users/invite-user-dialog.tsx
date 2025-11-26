@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser } from "@/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
-import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, deleteUser, updateProfile } from "firebase/auth";
 import { initializeApp, deleteApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
@@ -66,10 +66,12 @@ export function InviteUserDialog({
       // 1. Create the user in the temporary Auth instance
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       newUser = userCredential.user;
+      
+      await updateProfile(newUser, { displayName: `${firstName} ${lastName}` });
 
-      // 2. Create the user document in Firestore under the currently logged-in vendor admin's subcollection
-      // This part uses the main app's firestore instance, which is authenticated as the vendor admin.
-      const userDocRef = doc(firestore, "vendors", vendorAdmin.uid, "endUsers", newUser.uid);
+
+      // 2. Create the user document in the top-level /users collection
+      const userDocRef = doc(firestore, "users", newUser.uid);
       await setDoc(userDocRef, {
         id: newUser.uid,
         vendorId: vendorAdmin.uid,

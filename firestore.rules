@@ -15,6 +15,10 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
+    function isVendorAdminForUser(userId) {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
+    }
+
     match /roles_super_admin/{userId} {
       allow get, list: if isSignedIn();
       allow create: if isSuperAdmin();
@@ -35,22 +39,23 @@ service cloud.firestore {
       allow create: if isSuperAdmin();
       allow update: if isSuperAdmin() || isOwner(vendorId);
       allow delete: if isSuperAdmin() && resource != null;
-
-      match /endUsers/{userId} {
-        allow get, list, update: if isOwner(vendorId) || isSuperAdmin();
-        allow create: if isOwner(vendorId);
-        allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
-      }
       
       match /parking_spots/{parkingSpotId} {
-        allow get: if isOwner(vendorId) || isSuperAdmin();
-        allow list: if isOwner(vendorId) || isSuperAdmin();
+        allow get, list: if isOwner(vendorId) || isSuperAdmin();
         allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
         allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null && request.resource.data.vendorId == resource.data.vendorId;
         allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
       }
     }
     
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isSuperAdmin() || isVendorAdminForUser(userId);
+      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
+      allow update: if isOwner(userId) || isVendorAdminForUser(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin() || isVendorAdminForUser(userId);
+      allow list: if isSuperAdmin(); // Or adjust for vendor admins if they need to list all users under them
+    }
+
     match /vendorInvoices/{invoiceId} {
       allow read, write: if isSuperAdmin();
     }

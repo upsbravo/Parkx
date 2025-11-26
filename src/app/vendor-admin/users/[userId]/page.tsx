@@ -58,8 +58,8 @@ export default function UserProfilePage() {
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
 
   const userDocRef = useMemoFirebase(
-    () => (firestore && vendorAdmin && userId ? doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', userId) : null),
-    [firestore, vendorAdmin, userId]
+    () => (firestore && userId ? doc(firestore, 'users', userId) : null),
+    [firestore, userId]
   );
   
   const { data: userData, isLoading: isUserDocLoading } = useDoc<EndUser>(userDocRef);
