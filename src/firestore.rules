@@ -42,10 +42,7 @@ service cloud.firestore {
           isSuperAdmin() ||
           request.auth.uid == vendorId ||
           isPrivilegedVendor() ||
-          (
-            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId
-          );
+          resource.data.userId == request.auth.uid;
         allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
 
