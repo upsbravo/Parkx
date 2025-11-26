@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,13 +12,21 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock } from 'lucide-react';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { User, Lock, FileText, Download } from 'lucide-react';
+import { useAuth, useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+type VendorDocument = {
+    id: string;
+    name: string;
+    createdAt: string; // ISO string
+    content: string;
+};
 
 export default function VendorAdminAccountPage() {
   const { user, isUserLoading } = useUser();
@@ -29,6 +38,13 @@ export default function VendorAdminAccountPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const documentsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return collection(firestore, 'vendors', user.uid, 'vendorDocuments');
+  }, [firestore, user]);
+  
+  const { data: vendorDocuments, isLoading: areDocumentsLoading } = useCollection<VendorDocument>(documentsQuery);
 
   useEffect(() => {
     if (user) {
@@ -96,6 +112,20 @@ export default function VendorAdminAccountPage() {
         });
     }
   };
+  
+  const handleDownloadDocument = (doc: VendorDocument) => {
+    const blob = new Blob([doc.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${doc.name.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+  
+  const isLoading = isUserLoading || areDocumentsLoading;
 
 
   return (
@@ -159,6 +189,56 @@ export default function VendorAdminAccountPage() {
         <CardFooter>
           <Button onClick={handleProfileSave}>Save Changes</Button>
         </CardFooter>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>My Documents</CardTitle>
+          </div>
+          <CardDescription>
+            Your signed agreements and other important documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Document Name</TableHead>
+                <TableHead>Date Created</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                 Array.from({ length: 1 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+                  </TableRow>
+                 ))
+              ) : vendorDocuments && vendorDocuments.length > 0 ? (
+                vendorDocuments.map((doc) => (
+                    <TableRow key={doc.id}>
+                        <TableCell className="font-medium">{doc.name}</TableCell>
+                        <TableCell>{new Date(doc.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleDownloadDocument(doc)}>
+                                <Download className="h-4 w-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No documents found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
       </Card>
 
       <Card>
