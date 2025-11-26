@@ -13,8 +13,15 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    function isMyCustomer(userId) {
+    function isVendorAdmin() {
+      // Vendor admins have their own document in /vendors collection
       return isSignedIn() &&
+        exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
+    }
+    
+    function isMyCustomer(userId) {
+      // Check if the currently logged-in user (a vendor) is the owner of the user document being accessed
+      return isVendorAdmin() &&
         get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
     }
 
@@ -37,16 +44,16 @@ service cloud.firestore {
       }
     }
 
-    // ────────────────────── End Users – THIS IS THE IMPORTANT PART ──────────────────────
+    // ────────────────────── End Users (top-level) ──────────────────────
     match /users/{userId} {
       // READ single document
       allow get: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
 
-      // LIST – the exact rule that was blocking your vendor admin page
-      allow list: if 
+      // LIST – Vendor can list ONLY their own customers
+      allow list: if
         isSuperAdmin() ||
         (
-          isSignedIn() &&
+          isVendorAdmin() &&
           request.query.where != null &&
           size(request.query.where) == 1 &&
           request.query.where[0].field == "vendorId" &&
@@ -54,11 +61,11 @@ service cloud.firestore {
           request.query.where[0].value == request.auth.uid
         );
 
-      // CREATE – vendor can create their own customers
+      // CREATE – vendor can create a customer for themselves
       allow create: if isSuperAdmin() ||
-                       (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
+                       (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
 
-      // UPDATE / DELETE
+      // UPDATE / DELETE – Owner, their vendor, or super-admin can update/delete
       allow update, delete: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
     }
 
