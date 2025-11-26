@@ -42,7 +42,8 @@ service cloud.firestore {
 
       // Vendor Admins can manage invoices; End Users can only list their own
       match /userInvoices/{invoiceId} {
-          allow read, write: if request.auth.uid == vendorId;
+          allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
+          allow write: if request.auth.uid == vendorId;
           allow list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
                          (isSignedIn() && request.query.where != null &&
                           size(request.query.where) > 0 &&
@@ -55,8 +56,13 @@ service cloud.firestore {
       match /userDocuments/{docId} {
         allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
       }
-
-      // VENDOR <> SUPER ADMIN MESSAGES (THE FIX)
+      
+      // Vendor Admins can manage their own documents (like signed agreements)
+      match /vendorDocuments/{docId} {
+        allow read, list, write: if request.auth.uid == vendorId;
+      }
+      
+      // VENDOR <> SUPER ADMIN MESSAGES
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }

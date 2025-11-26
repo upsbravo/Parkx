@@ -61,7 +61,7 @@
         },
         "status": {
           "type": "string",
-          "description": "Status of the vendor (e.g., Pending, Active, Trial)."
+          "description": "Status of the vendor (e.g., Pending Agreement, Active, Trial)."
         },
         "joinDate": {
           "type": "string",
@@ -481,6 +481,20 @@
         "content",
         "createdAt"
       ]
+    },
+    "VendorDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VendorDocument",
+      "type": "object",
+      "description": "Represents a document associated with a vendor, such as a signed master agreement.",
+      "properties": {
+        "id": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "name": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "name", "content", "createdAt"]
     }
   },
   "auth": {
@@ -646,8 +660,20 @@
             }
           ]
         }
+      },
+      {
+        "path": "/vendors/{vendorId}/vendorDocuments/{vendorDocumentId}",
+        "definition": {
+          "entityName": "VendorDocument",
+          "schema": { "$ref": "#/backend/entities/VendorDocument" },
+          "description": "Stores documents for a vendor, such as the signed master services agreement.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the Vendor document." },
+            { "name": "vendorDocumentId", "description": "The unique ID for the VendorDocument document." }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA."
   }
 }
