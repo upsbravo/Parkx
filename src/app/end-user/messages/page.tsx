@@ -1,128 +1,65 @@
-
+// src/app/end-user/messages/page.tsx
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
+import { MessageFeed } from '@/components/MessageFeed';
+import { SendMessageBox } from '@/components/SendMessageBox';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MessageCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 type EndUser = {
-  id: string;
   vendorId: string;
-  firstName: string;
 };
 
 type Vendor = {
-    id: string;
     name: string;
-}
-
-type Message = {
-  id: string;
-  senderId: string;
-  text: string;
-  timestamp: string;
-  attachmentUrl?: string;
-  attachmentName?: string;
-  attachmentType?: 'image' | 'file';
 };
 
-export default function EndUserMessagesPage() {
-  const { user: endUser, isUserLoading } = useUser();
+export default function EndUserMessages() {
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const [messageText, setMessageText] = useState('');
-  const [attachment, setAttachment] = useState<File | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
+  const [vendorId, setVendorId] = useState<string | null>(null);
 
-  const userDocRef = useMemoFirebase(() => endUser ? doc(firestore, 'users', endUser.uid) : null, [endUser, firestore]);
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  
   const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
 
+  useEffect(() => {
+    if(userData?.vendorId) {
+      setVendorId(userData.vendorId);
+    }
+  }, [userData]);
+
   const vendorDocRef = useMemoFirebase(() => {
-    if (!firestore || !userData?.vendorId) return null;
-    return doc(firestore, 'vendors', userData.vendorId);
-  }, [firestore, userData]);
+    if (!vendorId) return null;
+    return doc(firestore, 'vendors', vendorId);
+  }, [vendorId, firestore]);
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const messagesQuery = useMemoFirebase(() => {
-    if (!firestore || !endUser) return null;
-    return query(collection(firestore, 'users', endUser.uid, 'messages'), orderBy('timestamp', 'asc'));
-  }, [firestore, endUser]);
+  const q = useMemoFirebase(() => {
+      if (!user) return null;
+      return query(
+          collection(firestore, 'users', user.uid, 'messages'),
+          orderBy('timestamp', 'asc')
+      );
+  }, [user, firestore]);
 
-  const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
-
-  const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !endUser || !userData?.vendorId) return;
-
-    setIsSending(true);
-
-    const messagesRef = collection(firestore, 'users', endUser.uid, 'messages');
-
-    let attachmentData: Partial<Message> = {};
-
-    if (attachment) {
-        try {
-            const storage = getStorage();
-            const fileRef = storageRef(storage, `users/${endUser.uid}/messages/${Date.now()}_${attachment.name}`);
-            const snapshot = await uploadBytes(fileRef, attachment);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            attachmentData = {
-                attachmentUrl: downloadURL,
-                attachmentName: attachment.name,
-                attachmentType: attachment.type.startsWith('image/') ? 'image' : 'file',
-            };
-        } catch (error) {
-            console.error("Error uploading file:", error);
-            toast({ variant: "destructive", title: "Attachment Error", description: "Could not upload the attachment." });
-            setIsSending(false);
-            return;
-        }
-    }
-    
-    await addDocumentNonBlocking(messagesRef, {
-      senderId: endUser.uid,
-      text: messageText,
-      timestamp: new Date().toISOString(),
-      ...attachmentData
-    });
-    
-    setMessageText('');
-    setAttachment(null);
-    setIsSending(false);
-  };
+  const { data: messages, isLoading: areMessagesLoading } = useCollection(q);
   
-  const handleAttachmentClick = () => fileInputRef.current?.click();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-          setAttachment(e.target.files[0]);
-          setMessageText(e.target.files[0].name); // Show filename in text area
-      }
-  };
-
-  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || messagesLoading;
+  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || areMessagesLoading;
   const vendorName = vendorData?.name || 'Admin';
-
+  const vendorInitial = vendorName?.[0] || 'A';
+  const targetId = vendorId || ''; // Can't send without a vendor
+  
   return (
-    <div className="space-y-6">
+      <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Messages</h1>
         <p className="text-muted-foreground">
@@ -146,68 +83,8 @@ export default function EndUserMessagesPage() {
             </div>
           </div>
         </CardHeader>
-        <ScrollArea className="flex-1 p-6">
-          <div className="space-y-4">
-          {isLoading ? <Skeleton className="h-20 w-full" /> :
-            messages && messages.length > 0 ? (
-                messages.map((msg) => (
-                    <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === endUser?.uid ? 'justify-end' : ''}`}>
-                        {msg.senderId !== endUser?.uid && (
-                            <Avatar className="h-8 w-8">
-                               <AvatarImage src={undefined} />
-                               <AvatarFallback>{vendorName?.[0] || 'A'}</AvatarFallback>
-                            </Avatar>
-                        )}
-                        <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === endUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorName}</p>
-                            <p>{msg.text}</p>
-                             {msg.attachmentUrl && (
-                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
-                                    <Download className="h-3 w-3" />
-                                    {msg.attachmentName || 'View Attachment'}
-                                </a>
-                            )}
-                            <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
-                        </div>
-                         {msg.senderId === endUser?.uid && (
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={`https://picsum.photos/seed/${endUser.uid}/32/32`} />
-                                <AvatarFallback>ME</AvatarFallback>
-                            </Avatar>
-                        )}
-                    </div>
-                ))
-            ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                    No messages yet. Send a message to start the conversation.
-                </div>
-            )
-        }
-          </div>
-        </ScrollArea>
-        <CardFooter className="border-t p-4">
-          <div className="relative w-full">
-            <Textarea
-              placeholder={attachment ? attachment.name : "Type your message..."}
-              className="pr-20"
-              rows={1}
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              readOnly={!!attachment}
-              disabled={isLoading || isSending}
-            />
-            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex gap-1">
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <Button type="button" size="icon" variant="ghost" onClick={handleAttachmentClick} disabled={isLoading || isSending}>
-                    <Paperclip className="h-4 w-4" />
-                </Button>
-                <Button type="submit" size="icon" onClick={handleSendMessage} disabled={isLoading || isSending}>
-                     {isSending ? <Skeleton className="h-4 w-4 rounded-full"/> : <Send className="h-4 w-4" />}
-                    <span className="sr-only">Send</span>
-                </Button>
-            </div>
-          </div>
-        </CardFooter>
+        <MessageFeed messages={messages || []} isLoading={isLoading} contactName={vendorName} contactInitial={vendorInitial} />
+        {user && <SendMessageBox targetUserId={user.uid} />}
       </Card>
     </div>
   );

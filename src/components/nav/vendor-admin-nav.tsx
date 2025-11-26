@@ -13,11 +13,9 @@ import {
   Users,
   ParkingSquare,
   ClipboardList,
-  MessageSquare,
   Palette,
   Banknote,
   BadgeCheck,
-  Headset,
   Settings,
   MessageCircle,
   FileText,
@@ -33,7 +31,6 @@ const navItems = [
   { href: "/vendor-admin/invoices", icon: <ClipboardList />, label: "My Invoices" },
   { href: "/vendor-admin/branding", icon: <Palette />, label: "Branding" },
   { href: "/vendor-admin/payouts", icon: <Banknote />, label: "Payouts" },
-  { href: "/vendor-admin/support", icon: <Headset />, label: "Support" },
   { href: "/vendor-admin/account", icon: <Settings />, label: "Account" },
 ];
 
