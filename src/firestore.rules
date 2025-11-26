@@ -21,6 +21,10 @@ service cloud.firestore {
         get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
     }
 
+    function isParticipant(conversationId) {
+      return request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    }
+
     // VENDORS – self access + privileged read all + end-user read own vendor
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() || 
@@ -87,15 +91,19 @@ service cloud.firestore {
 
     // CONVERSATIONS - new secure rules
     match /conversations/{conversationId} {
-      // Allow read/list if the user is a participant
-      allow read, list: if isSignedIn() && request.auth.uid in resource.data.participants;
-      // Allow create if the user is one of the participants
+      // Allow a user to get a conversation if they are a participant.
+      allow get: if isParticipant(conversationId);
+
+      // Allow a user to list conversations only if they are querying for conversations they are a part of.
+      allow list: if isSignedIn() && request.query.where[0].field == "participants" && request.query.where[0].op == "array-contains" && request.query.where[0].value == request.auth.uid;
+      
+      // Allow create if the user is one of the participants being added.
       allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
       
-      // MESSAGES SUBCOLLECTION
+      // MESSAGES SUBCOLLECTION - secured via the isParticipant function
       match /messages/{messageId} {
-        // Inherit read/write access from parent conversation
-        allow read, write: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        // Allow read (get, list) and write (create, update, delete) if the user is a participant of the parent conversation.
+        allow read, write: if isParticipant(conversationId);
       }
     }
 
