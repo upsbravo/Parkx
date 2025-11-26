@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { ScrollArea } from './ui/scroll-area';
 import { Skeleton } from './ui/skeleton';
+import { useEffect, useRef } from 'react';
 
 type Message = {
     id: string;
@@ -22,9 +23,19 @@ type MessageFeedProps = {
 }
 
 export function MessageFeed({ messages, isLoading, contactName, contactInitial, currentUserId }: MessageFeedProps) {
+    const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (scrollAreaRef.current) {
+            const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (viewport) {
+                viewport.scrollTop = viewport.scrollHeight;
+            }
+        }
+    }, [messages]);
     
     return (
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
           <div className="space-y-4">
           {isLoading ? <Skeleton className="h-20 w-full" /> :
             messages && messages.length > 0 ? (

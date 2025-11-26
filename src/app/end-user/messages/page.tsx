@@ -1,3 +1,4 @@
+
 // src/app/end-user/messages/page.tsx
 'use client';
 
@@ -56,7 +57,6 @@ export default function EndUserMessages() {
   const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || areMessagesLoading;
   const vendorName = vendorData?.name || 'Admin';
   const vendorInitial = vendorName?.[0] || 'A';
-  const targetId = vendorId || ''; // Can't send without a vendor
   
   return (
       <div className="space-y-6">
@@ -83,8 +83,8 @@ export default function EndUserMessages() {
             </div>
           </div>
         </CardHeader>
-        <MessageFeed messages={messages || []} isLoading={isLoading} contactName={vendorName} contactInitial={vendorInitial} />
-        {user && <SendMessageBox targetUserId={user.uid} />}
+        <MessageFeed messages={messages || []} isLoading={isLoading} contactName={vendorName} contactInitial={vendorInitial} currentUserId={user?.uid} />
+        {user && <SendMessageBox targetCollectionPath={`users/${user.uid}/messages`} senderId={user.uid} />}
       </Card>
     </div>
   );
