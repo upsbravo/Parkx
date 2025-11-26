@@ -185,18 +185,18 @@ service cloud.firestore {
     // --------------------------------------------------------------------
 
     /**
-     * @description Secures parking spot data nested under each vendor. Authenticated users
-     *              can view spots, but only Super Admins can manage them.
+     * @description Secures parking spot data nested under each vendor. Vendor Admins can manage
+     *              their own spots, and Super Admins have full access.
      * @path /vendors/{vendorId}/parking_spots/{parkingSpotId}
-     * @allow (create) A Super Admin adds a new parking spot for a vendor.
-     * @deny (create) A regular End User tries to add a parking spot.
-     * @principle Validates relational integrity by ensuring created spots belong to the correct vendor path.
+     * @allow (create) A Super Admin or the Vendor Admin adds a new parking spot.
+     * @deny (create) An end-user or a different vendor tries to add a spot.
+     * @principle Enforces ownership at the vendor level for all spot management operations.
      */
     match /vendors/{vendorId}/parking_spots/{parkingSpotId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSuperAdmin() && request.resource.data.vendorId == vendorId;
-      allow update: if isSuperAdmin() && resource != null && request.resource.data.vendorId == resource.data.vendorId;
-      allow delete: if isSuperAdmin() && resource != null;
+      allow get, list: if isOwner(vendorId) || isSuperAdmin();
+      allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
+      allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null && request.resource.data.vendorId == resource.data.vendorId;
+      allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
     }
 
     /**
