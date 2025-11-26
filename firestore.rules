@@ -30,7 +30,7 @@ service cloud.firestore {
        allow list: if isSuperAdmin();
        allow create: if isSuperAdmin();
        allow update: if isOwner(superAdminId) || isSuperAdmin();
-       allow delete: if false; 
+       allow delete: if false;
     }
 
     match /vendors/{vendorId} {
@@ -39,7 +39,7 @@ service cloud.firestore {
       allow create: if isSuperAdmin();
       allow update: if isSuperAdmin() || isOwner(vendorId);
       allow delete: if isSuperAdmin() && resource != null;
-      
+
       match /parking_spots/{parkingSpotId} {
         allow get, list: if isOwner(vendorId) || isSuperAdmin();
         allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
@@ -47,13 +47,13 @@ service cloud.firestore {
         allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
       }
     }
-    
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isSuperAdmin() || isVendorAdminForUser(userId);
       allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
       allow update: if isOwner(userId) || isVendorAdminForUser(userId) || isSuperAdmin();
       allow delete: if isSuperAdmin() || isVendorAdminForUser(userId);
-      allow list: if isSuperAdmin(); // Or adjust for vendor admins if they need to list all users under them
+      allow list: if isSuperAdmin() || (isSignedIn() && request.query.where.vendorId == request.auth.uid);
     }
 
     match /vendorInvoices/{invoiceId} {
