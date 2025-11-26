@@ -4,7 +4,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() { return request.auth != null; }
+    function isSignedIn() { return request.auth.uid != null; }
 
     function isSuperAdmin() {
       return isSignedIn() &&
@@ -46,11 +46,11 @@ service cloud.firestore {
       }
 
       // Vendor Admins can manage invoices within their own subcollection
-      match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
+      match /userInvoices/{invoiceId} { allow read, list, write: if request.auth.uid == vendorId; }
       
       // Vendor Admins can manage documents for their own users
       match /userDocuments/{docId} { 
-        allow read, list, write: if request.auth.uid == vendorId || request.auth.uid == request.resource.data.userId;
+        allow read, list, write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId;
       }
     }
 
@@ -85,11 +85,17 @@ service cloud.firestore {
         allow write: if request.auth.uid == vendorId || request.auth.uid == request.resource.data.userId;
     }
 
-    // COMMUNICATIONS - users can only read/write messages sent to or from them
+    // COMMUNICATIONS - users can query for messages sent to or from them
     match /communications/{commId} {
-      allow read, write: if isSignedIn() &&
-        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+    }
+
+    match /communications/{document=**} {
+       allow list: if isSignedIn() && (
+        (request.query.where.senderId == request.auth.uid) ||
+        (request.query.where.receiverId == request.auth.uid)
+      );
     }
 
 
@@ -99,5 +105,3 @@ service cloud.firestore {
     match /{document=**} { allow read, write: if isSuperAdmin(); }
   }
 }
-
-    

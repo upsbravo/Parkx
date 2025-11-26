@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -77,8 +78,10 @@ export default function VendorUserMessagesPage() {
 
     return query(
       collection(firestore, 'communications'),
-      where('senderId', 'in', [vendorAdmin.uid, selectedUser.id]),
-      where('receiverId', 'in', [vendorAdmin.uid, selectedUser.id]),
+       or(
+           where('senderId', '==', vendorAdmin.uid),
+           where('receiverId', '==', vendorAdmin.uid)
+       ),
       orderBy('timestamp', 'asc')
     );
   }, [firestore, vendorAdmin, selectedUser]);
@@ -262,5 +265,3 @@ export default function VendorUserMessagesPage() {
     </div>
   );
 }
-
-    

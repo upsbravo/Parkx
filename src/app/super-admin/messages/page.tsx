@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -20,6 +21,7 @@ import {
   query,
   where,
   orderBy,
+  or,
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -74,8 +76,10 @@ export default function VendorMessagesPage() {
 
     return query(
       collection(firestore, 'communications'),
-      where('senderId', 'in', [superAdmin.uid, selectedVendor.id]),
-      where('receiverId', 'in', [superAdmin.uid, selectedVendor.id]),
+       or(
+           where('senderId', '==', superAdmin.uid),
+           where('receiverId', '==', superAdmin.uid)
+       ),
       orderBy('timestamp', 'asc')
     );
   }, [firestore, superAdmin, selectedVendor]);
@@ -258,5 +262,3 @@ export default function VendorMessagesPage() {
     </div>
   );
 }
-
-    

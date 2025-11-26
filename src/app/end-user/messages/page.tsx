@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -15,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, or, doc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -63,8 +64,10 @@ export default function EndUserMessagesPage() {
 
     return query(
       collection(firestore, 'communications'),
-      where('senderId', 'in', [endUser.uid, vendorData.id]),
-      where('receiverId', 'in', [endUser.uid, vendorData.id]),
+       or(
+           where('senderId', '==', endUser.uid),
+           where('receiverId', '==', endUser.uid)
+       ),
       orderBy('timestamp', 'asc')
     );
   }, [firestore, endUser, vendorData]);
@@ -214,5 +217,3 @@ export default function EndUserMessagesPage() {
     </div>
   );
 }
-
-    
