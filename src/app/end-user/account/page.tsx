@@ -23,7 +23,7 @@ import {
   User,
   MapPin,
   HeartPulse,
-  Car,
+  Truck,
   FileText,
   Camera,
   Upload,
@@ -53,6 +53,10 @@ type EndUser = {
     name: string;
     phone: string;
   };
+  truckCompanyName?: string;
+  truckUnitNumber?: string;
+  vinNumber?: string;
+  tagNumber?: string;
 };
 
 export default function AccountSettingsPage() {
@@ -70,6 +74,10 @@ export default function AccountSettingsPage() {
   const [zip, setZip] = useState('');
   const [emergencyName, setEmergencyName] = useState('');
   const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [truckCompanyName, setTruckCompanyName] = useState('');
+  const [truckUnitNumber, setTruckUnitNumber] = useState('');
+  const [vinNumber, setVinNumber] = useState('');
+  const [tagNumber, setTagNumber] = useState('');
   
   // Password states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -84,9 +92,6 @@ export default function AccountSettingsPage() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
 
   useEffect(() => {
-    // When user or profile data loads, populate the form state.
-    // ALWAYS provide a fallback to an empty string ('') to prevent
-    // controlled/uncontrolled input errors.
     if (userProfile) {
         setFullName(`${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim());
         setEmail(userProfile.email || '');
@@ -97,8 +102,11 @@ export default function AccountSettingsPage() {
         setZip(userProfile.address?.zip || '');
         setEmergencyName(userProfile.emergencyContact?.name || '');
         setEmergencyPhone(userProfile.emergencyContact?.phone || '');
+        setTruckCompanyName(userProfile.truckCompanyName || '');
+        setTruckUnitNumber(userProfile.truckUnitNumber || '');
+        setVinNumber(userProfile.vinNumber || '');
+        setTagNumber(userProfile.tagNumber || '');
     } else if (user) {
-        // Fallback for when profile is still loading but auth user exists
         setFullName(user.displayName || '');
         setEmail(user.email || '');
     }
@@ -117,7 +125,11 @@ export default function AccountSettingsPage() {
             lastName: lastName.join(' '),
             phone,
             address: { street, city, state, zip },
-            emergencyContact: { name: emergencyName, phone: emergencyPhone }
+            emergencyContact: { name: emergencyName, phone: emergencyPhone },
+            truckCompanyName,
+            truckUnitNumber,
+            vinNumber,
+            tagNumber,
         };
 
         await updateDoc(userDocRef, updatedData);
@@ -171,7 +183,7 @@ export default function AccountSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Account Settings</h1>
         <p className="text-muted-foreground">
-          Manage your profile, contact information, and vehicle details.
+          Manage your profile, contact information, and truck details.
         </p>
       </div>
 
@@ -290,16 +302,43 @@ export default function AccountSettingsPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <Car className="h-5 w-5 text-muted-foreground" />
-              <CardTitle>Vehicle Information</CardTitle>
+              <Truck className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Truck Information</CardTitle>
             </div>
             <CardDescription>
-              Pictures of the car you will be parking and its license plate.
+              Details about the truck you will be parking.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Car Picture</Label>
+                <Label htmlFor="truck-company">Truck Company Name</Label>
+                <Input id="truck-company" value={truckCompanyName} onChange={(e) => setTruckCompanyName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="truck-unit">Truck Unit Number</Label>
+                <Input id="truck-unit" value={truckUnitNumber} onChange={(e) => setTruckUnitNumber(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="vin-number">VIN Number</Label>
+                <Input id="vin-number" value={vinNumber} onChange={(e) => setVinNumber(e.target.value)} />
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="tag-number">Tag Number</Label>
+                <Input id="tag-number" value={tagNumber} onChange={(e) => setTagNumber(e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Truck Images</CardTitle>
+             <CardDescription>
+              Pictures of the truck you will be parking and its tag/unit number.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Truck Picture</Label>
               <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed">
                 <div className="text-center text-muted-foreground">
                   <Camera className="mx-auto h-8 w-8" />
@@ -312,7 +351,7 @@ export default function AccountSettingsPage() {
               </Button>
             </div>
             <div className="space-y-2">
-              <Label>Car Tag Picture</Label>
+              <Label>Truck Tag / Unit Picture</Label>
               <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed">
                 <div className="text-center text-muted-foreground">
                   <Camera className="mx-auto h-8 w-8" />

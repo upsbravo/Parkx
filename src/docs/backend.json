@@ -180,6 +180,22 @@
         "isRecurringPayment": {
           "type": "boolean",
           "description": "Flag indicating if the user is on a recurring payment plan."
+        },
+        "truckCompanyName": {
+          "type": "string",
+          "description": "The name of the user's truck company."
+        },
+        "truckUnitNumber": {
+          "type": "string",
+          "description": "The unit number of the user's truck."
+        },
+        "vinNumber": {
+          "type": "string",
+          "description": "The VIN of the user's truck."
+        },
+        "tagNumber": {
+          "type": "string",
+          "description": "The license plate or tag number of the user's truck."
         }
       },
       "required": [
