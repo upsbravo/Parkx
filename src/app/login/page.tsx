@@ -76,34 +76,29 @@ export default function LoginPage() {
     }
     
     // 3. Check for End-User role by querying all vendor subcollections
+    // This is the corrected logic.
     try {
-        const vendorsQuery = query(collection(firestore, 'vendors'));
-        const vendorsSnapshot = await getDocs(vendorsQuery);
+        const endUserQuery = query(collection(firestore, 'users'), where('id', '==', user.uid));
+        const endUserSnapshot = await getDocs(endUserQuery);
 
-        for (const vendorDoc of vendorsSnapshot.docs) {
-            const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
-            const endUserDocSnap = await getDoc(endUserDocRef);
-            if (endUserDocSnap.exists()) {
-                const userData = endUserDocSnap.data();
-                if (userData.role === 'endUser') {
-                    toast({ title: 'Login Successful', description: `Welcome!` });
-                    router.push('/end-user/dashboard');
-                    return;
-                }
+        if (!endUserSnapshot.empty) {
+            const userDoc = endUserSnapshot.docs[0];
+            if (userDoc.data().role === 'endUser') {
+                 toast({ title: 'Login Successful', description: `Welcome!` });
+                 router.push('/end-user/dashboard');
+                 return;
             }
         }
     } catch (error) {
         console.error("Error checking for end user role:", error);
-        // Fall through to the error toast below
     }
 
-    // 4. If no role is found, show an error.
+    // 4. If no role is found after checking all possibilities, show an error.
     toast({ 
       variant: 'destructive',
       title: 'Login Error',
       description: 'Could not determine user role. Please contact support.' 
     });
-    // Don't redirect if role is unknown
   };
 
 

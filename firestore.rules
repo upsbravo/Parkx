@@ -145,15 +145,16 @@ service cloud.firestore {
 
       /**
        * @description Secures End User profiles nested under a vendor. The vendor admin
-       *              has full control over their own users.
+       *              has full control over their own users. An end user can update their own profile.
        * @path /vendors/{vendorId}/endUsers/{userId}
        * @allow (create) A Vendor Admin creates a new End User for their own company.
        * @deny (list) Another vendor cannot list the users of a different company.
        * @principle Enforces strict data ownership at the subcollection level.
        */
       match /endUsers/{userId} {
-        allow get, list, update: if isOwner(vendorId) || isSuperAdmin();
+        allow get, list: if isOwner(vendorId) || isSuperAdmin();
         allow create: if isOwner(vendorId);
+        allow update: if isOwner(vendorId) || isSuperAdmin() || isOwner(userId);
         allow delete: if isOwner(vendorId) || isSuperAdmin();
       }
       
@@ -185,7 +186,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isSuperAdmin();
-      allow list: if false;
+      allow list: if isSuperAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
