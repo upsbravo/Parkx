@@ -22,10 +22,7 @@ type Vendor = {
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
 };
 
-type EndUser = {
-  id: string;
-};
-
+// The EndUser type is no longer needed here as we will get the count from the users collection directly.
 
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
@@ -33,14 +30,15 @@ export default function SuperAdminDashboard() {
   const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
+  // This query is safe for a Super Admin, as the security rules allow them to list all users.
   const usersQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
-  const { data: users, isLoading: usersLoading } = useCollection<EndUser>(usersQuery);
+  const { data: users, isLoading: usersLoading } = useCollection(usersQuery);
 
   const isLoading = vendorsLoading || usersLoading;
 
   const totalVendors = vendors?.length ?? 0;
   const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
-  const totalEndUsers = users?.length ?? 0;
+  const totalEndUsers = users?.length ?? 0; // Correctly get the length from the fetched users data.
   // Placeholder for MRR calculation
   const monthlyRecurringRevenue = activeSubscriptions * 250; // Assuming a placeholder value
 
