@@ -23,8 +23,6 @@ type Vendor = {
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
 };
 
-// The EndUser type is no longer needed here as we will get the count from the users collection directly.
-
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
   const { user, isUserLoading: isAuthLoading } = useUser();
@@ -32,7 +30,7 @@ export default function SuperAdminDashboard() {
   const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  // This query is safe for a Super Admin. Let's ensure it ONLY runs for the super admin.
+  // This query is safe for a Super Admin. We ensure it ONLY runs for the super admin.
   const isSuperAdmin = user?.uid === SUPER_ADMIN_ID;
   const usersQuery = useMemoFirebase(() => {
     if (firestore && isSuperAdmin) {
