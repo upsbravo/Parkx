@@ -1,3 +1,4 @@
+'use client';
 
 import {
   Card,
@@ -12,11 +13,36 @@ import {
   Users,
   AreaChart,
 } from "lucide-react";
-import { vendors, endUsers } from "@/lib/data";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type Vendor = {
+  id: string;
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
+};
+
+type EndUser = {
+  id: string;
+};
+
 
 export default function SuperAdminDashboard() {
-  const totalVendors = vendors.length;
-  const totalEndUsers = endUsers.length;
+  const firestore = useFirestore();
+
+  const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
+  const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
+
+  const usersQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
+  const { data: users, isLoading: usersLoading } = useCollection<EndUser>(usersQuery);
+
+  const isLoading = vendorsLoading || usersLoading;
+
+  const totalVendors = vendors?.length ?? 0;
+  const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
+  const totalEndUsers = users?.length ?? 0;
+  // Placeholder for MRR calculation
+  const monthlyRecurringRevenue = activeSubscriptions * 250; // Assuming a placeholder value
 
   const stats = [
     {
@@ -27,13 +53,13 @@ export default function SuperAdminDashboard() {
     },
     {
       title: "Active Subscriptions",
-      value: "0",
+      value: activeSubscriptions.toString(),
       description: "Vendors on a plan",
       icon: <AreaChart className="h-4 w-4 text-muted-foreground" />,
     },
     {
       title: "Monthly Recurring Revenue",
-      value: "$0",
+      value: `$${monthlyRecurringRevenue.toLocaleString()}`,
       description: "Based on active subscriptions",
       icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
     },
@@ -65,10 +91,19 @@ export default function SuperAdminDashboard() {
               {stat.icon}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {stat.description}
-              </p>
+              {isLoading ? (
+                 <div className="space-y-2">
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-3/4" />
+                 </div>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         ))}
