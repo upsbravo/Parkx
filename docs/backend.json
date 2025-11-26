@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SuperAdmin",
       "type": "object",
-      "description": "Represents the platform owner with full control over the system.",
+      "description": "Represents the Super Admin of the ParkX platform.",
       "properties": {
         "id": {
           "type": "string",
@@ -35,52 +35,91 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Vendor",
       "type": "object",
-      "description": "Represents a business using the platform to manage their parking lot.",
+      "description": "Represents a vendor (parking lot business) on the ParkX platform.",
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique identifier for the Vendor entity."
         },
-        "superAdminId": {
+        "name": {
           "type": "string",
-          "description": "Reference to SuperAdmin. (Relationship: SuperAdmin 1:N Vendor)"
+          "description": "Name of the vendor."
         },
-        "companyName": {
+        "email": {
           "type": "string",
-          "description": "Name of the vendor's company."
-        },
-        "contactEmail": {
-          "type": "string",
-          "description": "Contact email for the vendor.",
+          "description": "Contact email address for the vendor.",
           "format": "email"
         },
-        "spotLimit": {
+        "parkingSpotLimit": {
           "type": "number",
-          "description": "The maximum number of parking spots the vendor can manage."
+          "description": "Maximum number of parking spots allowed for the vendor."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the vendor (e.g., Pending, Active, Trial)."
+        },
+        "joinDate": {
+          "type": "string",
+          "description": "The date the vendor joined.",
+          "format": "date-time"
+        },
+        "trialEnds": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the vendor's trial period ends.",
+          "format": "date-time"
         },
         "logoUrl": {
           "type": "string",
-          "description": "URL of the vendor's logo.",
+          "description": "URL of the vendor's company logo.",
           "format": "uri"
+        },
+        "website": {
+          "type": "string",
+          "description": "The vendor's website URL.",
+          "format": "uri"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The vendor's contact phone number."
+        },
+        "address": {
+          "type": "object",
+          "description": "The vendor's physical address.",
+          "properties": {
+            "street1": { "type": "string" },
+            "street2": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" },
+            "country": { "type": "string" }
+          }
+        },
+        "timeZone": {
+          "type": "string",
+          "description": "The vendor's time zone."
         }
       },
       "required": [
         "id",
-        "superAdminId",
-        "companyName",
-        "contactEmail",
-        "spotLimit"
+        "name",
+        "email",
+        "parkingSpotLimit",
+        "status",
+        "joinDate"
       ]
     },
     "EndUser": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "EndUser",
       "type": "object",
-      "description": "Represents an end user who reserves and pays for parking spots.",
+      "description": "Represents an end-user (customer) of a vendor.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the EndUser entity."
+          "description": "Unique identifier for the End User entity."
         },
         "vendorId": {
           "type": "string",
@@ -88,30 +127,35 @@
         },
         "email": {
           "type": "string",
-          "description": "Email address of the end user.",
+          "description": "Email address of the end-user.",
           "format": "email"
         },
         "firstName": {
           "type": "string",
-          "description": "First name of the end user."
+          "description": "First name of the end-user."
         },
         "lastName": {
           "type": "string",
-          "description": "Last name of the end user."
+          "description": "Last name of the end-user."
         },
         "assignedSpotId": {
-          "type": "string",
-          "description": "Reference to ParkingSpot. (Relationship: ParkingSpot 1:N EndUser)"
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Reference to ParkingSpot. (Relationship: ParkingSpot 1:1 EndUser)"
         },
-        "vehiclePhotoUrl": {
-          "type": "string",
-          "description": "URL of the users vehicle photo.",
-          "format": "uri"
+        "cancellationRequested": {
+          "type": "boolean",
+          "description": "Flag indicating if the user has requested to cancel their spot."
         },
-        "licensePlatePhotoUrl": {
-          "type": "string",
-          "description": "URL of the users license plate photo.",
-          "format": "uri"
+        "cancellationRequestDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the user requested cancellation.",
+          "format": "date-time"
         }
       },
       "required": [
@@ -126,11 +170,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ParkingSpot",
       "type": "object",
-      "description": "Represents an individual parking spot within a vendor's parking lot.",
+      "description": "Represents a parking spot within a vendor's parking lot.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the ParkingSpot entity."
+          "description": "Unique identifier for the Parking Spot entity."
         },
         "vendorId": {
           "type": "string",
@@ -138,11 +182,18 @@
         },
         "name": {
           "type": "string",
-          "description": "Name or identifier of the parking spot (e.g., 'A1', 'Spot 1')."
+          "description": "Name or identifier of the parking spot (e.g., 'A1', 'Spot 10')."
         },
         "isAvailable": {
           "type": "boolean",
           "description": "Indicates whether the parking spot is currently available."
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The ID of the EndUser assigned to this spot."
         }
       },
       "required": [
@@ -152,105 +203,27 @@
         "isAvailable"
       ]
     },
-    "Invoice": {
+    "Communication": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Invoice",
+      "title": "Communication",
       "type": "object",
-      "description": "Represents an invoice for a vendor's subscription or an end user's parking fees.",
+      "description": "Represents a communication thread or message between users.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Invoice entity."
-        },
-        "vendorId": {
-          "type": "string",
-          "description": "Reference to Vendor. (Relationship: Vendor 1:N Invoice). Nullable if invoice is for end user"
-        },
-        "endUserId": {
-          "type": "string",
-          "description": "Reference to EndUser. (Relationship: EndUser 1:N Invoice). Nullable if invoice is for vendor"
-        },
-        "invoiceDate": {
-          "type": "string",
-          "description": "Date the invoice was issued.",
-          "format": "date-time"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The total amount due on the invoice."
-        },
-        "status": {
-          "type": "string",
-          "description": "The status of the invoice (e.g., 'Paid', 'Unpaid', 'Overdue')."
-        },
-        "pdfUrl": {
-          "type": "string",
-          "description": "URL of the invoice PDF file.",
-          "format": "uri"
-        }
-      },
-      "required": [
-        "id",
-        "invoiceDate",
-        "amount",
-        "status"
-      ]
-    },
-    "Conversation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Conversation",
-      "type": "object",
-      "description": "Represents a conversation thread between a Super Admin and a Vendor Admin, or a Vendor Admin and an End User.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Conversation entity."
-        },
-        "superAdminId": {
-          "type": "string",
-          "description": "Reference to SuperAdmin. (Relationship: SuperAdmin 1:N Conversation). Nullable if conversation is between Vendor Admin and End User."
-        },
-        "vendorId": {
-          "type": "string",
-          "description": "Reference to Vendor. (Relationship: Vendor 1:N Conversation).  Required in all cases"
-        },
-        "endUserId": {
-          "type": "string",
-          "description": "Reference to EndUser. (Relationship: EndUser 1:N Conversation). Nullable if conversation is between Super Admin and Vendor Admin."
-        },
-        "startTime": {
-          "type": "string",
-          "description": "Timestamp of when the conversation was started",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "vendorId",
-        "startTime"
-      ]
-    },
-    "Message": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Message",
-      "type": "object",
-      "description": "Represents a message within a conversation thread.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Message entity."
-        },
-        "conversationId": {
-          "type": "string",
-          "description": "Reference to Conversation. (Relationship: Conversation 1:N Message)"
+          "description": "Unique identifier for the Communication entity."
         },
         "senderId": {
           "type": "string",
-          "description": "Reference to the user who sent the message. Could be SuperAdmin, VendorAdmin, or EndUser."
+          "description": "Identifier of the user who sent the message. Could be SuperAdmin, Vendor, or EndUser."
         },
-        "messageText": {
+        "receiverId": {
           "type": "string",
-          "description": "Text content of the message."
+          "description": "Identifier of the user who received the message. Could be SuperAdmin, Vendor, or EndUser."
+        },
+        "message": {
+          "type": "string",
+          "description": "Content of the message."
         },
         "timestamp": {
           "type": "string",
@@ -260,60 +233,56 @@
       },
       "required": [
         "id",
-        "conversationId",
         "senderId",
-        "messageText",
+        "receiverId",
+        "message",
         "timestamp"
       ]
     },
-    "FileStorage": {
+    "VendorInvoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "FileStorage",
+      "title": "VendorInvoice",
       "type": "object",
-      "description": "Represents a file stored in Firebase Storage, with metadata.",
+      "description": "Represents an invoice for a vendor, covering subscriptions and additional services.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the file storage entry."
-        },
-        "fileName": {
-          "type": "string",
-          "description": "The original name of the file."
-        },
-        "contentType": {
-          "type": "string",
-          "description": "The MIME type of the file (e.g., 'image/jpeg', 'application/pdf')."
-        },
-        "fileSize": {
-          "type": "number",
-          "description": "The size of the file in bytes."
-        },
-        "uploadTimestamp": {
-          "type": "string",
-          "description": "Timestamp of when the file was uploaded.",
-          "format": "date-time"
-        },
-        "fileUrl": {
-          "type": "string",
-          "description": "URL of the file stored in Firebase Storage.",
-          "format": "uri"
+          "description": "Unique identifier for the Vendor Invoice."
         },
         "vendorId": {
           "type": "string",
-          "description": "Reference to Vendor, if the file is related to a vendor. (Relationship: Vendor 1:N FileStorage)"
+          "description": "The ID of the vendor this invoice belongs to."
         },
-        "endUserId": {
+        "vendorName": {
           "type": "string",
-          "description": "Reference to EndUser, if the file is related to an end user. (Relationship: EndUser 1:N FileStorage)"
+          "description": "The name of the vendor (denormalized for display)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the invoice is due.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
+          "enum": ["Pending", "Paid", "Overdue"]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or line items for the invoice."
         }
       },
       "required": [
         "id",
-        "fileName",
-        "contentType",
-        "fileSize",
-        "uploadTimestamp",
-        "fileUrl"
+        "vendorId",
+        "vendorName",
+        "amount",
+        "dueDate",
+        "status"
       ]
     }
   },
@@ -326,17 +295,17 @@
   "firestore": {
     "structure": [
       {
-        "path": "/super_admins/{superAdminId}",
+        "path": "/superAdmins/{superAdminId}",
         "definition": {
           "entityName": "SuperAdmin",
           "schema": {
             "$ref": "#/backend/entities/SuperAdmin"
           },
-          "description": "Stores Super Admin profiles.  The document ID is the Firebase Auth UID.",
+          "description": "Stores Super Admin profiles. Collection enforces that only authenticated super admins can manage super admins profiles.",
           "params": [
             {
               "name": "superAdminId",
-              "description": "The Firebase Auth UID of the super admin."
+              "description": "The unique identifier for the SuperAdmin document."
             }
           ]
         }
@@ -348,136 +317,88 @@
           "schema": {
             "$ref": "#/backend/entities/Vendor"
           },
-          "description": "Stores Vendor profiles. Includes 'superAdminId' for relationship to SuperAdmin.",
+          "description": "Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.",
           "params": [
             {
               "name": "vendorId",
-              "description": "The unique identifier for the vendor."
+              "description": "The unique identifier for the Vendor document."
             }
           ]
         }
       },
       {
-        "path": "/users/{userId}",
+        "path": "/vendorInvoices/{vendorInvoiceId}",
+        "definition": {
+          "entityName": "VendorInvoice",
+          "schema": {
+            "$ref": "#/backend/entities/VendorInvoice"
+          },
+          "description": "Stores invoices for vendors. Super Admin has full access.",
+          "params": [
+            {
+              "name": "vendorInvoiceId",
+              "description": "The unique identifier for the VendorInvoice document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/endUsers/{endUserId}",
         "definition": {
           "entityName": "EndUser",
           "schema": {
             "$ref": "#/backend/entities/EndUser"
           },
-          "description": "Stores End User profiles. Contains the 'vendorId' to link users to their vendor.  The document ID is the Firebase Auth UID.",
+          "description": "Stores End Users, nested under their respective Vendor. Includes denormalized 'vendorId' for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.",
           "params": [
             {
-              "name": "userId",
-              "description": "The Firebase Auth UID of the end user."
+              "name": "vendorId",
+              "description": "The unique identifier for the Vendor document."
+            },
+            {
+              "name": "endUserId",
+              "description": "The unique identifier for the EndUser document."
             }
           ]
         }
       },
       {
-        "path": "/vendors/{vendorId}/parking_spots/{parkingSpotId}",
+        "path": "/vendors/{vendorId}/parkingSpots/{parkingSpotId}",
         "definition": {
           "entityName": "ParkingSpot",
           "schema": {
             "$ref": "#/backend/entities/ParkingSpot"
           },
-          "description": "Stores Parking Spot data, segregated by vendor. Includes denormalized 'vendorId' for authorization independence.",
+          "description": "Stores Parking Spots, nested under their respective Vendor. Includes denormalized 'vendorId' for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.",
           "params": [
             {
               "name": "vendorId",
-              "description": "The unique identifier for the vendor."
+              "description": "The unique identifier for the Vendor document."
             },
             {
               "name": "parkingSpotId",
-              "description": "The unique identifier for the parking spot."
+              "description": "The unique identifier for the ParkingSpot document."
             }
           ]
         }
       },
       {
-        "path": "/invoices/{invoiceId}",
+        "path": "/communications/{communicationId}",
         "definition": {
-          "entityName": "Invoice",
+          "entityName": "Communication",
           "schema": {
-            "$ref": "#/backend/entities/Invoice"
+            "$ref": "#/backend/entities/Communication"
           },
-          "description": "Stores Invoice data. Contains both 'vendorId' and 'endUserId', either of which can be null.",
+          "description": "Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via 'senderId' and 'receiverId'.",
           "params": [
             {
-              "name": "invoiceId",
-              "description": "The unique identifier for the invoice."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/conversations/{conversationId}",
-        "definition": {
-          "entityName": "Conversation",
-          "schema": {
-            "$ref": "#/backend/entities/Conversation"
-          },
-          "description": "Stores Conversation threads. Contains 'vendorId', and either 'superAdminId' or 'endUserId'.",
-          "params": [
-            {
-              "name": "conversationId",
-              "description": "The unique identifier for the conversation."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/conversations/{conversationId}/messages/{messageId}",
-        "definition": {
-          "entityName": "Message",
-          "schema": {
-            "$ref": "#/backend/entities/Message"
-          },
-          "description": "Stores messages within a conversation.",
-          "params": [
-            {
-              "name": "conversationId",
-              "description": "The unique identifier for the conversation."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the message."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/file_storage/{fileStorageId}",
-        "definition": {
-          "entityName": "FileStorage",
-          "schema": {
-            "$ref": "#/backend/entities/FileStorage"
-          },
-          "description": "Stores metadata for files stored in Firebase Storage. Includes references to 'vendorId' and 'endUserId' for access control.",
-          "params": [
-            {
-              "name": "fileStorageId",
-              "description": "The unique identifier for the file storage entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_super_admin/{userId}",
-        "definition": {
-          "entityName": "SuperAdmin",
-          "schema": {
-            "$ref": "#/backend/entities/SuperAdmin"
-          },
-          "description": "A presence-based role collection to efficiently check Super Admin status.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The Firebase Auth UID of the user."
+              "name": "communicationId",
+              "description": "The unique identifier for the Communication document."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, clarity, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing relevant authorization data (like vendorId) into subcollections where required. This eliminates the need for `get()` calls in security rules, enabling atomic operations.\n\n**Structure Overview:**\n\n*   `/super_admins/{superAdminId}`: Stores Super Admin profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Vendor documents also contain critical metadata like `superAdminId`.\n*   `/users/{userId}`: Stores End User profiles. End Users are created at the top level and contain the vendorId of their associated vendor.\n*   `/vendors/{vendorId}/parking_spots/{parkingSpotId}`: Stores Parking Spot data, segregated by vendor. The vendorId is denormalized to enable secure listing of parking spots based on vendor.\n*   `/invoices/{invoiceId}`: Stores Invoice data. There is no parent/child relationship between Vendor/EndUser and Invoices. Invoices contain both `vendorId` and `endUserId`, either of which can be null.\n*   `/conversations/{conversationId}`: Stores Conversation threads. The `vendorId` is stored on the document to avoid needing to look it up. Either `superAdminId` or `endUserId` may be set, but not both.\n*   `/conversations/{conversationId}/messages/{messageId}`: Stores messages within a conversation. The `conversationId` field acts as the link. All messages for a given conversation share the same security profile.\n*   `/file_storage/{fileStorageId}`: Stores metadata for files stored in Firebase Storage. Includes references to `vendorId` and `endUserId` for access control.\n*   `/roles_super_admin/{userId}`: A presence-based role collection to efficiently check Super Admin status.\n\n**Authorization Independence & Denormalization:**\n\n*   Parking Spots: The `vendorId` is included within each `/vendors/{vendorId}/parking_spots/{parkingSpotId}` document. This allows security rules to validate that the vendor making changes to a parking spot is indeed the spot's owner, without needing to perform a `get()` on the parent Vendor document.\n*   Messages: Messages are stored in a subcollection of conversations, and conversations contain either `superAdminId`, `vendorId`, or `endUserId` depending on who created the conversation. All messages for a given conversation share the same security requirements, and rules can be written to allow only participants of a conversation to post a message.\n*   File Storage: Files are stored in the top-level collection `/file_storage/{fileStorageId}` and contain the `vendorId` or `endUserId` of the owner. This means the security rules can quickly determine the owner of a file, and whether or not the current user can access it.\n\n**QAPs (Rules are not Filters):**\n\nThe structure facilitates secure list operations by segregating data based on ownership and role. For example, listing parking spots is always done within the context of a vendor (`/vendors/{vendorId}/parking_spots`).  The security rules can then ensure that only the specified vendor (or a Super Admin) can list those spots.  Similarly, the `roles_super_admin` collection uses existence checks, preventing the need to filter based on document content.\n\n**Global Roles (DBAC):**\n\nThe `/roles_super_admin/{userId}` collection provides a simple and efficient way to check if a user has Super Admin privileges. The security rules only need to check for the existence of a document with the user's ID in this collection."
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, role-based access control, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing authorization data, specifically `vendorId` in `endUsers` and `parkingSpots`, which prevents the need for `get()` calls in security rules. The structure is segregated based on roles and entity ownership to maintain a homogeneous security posture within collections. QAPs are supported through structural segregation and path-based ownership for private user data and membership maps where collaboration is needed.\n\nSpecifically, the structure is as follows:\n\n*   `/superAdmins/{superAdminId}`: Stores Super Admin profiles. Only one super admin will be available in the system at any time. Collection enforces that only authenticated super admins can manage super admins profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.\n* `/vendorInvoices/{vendorInvoiceId}`: Stores invoices for vendors. Super Admin has full access.\n*   `/vendors/{vendorId}/endUsers/{endUserId}`: Stores End Users, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.\n*   `/vendors/{vendorId}/parkingSpots/{parkingSpotId}`: Stores Parking Spots, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.\n*   `/communications/{communicationId}`: Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via `senderId` and `receiverId`."
   }
 }

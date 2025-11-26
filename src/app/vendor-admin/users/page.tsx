@@ -116,11 +116,6 @@ export default function UserManagementPage() {
     if (!selectedUser || !firestore || !vendorAdmin) return;
     const userRef = doc(firestore, 'vendors', vendorAdmin.uid, 'endUsers', selectedUser.id);
     deleteDocumentNonBlocking(userRef);
-    toast({
-      variant: 'destructive',
-      title: 'User Deleted',
-      description: `${selectedUser.firstName} ${selectedUser.lastName} has been permanently deleted.`,
-    });
     setDeleteAlertOpen(false);
     setSelectedUser(null);
   };

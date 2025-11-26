@@ -1,141 +1,34 @@
 
-/**
- * This Firestore Security Ruleset is designed for the ParkX application,
- * implementing a role-based and ownership-based access control model.
- *
- * Core Philosophy:
- * The security model establishes a clear hierarchy with three main roles:
- * 1. Super Admins: Have broad administrative and read access across the system.
- * 2. Vendors: Entities managed by Super Admins, who own resources like parking spots.
- * 3. End Users: The primary customers who own their personal data and related documents.
- * Access is tightly scoped to a user's role and their direct ownership of data.
- * The default security posture is to deny access unless explicitly granted.
- *
- * Data Structure:
- * The data is organized into top-level collections for primary entities like
- * `super_admins`, `vendors`, `users`, `invoices`, `conversations`, and `file_storage`.
- * A dedicated `roles_super_admin` collection is used for efficient role lookups.
- * Resources owned by a specific entity are nested, such as parking spots within a vendor
- * (`/vendors/{vendorId}/parking_spots/{spotId}`), to provide clear structural ownership.
- *
- * Key Security Decisions:
- * - Super Admin status is determined by document existence in `/roles_super_admin/{userId}`,
- *   which is a highly performant and secure pattern for role management.
- * - Listing documents in most collections is heavily restricted to prevent data leakage.
- *   For example, listing all users or all invoices is disallowed.
- * - Access to subcollections (e.g., messages within a conversation) is controlled by
- *   permissions on the parent document, requiring a `get()` call to verify participation.
- * - All write operations (`create`, `update`, `delete`) are strictly controlled and
- *   must be authenticated and authorized. No public write access is permitted.
- *
- * Denormalization for Authorization:
- * To ensure fast and simple authorization checks, ownership and relationship data
- * is denormalized. For example, `invoices` and `file_storage` documents contain
- * an `endUserId` field directly on the document, so rules can check for ownership
- * without performing costly lookups on other collections.
- *
- * Structural Segregation:
- * Different user types (`SuperAdmin`, `Vendor`, `EndUser`) are stored in separate
- * top-level collections. This segregation simplifies rules and queries by ensuring
- * that a single collection contains only one type of entity.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions
-    // --------------------------------------------------------------------
-
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the current user's UID matches the provided userId.
-     * Used to verify document ownership.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /**
-     * Checks if the user is a Super Admin by looking for their UID
-     * in the dedicated roles collection.
-     */
     function isSuperAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    /**
-     * Validates ownership for an existing document on update or delete.
-     * Ensures the document exists before attempting the operation.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * Checks if the user is a participant in a given conversation.
-     * Reads the parent conversation document to check participation fields.
-     */
-    function isConversationParticipant(conversationId) {
-      let conversation = get(/databases/$(database)/documents/conversations/$(conversationId)).data;
-      return isSignedIn() && (
-        request.auth.uid == conversation.superAdminId ||
-        request.auth.uid == conversation.vendorId || // Assuming vendorId can be a UID
-        request.auth.uid == conversation.endUserId
-      );
-    }
-
-
-    // --------------------------------------------------------------------
-    // Role & Profile Collections
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Controls access to Super Admin role documents. Any authenticated user can check
-     *              for a role document to verify permissions, but only existing Super Admins can create new ones.
-     * @path /roles_super_admin/{userId}
-     * @allow (get, list) Any authenticated user checks for a role document to determine access level.
-     * @allow (create) A Super Admin creates a new role document for another Super Admin.
-     * @deny (update, delete) No client-side updates/deletes allowed to prevent privilege modification.
-     * @principle Enforces a secure, admin-managed role system while allowing for public role verification.
-     */
     match /roles_super_admin/{userId} {
       allow get, list: if isSignedIn();
       allow create: if isSuperAdmin();
       allow update, delete: if false;
     }
 
-    /**
-     * @description Controls access to Super Admin profile documents. A Super Admin can
-     *              manage their own profile. Other Super Admins can view profiles.
-     * @path /super_admins/{superAdminId}
-     * @allow (update) A Super Admin (auth.uid: 'sa123') updates their own profile at /super_admins/sa123.
-     * @allow (create) A Super Admin creates a new profile for another Super Admin.
-     * @deny (update) A regular user tries to update an admin's profile.
-     * @principle Restricts access to a user's own data tree, with elevated privileges for admins.
-     */
     match /super_admins/{superAdminId} {
        allow get: if isOwner(superAdminId) || isSuperAdmin();
        allow list: if isSuperAdmin();
        allow create: if isSuperAdmin();
        allow update: if isOwner(superAdminId) || isSuperAdmin();
-       allow delete: if false; // Deleting super admins should be a server-side/console action
+       allow delete: if false; 
     }
 
-    /**
-     * @description Manages Vendor profiles. This data can be read by any authenticated user
-     *              but can only be created or modified by Super Admins or the vendor owner.
-     * @path /vendors/{vendorId}
-     * @allow (create) A Super Admin creates a new vendor profile.
-     * @deny (create) A regular End User attempts to create a vendor profile.
-     * @principle Secures administrative data, allowing public read but restricted write access.
-     */
     match /vendors/{vendorId} {
       allow get: if isSignedIn();
       allow list: if isSuperAdmin();
@@ -143,29 +36,12 @@ service cloud.firestore {
       allow update: if isSuperAdmin() || isOwner(vendorId);
       allow delete: if isSuperAdmin() && resource != null;
 
-      /**
-       * @description Secures End User profiles nested under a vendor. The vendor admin
-       *              has full control over their own users. An end user can update their own profile.
-       * @path /vendors/{vendorId}/endUsers/{userId}
-       * @allow (create) A Vendor Admin creates a new End User for their own company.
-       * @deny (list) Another vendor cannot list the users of a different company.
-       * @principle Enforces strict data ownership at the subcollection level.
-       */
       match /endUsers/{userId} {
-        allow get, list: if isOwner(vendorId) || isSuperAdmin();
+        allow get, list, update: if isOwner(vendorId) || isSuperAdmin();
         allow create: if isOwner(vendorId);
-        allow update: if isOwner(vendorId) || isSuperAdmin() || isOwner(userId);
         allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
       }
       
-      /**
-       * @description Secures parking spot data nested under each vendor. Vendor Admins can manage
-       *              their own spots, and Super Admins have full access.
-       * @path /vendors/{vendorId}/parking_spots/{parkingSpotId}
-       * @allow (create) A Super Admin or the Vendor Admin adds a new parking spot.
-       * @deny (create) An end-user or a different vendor tries to add a spot.
-       * @principle Enforces ownership at the vendor level for all spot management operations.
-       */
       match /parking_spots/{parkingSpotId} {
         allow get: if isOwner(vendorId) || isSuperAdmin();
         allow list: if isOwner(vendorId) || isSuperAdmin();
@@ -174,106 +50,9 @@ service cloud.firestore {
         allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
       }
     }
-
-    /**
-     * @description Secures End User profiles. Users can create and manage their own
-     *              profile. Super Admins can view profiles for support purposes.
-     * @path /users/{userId}
-     * @allow (create) A new user (auth.uid: 'user123') creates their own profile at /users/user123.
-     * @deny (get) Another user (auth.uid: 'user456') tries to read the profile at /users/user123.
-     * @deny (list) No user can list all documents in the /users collection.
-     * @principle Enforces strict document ownership for all operations.
-     */
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isSuperAdmin();
-      allow list: if isSuperAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
-    }
-    
     
     match /vendorInvoices/{invoiceId} {
       allow read, write: if isSuperAdmin();
-    }
-
-
-    // --------------------------------------------------------------------
-    // Business Logic Collections
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Secures invoice documents. A user can read an invoice if they are the
-     *              recipient (`endUserId`). Only Super Admins can create or manage invoices.
-     * @path /invoices/{invoiceId}
-     * @allow (get) A user (auth.uid: 'user123') reads an invoice where `resource.data.endUserId` is 'user123'.
-     * @deny (get) A user tries to read an invoice belonging to another user.
-     * @deny (list) No user can list all invoices.
-     * @principle Enforces document ownership for reads based on denormalized data.
-     */
-    match /invoices/{invoiceId} {
-      allow get: if isOwner(resource.data.endUserId) || isSuperAdmin();
-      allow list: if false;
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin() && resource != null;
-      allow delete: if isSuperAdmin() && resource != null;
-    }
-
-    /**
-     * @description Secures metadata for stored files. A user can create their own file
-     *              metadata and manage it. Super Admins have full access for moderation.
-     * @path /file_storage/{fileStorageId}
-     * @allow (create) A user (auth.uid: 'user123') uploads a file and creates metadata with `endUserId: 'user123'`.
-     * @deny (create) A user (auth.uid: 'user123') tries to create file metadata for another user (`endUserId: 'user456'`).
-     * @deny (list) Listing all files is forbidden.
-     * @principle Validates relational integrity on create and enforces ownership for all subsequent writes.
-     */
-    match /file_storage/{fileStorageId} {
-      allow get: if isOwner(resource.data.endUserId) || isSuperAdmin();
-      allow list: if false;
-      allow create: if isOwner(request.resource.data.endUserId);
-      allow update: if (isOwner(resource.data.endUserId) || isSuperAdmin()) && resource != null;
-      allow delete: if (isOwner(resource.data.endUserId) || isSuperAdmin()) && resource != null;
-    }
-
-    // --------------------------------------------------------------------
-    // Communication Collections
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Secures conversation threads. Only participants listed in the document
-     *              (superAdminId, vendorId, endUserId) can access it.
-     * @path /conversations/{conversationId}
-     * @allow (get) A user reads a conversation where their UID is in the `endUserId` field.
-     * @deny (get) A user tries to read a conversation they are not a part of.
-     * @principle Implements a closed collaborator model where access is granted by checking a members list.
-     */
-    match /conversations/{conversationId} {
-      allow get: if isConversationParticipant(conversationId);
-      allow list: if false;
-      // Allow creation if the creator is one of the participants.
-      allow create: if isSignedIn() && (
-        request.auth.uid == request.resource.data.superAdminId ||
-        request.auth.uid == request.resource.data.vendorId ||
-        request.auth.uid == request.resource.data.endUserId
-      );
-      allow update: if isConversationParticipant(conversationId) && resource != null;
-      allow delete: if isConversationParticipant(conversationId) && resource != null;
-
-      /**
-       * @description Secures messages within a conversation. Access is inherited from the parent
-       *              conversation document. A user must be a participant to read or write messages.
-       * @path /conversations/{conversationId}/messages/{messageId}
-       * @allow (create) A conversation participant sends a new message.
-       * @deny (create) A non-participant tries to post a message to the conversation.
-       * @principle Secures a subcollection by performing a lookup on its parent document.
-       */
-      match /messages/{messageId} {
-        allow get, list: if isConversationParticipant(conversationId);
-        allow create: if isConversationParticipant(conversationId) && isOwner(request.resource.data.senderId);
-        allow update: if isConversationParticipant(conversationId) && isOwner(resource.data.senderId) && resource != null;
-        allow delete: if isConversationParticipant(conversationId) && isOwner(resource.data.senderId) && resource != null;
-      }
     }
   }
 }
