@@ -50,7 +50,7 @@ service cloud.firestore {
       
       // Vendor Admins can manage documents for their own users
       match /userDocuments/{docId} { 
-        allow read, list, write: if request.auth.uid == vendorId;
+        allow read, list, write: if request.auth.uid == vendorId || request.auth.uid == request.resource.data.userId;
       }
     }
 
@@ -82,7 +82,14 @@ service cloud.firestore {
     match /vendors/{vendorId}/userDocuments/{docId} {
         allow read: if request.auth.uid == resource.data.userId || request.auth.uid == vendorId;
         allow list: if request.auth.uid == vendorId || (request.query.where != null && request.auth.uid == request.query.where.userId);
-        allow write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId;
+        allow write: if request.auth.uid == vendorId || request.auth.uid == request.resource.data.userId;
+    }
+
+    // COMMUNICATIONS - users can only read/write messages sent to or from them
+    match /communications/{commId} {
+      allow read, write: if isSignedIn() &&
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
     }
 
 
@@ -92,3 +99,5 @@ service cloud.firestore {
     match /{document=**} { allow read, write: if isSuperAdmin(); }
   }
 }
+
+    

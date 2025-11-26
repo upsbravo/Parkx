@@ -339,6 +339,19 @@
           "type": "string",
           "description": "Timestamp of when the message was sent.",
           "format": "date-time"
+        },
+        "attachmentUrl": {
+          "type": "string",
+          "description": "URL of the file attachment.",
+          "format": "uri"
+        },
+        "attachmentName": {
+          "type": "string",
+          "description": "The display name of the attached file."
+        },
+        "attachmentType": {
+          "type": "string",
+          "description": "The type of attachment (e.g., 'image', 'file')."
         }
       },
       "required": [
