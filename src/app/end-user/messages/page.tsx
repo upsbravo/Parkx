@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc, and, or } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -36,13 +36,16 @@ type Vendor = {
 type Message = {
   id: string;
   senderId: string;
-  receiverId: string;
   message: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
+
+const getConversationId = (uid1: string, uid2: string) => {
+    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
 
 export default function EndUserMessagesPage() {
   const { user: endUser, isUserLoading: isUserLoading } = useUser();
@@ -59,35 +62,38 @@ export default function EndUserMessagesPage() {
   const vendorDocRef = useMemoFirebase(() => (userData && firestore) ? doc(firestore, 'vendors', userData.vendorId) : null, [userData, firestore]);
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const conversationQuery = useMemoFirebase(() => {
-    if (!firestore || !endUser || !vendorData) return null;
+  const conversationId = useMemo(() => {
+    if (!endUser || !vendorData) return null;
+    return getConversationId(endUser.uid, vendorData.id);
+  }, [endUser, vendorData]);
 
-    // This query fetches the entire conversation in one go.
-    // It gets messages where the end-user is the sender AND the vendor is the receiver
-    // OR where the vendor is the sender AND the end-user is the receiver.
-    return query(
-      collection(firestore, 'communications'),
-      or(
-        and(where('senderId', '==', endUser.uid), where('receiverId', '==', vendorData.id)),
-        and(where('senderId', '==', vendorData.id), where('receiverId', '==', endUser.uid))
-      ),
-      orderBy('timestamp', 'asc') // Order the results by time
-    );
-  }, [firestore, endUser, vendorData]);
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || !conversationId) return null;
+    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, conversationId]);
 
-  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
+  const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
 
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !endUser || !vendorData) return;
+    if ((!messageText && !attachment) || !endUser || !vendorData || !conversationId) return;
 
     setIsSending(true);
+
+    const conversationRef = doc(firestore, 'conversations', conversationId);
+    const messagesRef = collection(conversationRef, 'messages');
+
+    // Ensure conversation document exists
+    await setDoc(conversationRef, {
+        participants: [endUser.uid, vendorData.id],
+    }, { merge: true });
+
     let attachmentData: Partial<Message> = {};
 
     if (attachment) {
         try {
             const storage = getStorage();
-            const fileRef = storageRef(storage, `communications/${vendorData.id}/${endUser.uid}/${Date.now()}_${attachment.name}`);
+            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
             const snapshot = await uploadBytes(fileRef, attachment);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
@@ -104,10 +110,8 @@ export default function EndUserMessagesPage() {
         }
     }
     
-    const commsCollection = collection(firestore, 'communications');
-    await addDocumentNonBlocking(commsCollection, {
+    await addDocumentNonBlocking(messagesRef, {
       senderId: endUser.uid,
-      receiverId: vendorData.id,
       message: messageText,
       timestamp: new Date().toISOString(),
       ...attachmentData
@@ -157,8 +161,8 @@ export default function EndUserMessagesPage() {
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4">
           {isLoading ? <Skeleton className="h-20 w-full" /> :
-            combinedMessages && combinedMessages.length > 0 ? (
-                combinedMessages.map((msg) => (
+            messages && messages.length > 0 ? (
+                messages.map((msg) => (
                     <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === endUser?.uid ? 'justify-end' : ''}`}>
                         {msg.senderId !== endUser?.uid && (
                             <Avatar className="h-8 w-8">
@@ -220,3 +224,5 @@ export default function EndUserMessagesPage() {
     </div>
   );
 }
+
+    

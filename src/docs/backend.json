@@ -313,54 +313,68 @@
         "isAvailable"
       ]
     },
-    "Communication": {
+    "Conversation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Communication",
+      "title": "Conversation",
       "type": "object",
-      "description": "Represents a communication thread or message between users.",
+      "description": "Represents a conversation thread between two users.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Communication entity."
+          "description": "Unique identifier for the Conversation entity."
         },
-        "senderId": {
-          "type": "string",
-          "description": "Identifier of the user who sent the message. Could be SuperAdmin, Vendor, or EndUser."
+        "participants": {
+          "type": "array",
+          "description": "An array of user IDs who are part of the conversation.",
+          "items": { "type": "string" }
         },
-        "receiverId": {
-          "type": "string",
-          "description": "Identifier of the user who received the message. Could be SuperAdmin, Vendor, or EndUser."
-        },
-        "message": {
-          "type": "string",
-          "description": "Content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp of when the message was sent.",
-          "format": "date-time"
-        },
-        "attachmentUrl": {
-          "type": "string",
-          "description": "URL of the file attachment.",
-          "format": "uri"
-        },
-        "attachmentName": {
-          "type": "string",
-          "description": "The display name of the attached file."
-        },
-        "attachmentType": {
-          "type": "string",
-          "description": "The type of attachment (e.g., 'image', 'file')."
+        "lastMessage": {
+          "type": "object",
+          "description": "A copy of the last message for display purposes.",
+          "properties": {
+            "text": { "type": "string" },
+            "senderId": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
         }
       },
       "required": [
         "id",
-        "senderId",
-        "receiverId",
-        "message",
-        "timestamp"
+        "participants"
       ]
+    },
+    "Message": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Message",
+      "type": "object",
+      "description": "Represents a single message within a conversation.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "senderId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attachmentUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "attachmentName": {
+          "type": "string"
+        },
+        "attachmentType": {
+          "type": "string",
+          "enum": ["image", "file"]
+        }
+      },
+      "required": ["id", "senderId", "message", "timestamp"]
     },
     "VendorInvoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -638,23 +652,43 @@
         }
       },
       {
-        "path": "/communications/{communicationId}",
+        "path": "/conversations/{conversationId}",
         "definition": {
-          "entityName": "Communication",
+          "entityName": "Conversation",
           "schema": {
-            "$ref": "#/backend/entities/Communication"
+            "$ref": "#/backend/entities/Conversation"
           },
-          "description": "Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via 'senderId' and 'receiverId'.",
+          "description": "Stores metadata about a conversation thread. Access is controlled by the 'participants' array.",
           "params": [
             {
-              "name": "communicationId",
-              "description": "The unique identifier for the Communication document."
+              "name": "conversationId",
+              "description": "The unique identifier for the Conversation document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/conversations/{conversationId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Stores the actual messages for a conversation, nested as a sub-collection. Access is inherited from the parent conversation.",
+          "params": [
+            {
+              "name": "conversationId",
+              "description": "The ID of the parent conversation."
+            },
+            {
+              "name": "messageId",
+              "description": "The ID of the message document."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a top-level `/conversations` collection with a `messages` sub-collection, which is a more scalable and secure pattern for chat applications."
   }
 }
 

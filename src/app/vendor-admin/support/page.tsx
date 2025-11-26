@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -22,7 +22,7 @@ import {
   useMemoFirebase,
   addDocumentNonBlocking,
 } from '@/firebase';
-import { collection, query, where, or, and, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -34,13 +34,16 @@ const SUPER_ADMIN_ID = 'PH1p3JvXPSNh2CfiSxzOW2sjlDf1';
 type Message = {
   id: string;
   senderId: string;
-  receiverId: string;
   message: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
+
+const getConversationId = (uid1: string, uid2: string) => {
+    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
 
 export default function VendorSupportPage() {
   const { user: vendorAdmin, isUserLoading } = useUser();
@@ -51,31 +54,39 @@ export default function VendorSupportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const conversationQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin) return null;
-    return query(
-      collection(firestore, 'communications'),
-      or(
-        and(where('senderId', '==', vendorAdmin.uid), where('receiverId', '==', SUPER_ADMIN_ID)),
-        and(where('senderId', '==', SUPER_ADMIN_ID), where('receiverId', '==', vendorAdmin.uid))
-      ),
-      orderBy('timestamp', 'asc')
-    );
-  }, [firestore, vendorAdmin]);
+  const conversationId = useMemo(() => {
+    if (!vendorAdmin) return null;
+    return getConversationId(vendorAdmin.uid, SUPER_ADMIN_ID);
+  }, [vendorAdmin]);
 
-  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || !conversationId) return null;
+    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, conversationId]);
+
+  const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
 
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !vendorAdmin) return;
+    if ((!messageText && !attachment) || !vendorAdmin || !conversationId) return;
 
     setIsSending(true);
+
+    const conversationRef = doc(firestore, 'conversations', conversationId);
+    const messagesRef = collection(conversationRef, 'messages');
+    
+    // Ensure conversation document exists
+    await setDoc(conversationRef, {
+        participants: [vendorAdmin.uid, SUPER_ADMIN_ID]
+    }, { merge: true });
+
+
     let attachmentData: Partial<Message> = {};
 
     if (attachment) {
         try {
             const storage = getStorage();
-            const fileRef = storageRef(storage, `communications/${vendorAdmin.uid}/${SUPER_ADMIN_ID}/${Date.now()}_${attachment.name}`);
+            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
             const snapshot = await uploadBytes(fileRef, attachment);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
@@ -92,10 +103,8 @@ export default function VendorSupportPage() {
         }
     }
     
-    const commsCollection = collection(firestore, 'communications');
-    await addDocumentNonBlocking(commsCollection, {
+    await addDocumentNonBlocking(messagesRef, {
       senderId: vendorAdmin.uid,
-      receiverId: SUPER_ADMIN_ID,
       message: messageText,
       timestamp: new Date().toISOString(),
       ...attachmentData
@@ -141,8 +150,8 @@ export default function VendorSupportPage() {
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4">
           {isLoading ? <Skeleton className="h-20 w-full" /> :
-             combinedMessages && combinedMessages.length > 0 ? (
-                combinedMessages.map((msg) => (
+             messages && messages.length > 0 ? (
+                messages.map((msg) => (
                     <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === vendorAdmin?.uid ? 'justify-end' : ''}`}>
                         {msg.senderId !== vendorAdmin?.uid && (
                             <Avatar className="h-8 w-8">
@@ -203,3 +212,5 @@ export default function VendorSupportPage() {
     </div>
   );
 }
+
+    

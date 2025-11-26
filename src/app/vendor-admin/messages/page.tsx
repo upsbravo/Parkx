@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -21,8 +21,8 @@ import {
   query,
   where,
   orderBy,
-  or,
-  and
+  doc,
+  setDoc,
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -44,13 +44,16 @@ type EndUser = {
 type Message = {
   id: string;
   senderId: string;
-  receiverId: string;
   message: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
+
+const getConversationId = (uid1: string, uid2: string) => {
+    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
 
 export default function VendorUserMessagesPage() {
   const { user: vendorAdmin, isUserLoading: isVendorLoading } = useUser();
@@ -63,41 +66,42 @@ export default function VendorUserMessagesPage() {
   const { toast } = useToast();
 
   const usersQuery = useMemoFirebase(
-    () =>
-      vendorAdmin
-        ? query(
-            collection(firestore, 'users'),
-            where('vendorId', '==', vendorAdmin.uid)
-          )
-        : null,
+    () => vendorAdmin ? query(collection(firestore, 'users'), where('vendorId', '==', vendorAdmin.uid)) : null,
     [vendorAdmin, firestore]
   );
   const { data: users, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
 
-  const conversationQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin || !selectedUser) return null;
-    return query(
-      collection(firestore, 'communications'),
-      or(
-        and(where('senderId', '==', vendorAdmin.uid), where('receiverId', '==', selectedUser.id)),
-        and(where('senderId', '==', selectedUser.id), where('receiverId', '==', vendorAdmin.uid))
-      ),
-      orderBy('timestamp', 'asc')
-    );
-  }, [firestore, vendorAdmin, selectedUser]);
+  const conversationId = useMemo(() => {
+    if (!vendorAdmin || !selectedUser) return null;
+    return getConversationId(vendorAdmin.uid, selectedUser.id);
+  }, [vendorAdmin, selectedUser]);
+  
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || !conversationId) return null;
+    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, conversationId]);
 
-  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
+  const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
+
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !vendorAdmin || !selectedUser) return;
+    if ((!messageText && !attachment) || !vendorAdmin || !selectedUser || !conversationId) return;
 
     setIsSending(true);
+
+    const conversationRef = doc(firestore, 'conversations', conversationId);
+    const messagesRef = collection(conversationRef, 'messages');
+
+    await setDoc(conversationRef, {
+        participants: [vendorAdmin.uid, selectedUser.id],
+    }, { merge: true });
+
     let attachmentData: Partial<Message> = {};
 
     if (attachment) {
         try {
             const storage = getStorage();
-            const fileRef = storageRef(storage, `communications/${vendorAdmin.uid}/${selectedUser.id}/${Date.now()}_${attachment.name}`);
+            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
             const snapshot = await uploadBytes(fileRef, attachment);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
@@ -114,10 +118,8 @@ export default function VendorUserMessagesPage() {
         }
     }
     
-    const commsCollection = collection(firestore, 'communications');
-    await addDocumentNonBlocking(commsCollection, {
+    await addDocumentNonBlocking(messagesRef, {
       senderId: vendorAdmin.uid,
-      receiverId: selectedUser.id,
       message: messageText,
       timestamp: new Date().toISOString(),
       ...attachmentData
@@ -133,7 +135,7 @@ export default function VendorUserMessagesPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           setAttachment(e.target.files[0]);
-          setMessageText(e.target.files[0].name); // Show filename in text area
+          setMessageText(e.target.files[0].name);
       }
   };
 
@@ -192,8 +194,8 @@ export default function VendorUserMessagesPage() {
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
                     {messagesLoading ? <Skeleton className="h-20 w-full" /> : 
-                        combinedMessages && combinedMessages.length > 0 ? (
-                          combinedMessages.map((msg) => (
+                        messages && messages.length > 0 ? (
+                          messages.map((msg) => (
                               <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === vendorAdmin?.uid ? 'justify-end' : ''}`}>
                                   {msg.senderId !== vendorAdmin?.uid && (
                                       <Avatar className="h-8 w-8">
@@ -263,3 +265,5 @@ export default function VendorUserMessagesPage() {
     </div>
   );
 }
+
+    

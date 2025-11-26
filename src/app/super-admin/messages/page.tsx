@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -21,8 +21,9 @@ import {
   query,
   where,
   orderBy,
-  or,
-  and,
+  doc,
+  getDocs,
+  setDoc,
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,16 +41,24 @@ type Vendor = {
   email: string;
 };
 
+type Conversation = {
+  id: string;
+  participants: string[];
+};
+
 type Message = {
   id: string;
   senderId: string;
-  receiverId: string;
   message: string;
   timestamp: string;
   attachmentUrl?: string;
   attachmentName?: string;
   attachmentType?: 'image' | 'file';
 };
+
+const getConversationId = (uid1: string, uid2: string) => {
+    return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+}
 
 export default function VendorMessagesPage() {
   const { user: superAdmin, isUserLoading: isSuperAdminLoading } = useUser();
@@ -62,41 +71,47 @@ export default function VendorMessagesPage() {
   const { toast } = useToast();
 
   const vendorsQuery = useMemoFirebase(
-    () =>
-      superAdmin
-        ? query(
-            collection(firestore, 'vendors')
-          )
-        : null,
+    () => superAdmin ? query(collection(firestore, 'vendors')) : null,
     [superAdmin, firestore]
   );
   const { data: vendors, isLoading: areVendorsLoading } = useCollection<Vendor>(vendorsQuery);
+  
+  const conversationId = useMemo(() => {
+    if (!superAdmin || !selectedVendor) return null;
+    return getConversationId(superAdmin.uid, selectedVendor.id);
+  }, [superAdmin, selectedVendor]);
 
-  const conversationQuery = useMemoFirebase(() => {
-    if (!firestore || !superAdmin || !selectedVendor) return null;
-    return query(
-      collection(firestore, 'communications'),
-      or(
-        and(where('senderId', '==', superAdmin.uid), where('receiverId', '==', selectedVendor.id)),
-        and(where('senderId', '==', selectedVendor.id), where('receiverId', '==', superAdmin.uid))
-      ),
-      orderBy('timestamp', 'asc')
-    );
-  }, [firestore, superAdmin, selectedVendor]);
+  const messagesQuery = useMemoFirebase(() => {
+    if (!firestore || !conversationId) return null;
+    return query(collection(firestore, 'conversations', conversationId, 'messages'), orderBy('timestamp', 'asc'));
+  }, [firestore, conversationId]);
 
-  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
+  const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
 
-
+  const handleSelectVendor = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+  };
+  
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !superAdmin || !selectedVendor) return;
+    if ((!messageText && !attachment) || !superAdmin || !selectedVendor || !conversationId) return;
 
     setIsSending(true);
+
+    const conversationRef = doc(firestore, 'conversations', conversationId);
+    const messagesRef = collection(conversationRef, 'messages');
+
+    // Ensure conversation document exists
+    await setDoc(conversationRef, {
+        participants: [superAdmin.uid, selectedVendor.id],
+        // lastMessage could be updated here as well
+    }, { merge: true });
+
     let attachmentData: Partial<Message> = {};
 
     if (attachment) {
         try {
             const storage = getStorage();
-            const fileRef = storageRef(storage, `communications/${superAdmin.uid}/${selectedVendor.id}/${Date.now()}_${attachment.name}`);
+            const fileRef = storageRef(storage, `conversations/${conversationId}/${Date.now()}_${attachment.name}`);
             const snapshot = await uploadBytes(fileRef, attachment);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
@@ -113,10 +128,8 @@ export default function VendorMessagesPage() {
         }
     }
     
-    const commsCollection = collection(firestore, 'communications');
-    await addDocumentNonBlocking(commsCollection, {
+    await addDocumentNonBlocking(messagesRef, {
       senderId: superAdmin.uid,
-      receiverId: selectedVendor.id,
       message: messageText,
       timestamp: new Date().toISOString(),
       ...attachmentData
@@ -132,7 +145,7 @@ export default function VendorMessagesPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files[0]) {
           setAttachment(e.target.files[0]);
-          setMessageText(e.target.files[0].name); // Show filename in text area
+          setMessageText(e.target.files[0].name); 
       }
   };
 
@@ -162,7 +175,7 @@ export default function VendorMessagesPage() {
               {vendors?.map((vendor) => (
                 <li
                   key={vendor.id}
-                  onClick={() => setSelectedVendor(vendor)}
+                  onClick={() => handleSelectVendor(vendor)}
                   className={`p-4 hover:bg-muted/50 cursor-pointer rounded-lg ${selectedVendor?.id === vendor.id ? 'bg-muted' : ''}`}
                 >
                   <div className="flex items-center gap-3">
@@ -191,8 +204,8 @@ export default function VendorMessagesPage() {
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
                     {messagesLoading ? <Skeleton className="h-20 w-full" /> : 
-                        combinedMessages && combinedMessages.length > 0 ? (
-                            combinedMessages.map((msg) => (
+                        messages && messages.length > 0 ? (
+                            messages.map((msg) => (
                                 <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === superAdmin?.uid ? 'justify-end' : ''}`}>
                                     {msg.senderId !== superAdmin?.uid && (
                                         <Avatar className="h-8 w-8">
@@ -262,3 +275,5 @@ export default function VendorMessagesPage() {
     </div>
   );
 }
+
+    
