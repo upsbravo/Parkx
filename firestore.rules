@@ -44,10 +44,21 @@ service cloud.firestore {
         isSuperAdmin() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
+    
+    // ==================== VENDORS & PARKING SPOTS ====================
+    match /vendors/{vendorId} {
+      allow read: if isSignedIn(); 
+      allow write: if isSuperAdmin() || request.auth.uid == vendorId;
+
+      // This rule is needed to allow vendors to manage their own spots.
+      match /parkingSpots/{spotId} {
+        allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
+      }
+    }
+
 
     // Keep everything else simple
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
-    match /vendors/{any}           { allow read: if isSignedIn(); allow write: if isSuperAdmin() || request.auth.uid == any; }
     match /{document=**}           { allow read, write: if isSuperAdmin(); }
   }
 }
