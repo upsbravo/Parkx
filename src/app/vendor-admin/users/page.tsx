@@ -33,7 +33,17 @@ import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebas
 import { collection, query } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssignSpotDialog } from "./assign-spot-dialog";
-import { UserDetailsDialog } from "./user-details-dialog";
+import Link from "next/link";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type EndUser = {
   id: string;
@@ -47,7 +57,6 @@ type EndUser = {
 
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
-  const [isDetailsOpen, setDetailsOpen] = useState(false);
   const [isAssignSpotOpen, setAssignSpotOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<EndUser | null>(null);
   
@@ -67,11 +76,6 @@ export default function UserManagementPage() {
     Active: "default",
     Pending: "secondary",
     Inactive: "destructive",
-  };
-
-  const handleViewDetails = (user: EndUser) => {
-    setSelectedUser(user);
-    setDetailsOpen(true);
   };
 
   const handleAssignSpot = (user: EndUser) => {
@@ -168,7 +172,9 @@ export default function UserManagementPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleViewDetails(user)}>View Details</DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Spot</DropdownMenuItem>
                              <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                               Deactivate User
@@ -196,11 +202,6 @@ export default function UserManagementPage() {
       <InviteUserDialog open={isInviteOpen} onOpenChange={setInviteOpen} />
       {selectedUser && (
         <>
-          <UserDetailsDialog
-            user={selectedUser}
-            open={isDetailsOpen}
-            onOpenChange={setDetailsOpen}
-          />
           <AssignSpotDialog
             user={selectedUser}
             open={isAssignSpotOpen}
