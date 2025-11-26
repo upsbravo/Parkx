@@ -60,6 +60,11 @@ type EndUser = {
   vendorId: string;
 };
 
+type ParkingSpot = {
+  id: string;
+  name: string;
+};
+
 
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
@@ -76,10 +81,21 @@ export default function UserManagementPage() {
     if (!firestore || !vendorAdmin) return null;
     return query(collection(firestore, "users"), where("vendorId", "==", vendorAdmin.uid));
   }, [firestore, vendorAdmin]);
-
   const { data: endUsers, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
+
+  const parkingSpotsQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorAdmin) return null;
+    return collection(firestore, 'vendors', vendorAdmin.uid, 'parkingSpots');
+  }, [firestore, vendorAdmin]);
+  const { data: parkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(parkingSpotsQuery);
   
-  const isLoading = isVendorLoading || areUsersLoading;
+  const isLoading = isVendorLoading || areUsersLoading || areSpotsLoading;
+
+  const getSpotName = (spotId: string | null): string => {
+    if (!spotId) return 'N/A';
+    const spot = parkingSpots?.find(s => s.id === spotId);
+    return spot?.name ?? spotId;
+  }
 
   const statusVariant = {
     Active: "default",
@@ -164,7 +180,7 @@ export default function UserManagementPage() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Spot</TableHead>
+                  <TableHead>Parking Lot</TableHead>
                   <TableHead>Truck Parks</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
@@ -206,7 +222,7 @@ export default function UserManagementPage() {
                           {user.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{user.assignedSpotId || 'N/A'}</TableCell>
+                      <TableCell>{getSpotName(user.assignedSpotId)}</TableCell>
                       <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
                         <DropdownMenu>
