@@ -21,6 +21,8 @@ import {
   query,
   where,
   orderBy,
+  or,
+  and,
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -56,7 +58,6 @@ export default function VendorMessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -71,39 +72,20 @@ export default function VendorMessagesPage() {
   );
   const { data: vendors, isLoading: areVendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  const sentMessagesQuery = useMemoFirebase(() => {
+  const conversationQuery = useMemoFirebase(() => {
     if (!firestore || !superAdmin || !selectedVendor) return null;
     return query(
       collection(firestore, 'communications'),
-      where('senderId', '==', superAdmin.uid),
-      where('receiverId', '==', selectedVendor.id)
+      or(
+        and(where('senderId', '==', superAdmin.uid), where('receiverId', '==', selectedVendor.id)),
+        and(where('senderId', '==', selectedVendor.id), where('receiverId', '==', superAdmin.uid))
+      ),
+      orderBy('timestamp', 'asc')
     );
   }, [firestore, superAdmin, selectedVendor]);
 
-  const receivedMessagesQuery = useMemoFirebase(() => {
-    if (!firestore || !superAdmin || !selectedVendor) return null;
-    return query(
-      collection(firestore, 'communications'),
-      where('senderId', '==', selectedVendor.id),
-      where('receiverId', '==', superAdmin.uid)
-    );
-  }, [firestore, superAdmin, selectedVendor]);
+  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
 
-  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
-  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
-
-  useEffect(() => {
-    if (selectedVendor) {
-      const sent = sentMessages || [];
-      const received = receivedMessages || [];
-      const allMessages = [...sent, ...received].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-      setCombinedMessages(allMessages);
-    } else {
-      setCombinedMessages([]);
-    }
-  }, [sentMessages, receivedMessages, selectedVendor]);
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !superAdmin || !selectedVendor) return;
@@ -155,7 +137,6 @@ export default function VendorMessagesPage() {
   };
 
   const isLoading = isSuperAdminLoading || areVendorsLoading;
-  const areMessagesLoading = sentLoading || receivedLoading;
 
   return (
     <div className="space-y-4">
@@ -209,33 +190,39 @@ export default function VendorMessagesPage() {
                 </CardHeader>
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
-                    {areMessagesLoading ? <Skeleton className="h-20 w-full" /> : 
-                        combinedMessages.map((msg) => (
-                            <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === superAdmin?.uid ? 'justify-end' : ''}`}>
-                                {msg.senderId !== superAdmin?.uid && (
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={`https://picsum.photos/seed/vendor-${msg.senderId}/32/32`} />
-                                        <AvatarFallback>{selectedVendor.name?.[0]}</AvatarFallback>
-                                    </Avatar>
-                                )}
-                                <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === superAdmin?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                    <p className="font-bold mb-1">{msg.senderId === superAdmin?.uid ? 'You (Super Admin)' : selectedVendor.name}</p>
-                                    <p>{msg.message}</p>
-                                    {msg.attachmentUrl && (
-                                        <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
-                                            <Download className="h-3 w-3" />
-                                            {msg.attachmentName || 'View Attachment'}
-                                        </a>
+                    {messagesLoading ? <Skeleton className="h-20 w-full" /> : 
+                        combinedMessages && combinedMessages.length > 0 ? (
+                            combinedMessages.map((msg) => (
+                                <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === superAdmin?.uid ? 'justify-end' : ''}`}>
+                                    {msg.senderId !== superAdmin?.uid && (
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarImage src={`https://picsum.photos/seed/vendor-${msg.senderId}/32/32`} />
+                                            <AvatarFallback>{selectedVendor.name?.[0]}</AvatarFallback>
+                                        </Avatar>
                                     )}
-                                    <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
+                                    <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === superAdmin?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                        <p className="font-bold mb-1">{msg.senderId === superAdmin?.uid ? 'You (Super Admin)' : selectedVendor.name}</p>
+                                        <p>{msg.message}</p>
+                                        {msg.attachmentUrl && (
+                                            <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
+                                                <Download className="h-3 w-3" />
+                                                {msg.attachmentName || 'View Attachment'}
+                                            </a>
+                                        )}
+                                        <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
+                                    </div>
+                                     {msg.senderId === superAdmin?.uid && (
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarFallback>SA</AvatarFallback>
+                                        </Avatar>
+                                    )}
                                 </div>
-                                 {msg.senderId === superAdmin?.uid && (
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarFallback>SA</AvatarFallback>
-                                    </Avatar>
-                                )}
+                            ))
+                        ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                                No messages yet.
                             </div>
-                        ))
+                        )
                     }
                     </div>
                 </ScrollArea>

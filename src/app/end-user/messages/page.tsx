@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, and, or } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -51,7 +51,6 @@ export default function EndUserMessagesPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => endUser ? doc(firestore, 'users', endUser.uid) : null, [endUser, firestore]);
@@ -60,35 +59,24 @@ export default function EndUserMessagesPage() {
   const vendorDocRef = useMemoFirebase(() => (userData && firestore) ? doc(firestore, 'vendors', userData.vendorId) : null, [userData, firestore]);
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const sentMessagesQuery = useMemoFirebase(() => {
+  const conversationQuery = useMemoFirebase(() => {
     if (!firestore || !endUser || !vendorData) return null;
+
+    // This query fetches the entire conversation in one go.
+    // It gets messages where the end-user is the sender AND the vendor is the receiver
+    // OR where the vendor is the sender AND the end-user is the receiver.
     return query(
       collection(firestore, 'communications'),
-      where('senderId', '==', endUser.uid),
-      where('receiverId', '==', vendorData.id)
+      or(
+        and(where('senderId', '==', endUser.uid), where('receiverId', '==', vendorData.id)),
+        and(where('senderId', '==', vendorData.id), where('receiverId', '==', endUser.uid))
+      ),
+      orderBy('timestamp', 'asc') // Order the results by time
     );
   }, [firestore, endUser, vendorData]);
 
-  const receivedMessagesQuery = useMemoFirebase(() => {
-    if (!firestore || !endUser || !vendorData) return null;
-    return query(
-      collection(firestore, 'communications'),
-      where('senderId', '==', vendorData.id),
-      where('receiverId', '==', endUser.uid)
-    );
-  }, [firestore, endUser, vendorData]);
+  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
 
-  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
-  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
-
-  useEffect(() => {
-    const sent = sentMessages || [];
-    const received = receivedMessages || [];
-    const allMessages = [...sent, ...received].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    setCombinedMessages(allMessages);
-  }, [sentMessages, receivedMessages]);
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !endUser || !vendorData) return;
@@ -139,7 +127,7 @@ export default function EndUserMessagesPage() {
       }
   };
 
-  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || sentLoading || receivedLoading;
+  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || messagesLoading;
 
   return (
     <div className="space-y-6">
@@ -168,34 +156,40 @@ export default function EndUserMessagesPage() {
         </CardHeader>
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4">
-          {isLoading ? <Skeleton className="h-20 w-full" /> : 
-            combinedMessages.map((msg) => (
-                <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === endUser?.uid ? 'justify-end' : ''}`}>
-                    {msg.senderId !== endUser?.uid && (
-                        <Avatar className="h-8 w-8">
-                           <AvatarImage src={undefined} />
-                           <AvatarFallback>{vendorData?.name?.[0] || 'A'}</AvatarFallback>
-                        </Avatar>
-                    )}
-                    <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === endUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                        <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorData?.name}</p>
-                        <p>{msg.message}</p>
-                         {msg.attachmentUrl && (
-                            <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
-                                <Download className="h-3 w-3" />
-                                {msg.attachmentName || 'View Attachment'}
-                            </a>
+          {isLoading ? <Skeleton className="h-20 w-full" /> :
+            combinedMessages && combinedMessages.length > 0 ? (
+                combinedMessages.map((msg) => (
+                    <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === endUser?.uid ? 'justify-end' : ''}`}>
+                        {msg.senderId !== endUser?.uid && (
+                            <Avatar className="h-8 w-8">
+                               <AvatarImage src={undefined} />
+                               <AvatarFallback>{vendorData?.name?.[0] || 'A'}</AvatarFallback>
+                            </Avatar>
                         )}
-                        <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
+                        <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === endUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                            <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorData?.name}</p>
+                            <p>{msg.message}</p>
+                             {msg.attachmentUrl && (
+                                <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
+                                    <Download className="h-3 w-3" />
+                                    {msg.attachmentName || 'View Attachment'}
+                                </a>
+                            )}
+                            <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
+                        </div>
+                         {msg.senderId === endUser?.uid && (
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={`https://picsum.photos/seed/${endUser.uid}/32/32`} />
+                                <AvatarFallback>ME</AvatarFallback>
+                            </Avatar>
+                        )}
                     </div>
-                     {msg.senderId === endUser?.uid && (
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src={`https://picsum.photos/seed/${endUser.uid}/32/32`} />
-                            <AvatarFallback>ME</AvatarFallback>
-                        </Avatar>
-                    )}
+                ))
+            ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                    No messages yet. Send a message to start the conversation.
                 </div>
-            ))
+            )
         }
           </div>
         </ScrollArea>

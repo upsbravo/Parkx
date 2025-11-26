@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -21,7 +22,7 @@ import {
   useMemoFirebase,
   addDocumentNonBlocking,
 } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, or, and, orderBy } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -47,39 +48,23 @@ export default function VendorSupportPage() {
   const [messageText, setMessageText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const sentMessagesQuery = useMemoFirebase(() => {
+  const conversationQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin) return null;
     return query(
       collection(firestore, 'communications'),
-      where('senderId', '==', vendorAdmin.uid),
-      where('receiverId', '==', SUPER_ADMIN_ID)
+      or(
+        and(where('senderId', '==', vendorAdmin.uid), where('receiverId', '==', SUPER_ADMIN_ID)),
+        and(where('senderId', '==', SUPER_ADMIN_ID), where('receiverId', '==', vendorAdmin.uid))
+      ),
+      orderBy('timestamp', 'asc')
     );
   }, [firestore, vendorAdmin]);
 
-  const receivedMessagesQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin) return null;
-    return query(
-      collection(firestore, 'communications'),
-      where('senderId', '==', SUPER_ADMIN_ID),
-      where('receiverId', '==', vendorAdmin.uid)
-    );
-  }, [firestore, vendorAdmin]);
+  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
 
-  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
-  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
-
-  useEffect(() => {
-    const sent = sentMessages || [];
-    const received = receivedMessages || [];
-    const allMessages = [...sent, ...received].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-    setCombinedMessages(allMessages);
-  }, [sentMessages, receivedMessages]);
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !vendorAdmin) return;
@@ -130,7 +115,7 @@ export default function VendorSupportPage() {
       }
   };
 
-  const isLoading = isUserLoading || sentLoading || receivedLoading;
+  const isLoading = isUserLoading || messagesLoading;
 
   return (
     <div className="space-y-6">
@@ -156,7 +141,7 @@ export default function VendorSupportPage() {
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4">
           {isLoading ? <Skeleton className="h-20 w-full" /> :
-             combinedMessages.length > 0 ? (
+             combinedMessages && combinedMessages.length > 0 ? (
                 combinedMessages.map((msg) => (
                     <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === vendorAdmin?.uid ? 'justify-end' : ''}`}>
                         {msg.senderId !== vendorAdmin?.uid && (

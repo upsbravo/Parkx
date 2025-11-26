@@ -21,6 +21,8 @@ import {
   query,
   where,
   orderBy,
+  or,
+  and
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,7 +59,6 @@ export default function VendorUserMessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -73,40 +74,19 @@ export default function VendorUserMessagesPage() {
   );
   const { data: users, isLoading: areUsersLoading } = useCollection<EndUser>(usersQuery);
 
-  const sentMessagesQuery = useMemoFirebase(() => {
+  const conversationQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin || !selectedUser) return null;
     return query(
       collection(firestore, 'communications'),
-      where('senderId', '==', vendorAdmin.uid),
-      where('receiverId', '==', selectedUser.id)
+      or(
+        and(where('senderId', '==', vendorAdmin.uid), where('receiverId', '==', selectedUser.id)),
+        and(where('senderId', '==', selectedUser.id), where('receiverId', '==', vendorAdmin.uid))
+      ),
+      orderBy('timestamp', 'asc')
     );
   }, [firestore, vendorAdmin, selectedUser]);
 
-  const receivedMessagesQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin || !selectedUser) return null;
-    return query(
-      collection(firestore, 'communications'),
-      where('senderId', '==', selectedUser.id),
-      where('receiverId', '==', vendorAdmin.uid)
-    );
-  }, [firestore, vendorAdmin, selectedUser]);
-
-  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
-  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
-
-  useEffect(() => {
-    if (selectedUser) {
-        const sent = sentMessages || [];
-        const received = receivedMessages || [];
-        const allMessages = [...sent, ...received].sort(
-            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-        setCombinedMessages(allMessages);
-    } else {
-        setCombinedMessages([]);
-    }
-  }, [sentMessages, receivedMessages, selectedUser]);
-
+  const { data: combinedMessages, isLoading: messagesLoading } = useCollection<Message>(conversationQuery);
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !vendorAdmin || !selectedUser) return;
@@ -158,7 +138,6 @@ export default function VendorUserMessagesPage() {
   };
 
   const isLoading = isVendorLoading || areUsersLoading;
-  const areMessagesLoading = sentLoading || receivedLoading;
 
   return (
     <div className="space-y-4">
@@ -212,33 +191,39 @@ export default function VendorUserMessagesPage() {
                 </CardHeader>
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
-                    {areMessagesLoading ? <Skeleton className="h-20 w-full" /> : 
-                        combinedMessages.map((msg) => (
-                            <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === vendorAdmin?.uid ? 'justify-end' : ''}`}>
-                                {msg.senderId !== vendorAdmin?.uid && (
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/32/32`} />
-                                        <AvatarFallback>{selectedUser.firstName?.[0]}</AvatarFallback>
-                                    </Avatar>
-                                )}
-                                <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === vendorAdmin?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                                    <p className="font-bold mb-1">{msg.senderId === vendorAdmin?.uid ? 'You' : selectedUser.firstName}</p>
-                                    <p>{msg.message}</p>
-                                    {msg.attachmentUrl && (
-                                        <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
-                                            <Download className="h-3 w-3" />
-                                            {msg.attachmentName || 'View Attachment'}
-                                        </a>
-                                    )}
-                                    <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
-                                </div>
-                                 {msg.senderId === vendorAdmin?.uid && (
-                                    <Avatar className="h-8 w-8">
-                                        <AvatarFallback>ME</AvatarFallback>
-                                    </Avatar>
-                                )}
-                            </div>
-                        ))
+                    {messagesLoading ? <Skeleton className="h-20 w-full" /> : 
+                        combinedMessages && combinedMessages.length > 0 ? (
+                          combinedMessages.map((msg) => (
+                              <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === vendorAdmin?.uid ? 'justify-end' : ''}`}>
+                                  {msg.senderId !== vendorAdmin?.uid && (
+                                      <Avatar className="h-8 w-8">
+                                          <AvatarImage src={`https://picsum.photos/seed/${msg.senderId}/32/32`} />
+                                          <AvatarFallback>{selectedUser.firstName?.[0]}</AvatarFallback>
+                                      </Avatar>
+                                  )}
+                                  <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === vendorAdmin?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                      <p className="font-bold mb-1">{msg.senderId === vendorAdmin?.uid ? 'You' : selectedUser.firstName}</p>
+                                      <p>{msg.message}</p>
+                                      {msg.attachmentUrl && (
+                                          <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
+                                              <Download className="h-3 w-3" />
+                                              {msg.attachmentName || 'View Attachment'}
+                                          </a>
+                                      )}
+                                      <p className="text-xs opacity-70 mt-2 text-right">{format(new Date(msg.timestamp), 'p')}</p>
+                                  </div>
+                                   {msg.senderId === vendorAdmin?.uid && (
+                                      <Avatar className="h-8 w-8">
+                                          <AvatarFallback>ME</AvatarFallback>
+                                      </Avatar>
+                                  )}
+                              </div>
+                          ))
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-muted-foreground">
+                              No messages yet.
+                          </div>
+                        )
                     }
                     </div>
                 </ScrollArea>
