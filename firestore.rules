@@ -155,7 +155,7 @@ service cloud.firestore {
         allow get, list: if isOwner(vendorId) || isSuperAdmin();
         allow create: if isOwner(vendorId);
         allow update: if isOwner(vendorId) || isSuperAdmin() || isOwner(userId);
-        allow delete: if isOwner(vendorId) || isSuperAdmin();
+        allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
       }
       
       /**
