@@ -82,12 +82,10 @@ export default function LoginPage() {
             const userDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
             const userDocSnap = await getDoc(userDocRef);
             if (userDocSnap.exists()) {
-                const userData = userDocSnap.data();
-                if (userData.role === 'endUser') {
-                    toast({ title: 'Login Successful', description: `Welcome!` });
-                    router.push('/end-user/dashboard');
-                    return;
-                }
+                // If the document exists in ANY vendor's subcollection, they are an end user.
+                toast({ title: 'Login Successful', description: `Welcome!` });
+                router.push('/end-user/dashboard');
+                return;
             }
         }
     } catch (error) {
