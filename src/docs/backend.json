@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "SuperAdmin": {
@@ -485,7 +486,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserDocument",
       "type": "object",
-      "description": "Represents a document associated with a user, such as a signed waiver.",
+      "description": "Represents a document associated with a user, such as a signed waiver or a spot change record.",
       "properties": {
         "id": {
           "type": "string"
@@ -498,19 +499,19 @@
         },
         "name": {
           "type": "string",
-          "description": "The name of the document, e.g., 'Parking Agreement'."
+          "description": "The name of the document, e.g., 'Parking Agreement' or 'Spot Change Record'."
         },
         "content": {
           "type": "string",
-          "description": "The full text or content of the signed document."
+          "description": "The full text or content of the document."
         },
         "createdAt": {
           "type": "string",
-          "format": "date-time"
+          "format": "date-time",
+          "description": "The timestamp when the document was created."
         }
       },
       "required": [
-        "id",
         "userId",
         "vendorId",
         "name",
@@ -638,7 +639,7 @@
           "schema": {
             "$ref": "#/backend/entities/UserDocument"
           },
-          "description": "Stores documents for an end user, such as signed waivers.",
+          "description": "Stores documents for an end user, such as signed waivers or spot change records.",
           "params": [
             {
               "name": "vendorId",
@@ -692,4 +693,3 @@
   }
 }
 
-    

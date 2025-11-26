@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, where, writeBatch } from "firebase/firestore";
 import { useState, useMemo } from "react";
 import {
@@ -88,11 +88,20 @@ export function AssignSpotDialog({
       return;
     }
 
+    if (selectedSpotId === user.assignedSpotId) {
+        toast({ title: "No Change", description: "The spot assignment was not changed." });
+        onOpenChange(false);
+        return;
+    }
+
     setIsSaving(true);
     
     const batch = writeBatch(firestore);
-
     const userRef = doc(firestore, "users", user.id);
+
+    const oldSpotName = currentSpot?.name || 'Unassigned';
+    const newSpot = allSpots.find(s => s.id === selectedSpotId);
+    const newSpotName = newSpot?.name || 'Unassigned';
 
     // Case 1: Un-assigning the current spot
     if (user.assignedSpotId && !selectedSpotId) {
@@ -113,11 +122,42 @@ export function AssignSpotDialog({
         batch.update(userRef, { assignedSpotId: selectedSpotId });
     }
 
+    // Create a document for the change
+    const docContent = `
+PARKING SPOT ASSIGNMENT CHANGE RECORD
+-------------------------------------
+Date of Change: ${new Date().toLocaleString()}
+
+User: ${user.firstName} ${user.lastName} (ID: ${user.id})
+
+PREVIOUS ASSIGNMENT:
+Spot: ${oldSpotName}
+
+NEW ASSIGNMENT:
+Spot: ${newSpotName}
+
+This document confirms the change in parking spot assignment as requested or administered.
+    `.trim();
+
+    const docsRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userDocuments');
+    addDocumentNonBlocking(docsRef, {
+        userId: user.id,
+        vendorId: vendorAdmin.uid,
+        name: `Spot Change Record - ${new Date().toLocaleDateString()}`,
+        content: docContent,
+        createdAt: new Date().toISOString(),
+    });
+
+
     try {
         await batch.commit();
         toast({
-            title: "Parking Lot Assigned",
-            description: `${user.firstName} ${user.lastName} has been assigned a new parking lot.`,
+            title: "Parking Spot Assigned",
+            description: `${user.firstName} ${user.lastName} has been assigned to spot ${newSpotName}.`,
+        });
+        toast({
+            title: "Document Created",
+            description: "A record of the spot change has been saved.",
         });
         onOpenChange(false);
     } catch(e) {
@@ -126,7 +166,6 @@ export function AssignSpotDialog({
     } finally {
         setIsSaving(false);
     }
-
   };
 
   const isLoading = isLoadingSpots || isLoadingCurrentSpot;
@@ -135,13 +174,13 @@ export function AssignSpotDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Parking Lot to {user.firstName}</DialogTitle>
+          <DialogTitle>Assign Spot to {user.firstName}</DialogTitle>
           <DialogDescription>
-            Select an available parking lot from your list. This is for standard vehicles.
+            Select an available spot. This will generate a record of the change.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-            <Label htmlFor="spot-select">Available Parking Lots</Label>
+            <Label htmlFor="spot-select">Available Spots</Label>
             {isLoading ? (
                 <Skeleton className="h-10 w-full" />
             ): (
@@ -180,3 +219,4 @@ export function AssignSpotDialog({
     </Dialog>
   );
 }
+
