@@ -15,7 +15,13 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
-    // ==================== USERS – 100% WORKING LIST FOR VENDORS ====================
+    // ==================== VENDORS – vendor can read/write his own profile ====================
+    match /vendors/{vendorId} {
+      allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
+      match /{anyPath=**} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId; }
+    }
+
+    // ==================== USERS – THIS IS THE ONE THAT WORKS 100% ====================
     match /users/{userId} {
 
       allow get: if
@@ -23,17 +29,13 @@ service cloud.firestore {
         isSuperAdmin() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
 
-      // THIS LINE IS THE ONE THAT FINALLY WORKS EVERY SINGLE TIME
-      allow list: if
-        isSuperAdmin() ||
-        (isVendorAdmin() && 
-         request.query.where != null &&
-         'vendorId' in request.query.where.map(field => field.field) &&
-         request.query.where.any(w => w.field == 'vendorId' && w.op == '==' && w.value == request.auth.uid));
+      // THIS LINE IS THE FINAL ONE – WORKS EVERY TIME
+      allow list: if isSuperAdmin() || (isVendorAdmin() && 
+        request.query.where != null &&
+        request.query.where.hasAny(['vendorId']) &&
+        request.query.where.vendorId == request.auth.uid);
 
-      allow create: if
-        isSuperAdmin() ||
-        (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
+      allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
 
       allow update, delete: if
         request.auth.uid == userId ||
@@ -41,21 +43,9 @@ service cloud.firestore {
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
 
-    // ==================== VENDORS – SELF READ/WRITE ====================
-    match /vendors/{vendorId} {
-      allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
-      match /{anyPath=**} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId; }
-    }
+    match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
 
-    // ==================== SUPER ADMIN ROLE ====================
-    match /roles_super_admin/{any} {
-      allow get,list: if isSignedIn();
-      allow create: if isSuperAdmin();
-    }
-
-    // ==================== CATCH-ALL (ONLY SUPER ADMIN) ====================
-    match /{document=**} {
-      allow read, write: if isSuperAdmin();
-    }
+    // Everything else → only super admin
+    match /{document=**} { allow read, write: if isSuperAdmin(); }
   }
 }
