@@ -54,6 +54,11 @@ service cloud.firestore {
       match /userDocuments/{docId} {
         allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
       }
+      
+      // VENDOR <> SUPER ADMIN MESSAGES
+      match /support-messages/{messageId} {
+        allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -79,7 +84,7 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
         
-      // === END USERS' MESSAGES (THE FIX) ===
+      // VENDOR <> USER MESSAGES
       match /messages/{messageId} {
         // End user can read/write their own messages
         allow read, write: if request.auth.uid == userId;
