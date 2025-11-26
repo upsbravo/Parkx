@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -8,16 +7,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Building, DollarSign, Users, AreaChart, UserPlus } from 'lucide-react';
+import { Building, DollarSign, Users, AreaChart } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { SUPER_ADMIN_ID } from '@/lib/seed/super-admin';
 import {
   Bar,
   BarChart,
   CartesianGrid,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -26,7 +23,7 @@ import {
   Cell,
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useMemo } from 'react';
 import { format, subMonths } from 'date-fns';
 
@@ -41,9 +38,7 @@ type Vendor = {
 
 type User = {
   id: string;
-  vendorId: string; // Assuming EndUser has a join date field
-  // A 'createdAt' field would be ideal here. If not present, we can't track user growth over time.
-  // For now, let's assume we can't track user growth if the field is missing.
+  vendorId: string;
 };
 
 
@@ -54,17 +49,16 @@ export default function SuperAdminDashboard() {
   const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  const isSuperAdmin = user?.uid === SUPER_ADMIN_ID;
   const usersQuery = useMemoFirebase(() => {
-    if (firestore && isSuperAdmin) {
+    if (firestore && user) {
       return collection(firestore, 'users');
     }
     return null;
-  }, [firestore, isSuperAdmin]);
+  }, [firestore, user]);
 
   const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
 
-  const isLoading = isAuthLoading || vendorsLoading || (isSuperAdmin && usersLoading);
+  const isLoading = isAuthLoading || vendorsLoading || usersLoading;
 
   const totalVendors = vendors?.length ?? 0;
   const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
@@ -85,10 +79,10 @@ export default function SuperAdminDashboard() {
         return acc;
     }, {} as Record<string, number>);
 
-    return Object.entries(statusCounts).map(([status, count]) => ({
+    return Object.entries(statusCounts).map(([status, count], index) => ({
         status,
         count,
-        fill: `hsl(var(--chart-${Object.keys(statusCounts).indexOf(status) + 1}))`
+        fill: `hsl(var(--chart-${index + 1}))`
     }));
   }, [vendors]);
   
@@ -99,7 +93,6 @@ export default function SuperAdminDashboard() {
         return {
             month: format(month, 'MMM'),
             newVendors: 0,
-            newUsers: 0, // We can't implement this yet without a join date on users
         };
     });
 
@@ -126,12 +119,11 @@ export default function SuperAdminDashboard() {
 
   const chartConfig = {
       newVendors: { label: 'New Vendors', color: 'hsl(var(--chart-1))' },
-      newUsers: { label: 'New Users', color: 'hsl(var(--chart-2))' },
       Active: { label: 'Active', color: 'hsl(var(--chart-2))' },
       Trial: { label: 'Trial', color: 'hsl(var(--chart-4))' },
       Pending: { label: 'Pending', color: 'hsl(var(--chart-5))' },
       Inactive: { label: 'Inactive', color: 'hsl(var(--chart-3))' },
-  };
+  } as const;
 
 
   return (
