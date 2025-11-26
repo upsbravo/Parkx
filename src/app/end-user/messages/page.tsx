@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -48,34 +48,22 @@ const getConversationId = (uid1: string, uid2: string) => {
 }
 
 export default function EndUserMessagesPage() {
-  const { user: endUser, isUserLoading: isUserLoading } = useUser();
+  const { user: endUser, isUserLoading } = useUser();
   const firestore = useFirestore();
   const [messageText, setMessageText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const [vendorName, setVendorName] = useState('Admin');
 
   const userDocRef = useMemoFirebase(() => endUser ? doc(firestore, 'users', endUser.uid) : null, [endUser, firestore]);
   const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
 
-  useEffect(() => {
-    const fetchVendorName = async () => {
-        if (userData?.vendorId && firestore) {
-            const vendorDocRef = doc(firestore, 'vendors', userData.vendorId);
-            try {
-                const vendorSnap = await getDoc(vendorDocRef);
-                if (vendorSnap.exists()) {
-                    setVendorName(vendorSnap.data().name || 'Admin');
-                }
-            } catch (error) {
-                console.error("Failed to fetch vendor name:", error);
-            }
-        }
-    };
-    fetchVendorName();
-  }, [userData, firestore]);
+  const vendorDocRef = useMemoFirebase(() => {
+    if (!firestore || !userData?.vendorId) return null;
+    return doc(firestore, 'vendors', userData.vendorId);
+  }, [firestore, userData]);
+  const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
   const conversationId = useMemo(() => {
     if (!endUser || !userData?.vendorId) return null;
@@ -88,7 +76,6 @@ export default function EndUserMessagesPage() {
   }, [firestore, conversationId]);
 
   const { data: messages, isLoading: messagesLoading } = useCollection<Message>(messagesQuery);
-
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !endUser || !userData?.vendorId || !conversationId) return;
@@ -146,7 +133,8 @@ export default function EndUserMessagesPage() {
       }
   };
 
-  const isLoading = isUserLoading || isUserDataLoading || messagesLoading;
+  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || messagesLoading;
+  const vendorName = vendorData?.name || 'Admin';
 
   return (
     <div className="space-y-6">

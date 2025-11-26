@@ -17,8 +17,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,12 @@ type UserInvoice = {
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
+  userName: string;
 };
+
+type EndUser = {
+    vendorId: string;
+}
 
 export default function InvoicesPage() {
   const [isClient, setIsClient] = useState(false);
@@ -42,13 +47,19 @@ export default function InvoicesPage() {
     setIsClient(true);
   }, []);
 
+  const userDocRef = useMemoFirebase(
+      () => (user ? doc(firestore, 'users', user.uid) : null),
+      [user, firestore]
+  );
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
+
   const invoicesQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, `vendors/${user.uid}/userInvoices`), where('userId', '==', user.uid)) : null),
-    [firestore, user]
+    () => (firestore && userProfile?.vendorId && user ? query(collection(firestore, `vendors/${userProfile.vendorId}/userInvoices`), where('userId', '==', user.uid)) : null),
+    [firestore, user, userProfile]
   );
   const { data: invoices, isLoading: areInvoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
 
-  const isLoading = isUserLoading || areInvoicesLoading;
+  const isLoading = isUserLoading || isProfileLoading || areInvoicesLoading;
 
   const statusVariant = {
     Paid: 'default',
