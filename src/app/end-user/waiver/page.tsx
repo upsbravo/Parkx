@@ -108,7 +108,7 @@ export default function WaiverPage() {
   const { data: userData, isLoading: isUserDocLoading } = useDoc<EndUser>(userDocRef);
 
   const vendorDocRef = useMemoFirebase(
-    () => (firestore && userData ? doc(firestore, 'vendors', userData.vendorId) : null),
+    () => (firestore && userData?.vendorId ? doc(firestore, 'vendors', userData.vendorId) : null),
     [firestore, userData]
   );
   const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorDocRef);
@@ -225,5 +225,3 @@ Date: ${new Date().toLocaleDateString()}
     </div>
   );
 }
-
-    
