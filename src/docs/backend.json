@@ -196,6 +196,28 @@
         "tagNumber": {
           "type": "string",
           "description": "The license plate or tag number of the user's truck."
+        },
+        "phone": {
+            "type": "string",
+            "description": "Phone number of the end-user."
+        },
+        "address": {
+          "type": "object",
+          "description": "The end-user's physical address.",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        },
+        "emergencyContact": {
+          "type": "object",
+          "description": "The end-user's emergency contact.",
+          "properties": {
+              "name": { "type": "string" },
+              "phone": { "type": "string" }
+          }
         }
       },
       "required": [
