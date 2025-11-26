@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -25,7 +26,10 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || 
                    request.auth.uid == vendorId || 
                    isPrivilegedVendor() ||
-                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId;
+                   (
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId
+                   );
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
       // End-users can read their own spot, admins can manage all spots
@@ -35,7 +39,7 @@ service cloud.firestore {
           request.auth.uid == vendorId ||
           isPrivilegedVendor() ||
           (
-            // Allow end-user to read the spot if it is assigned to them in their user document
+            exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId
           );
         allow write: if isSuperAdmin() || request.auth.uid == vendorId;
@@ -77,7 +81,7 @@ service cloud.firestore {
     // User Documents: End user can read their own documents. Vendor Admin can also read.
     match /vendors/{vendorId}/userDocuments/{docId} {
         allow read: if request.auth.uid == resource.data.userId || request.auth.uid == vendorId;
-        allow list: if request.auth.uid == vendorId || request.auth.uid == request.query.where.userId;
+        allow list: if request.auth.uid == vendorId || (request.query.where != null && request.auth.uid == request.query.where.userId);
         allow write: if request.auth.uid == vendorId || request.auth.uid == resource.data.userId;
     }
 
