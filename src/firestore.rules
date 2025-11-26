@@ -59,7 +59,8 @@ service cloud.firestore {
       
       // Vendor Admins can manage their own documents (like signed agreements)
       match /vendorDocuments/{docId} {
-        allow read, list, create, update, delete: if request.auth.uid == vendorId;
+        allow read, create, update, delete: if request.auth.uid == vendorId;
+        allow list: if isVendorAdmin() && request.auth.uid == vendorId;
       }
       
       // VENDOR <> SUPER ADMIN MESSAGES
