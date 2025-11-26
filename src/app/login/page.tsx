@@ -84,9 +84,12 @@ export default function LoginPage() {
             const endUserDocRef = doc(firestore, 'vendors', vendorDoc.id, 'endUsers', user.uid);
             const endUserDocSnap = await getDoc(endUserDocRef);
             if (endUserDocSnap.exists()) {
-                toast({ title: 'Login Successful', description: `Welcome!` });
-                router.push('/end-user/dashboard');
-                return;
+                const userData = endUserDocSnap.data();
+                if (userData.role === 'endUser') {
+                    toast({ title: 'Login Successful', description: `Welcome!` });
+                    router.push('/end-user/dashboard');
+                    return;
+                }
             }
         }
     } catch (error) {

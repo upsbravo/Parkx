@@ -78,6 +78,7 @@ export function InviteUserDialog({
         email: email,
         status: "Active",
         assignedSpotId: null,
+        role: "endUser",
       });
 
       toast({
