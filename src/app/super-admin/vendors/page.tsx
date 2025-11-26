@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +53,7 @@ type Vendor = {
   id: string;
   name: string;
   email: string;
-  status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement';
   joinDate: string; // ISO string
   trialEnds: string | null; // ISO string or null
   spotsUsed: number;
@@ -90,6 +90,7 @@ export default function VendorsPage() {
     Pending: "secondary",
     Trial: "outline",
     Inactive: "destructive",
+    'Pending Agreement': "secondary",
   };
 
   const handleAdjustClick = (vendor: Vendor) => {
@@ -307,6 +308,10 @@ export default function VendorsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
                               Billings
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/documents`)}>
+                                <FileText className="mr-2 h-4 w-4"/>
+                                View Documents
                             </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleSendPasswordReset(vendor.email)}>
                               Send Password Reset
