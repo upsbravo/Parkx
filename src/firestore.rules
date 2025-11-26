@@ -25,7 +25,7 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
     }
 
-    // VENDORS – self access + privileged read all + end-user read own vendor
+    // VENDORS – self access + privileged read all
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() || 
                    request.auth.uid == vendorId || 
