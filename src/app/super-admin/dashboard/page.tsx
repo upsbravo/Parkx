@@ -17,7 +17,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -35,6 +34,7 @@ import { format, subMonths } from 'date-fns';
 type Vendor = {
   id: string;
   name: string;
+  email: string;
   joinDate: string;
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
 };
@@ -127,6 +127,10 @@ export default function SuperAdminDashboard() {
   const chartConfig = {
       newVendors: { label: 'New Vendors', color: 'hsl(var(--chart-1))' },
       newUsers: { label: 'New Users', color: 'hsl(var(--chart-2))' },
+      Active: { label: 'Active', color: 'hsl(var(--chart-2))' },
+      Trial: { label: 'Trial', color: 'hsl(var(--chart-4))' },
+      Pending: { label: 'Pending', color: 'hsl(var(--chart-5))' },
+      Inactive: { label: 'Inactive', color: 'hsl(var(--chart-3))' },
   };
 
 
@@ -176,31 +180,31 @@ export default function SuperAdminDashboard() {
                     <Skeleton className="h-full w-full"/>
                 </div>
             ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                 <BarChart data={platformGrowthData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                        dataKey="month"
-                        stroke="#888888"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                    />
-                    <YAxis
-                        stroke="#888888"
-                        fontSize={12}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `${value}`}
-                    />
-                     <Tooltip
-                      cursor={false}
-                      content={<ChartTooltipContent indicator="dot" />}
-                    />
-                     <Legend content={<ChartLegendContent />} />
-                    <Bar dataKey="newVendors" fill="var(--color-newVendors)" radius={4} />
-                 </BarChart>
-                </ResponsiveContainer>
+                <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                    <BarChart data={platformGrowthData}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                            dataKey="month"
+                            stroke="#888888"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={false}
+                        />
+                        <YAxis
+                            stroke="#888888"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(value) => `${value}`}
+                        />
+                        <Tooltip
+                            cursor={false}
+                            content={<ChartTooltipContent indicator="dot" />}
+                        />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        <Bar dataKey="newVendors" fill="var(--color-newVendors)" radius={4} />
+                    </BarChart>
+                </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -216,7 +220,7 @@ export default function SuperAdminDashboard() {
                     <Skeleton className="h-full w-full"/>
                 </div>
             ) : (
-                <ChartContainer config={{}} className="mx-auto aspect-square h-[350px]">
+                <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[350px]">
                   <PieChart>
                     <Tooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
                     <Pie
