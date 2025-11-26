@@ -1,67 +1,67 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
+    // ────────────────────── Helpers ──────────────────────
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(id) { return request.auth.uid == id; }
 
     function isSuperAdmin() {
-      // Check for a document in a specific roles collection.
-      // This is more secure than a custom claim for this use case.
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    function isVendorAdminForUser(userId) {
-      // Checks if the requesting user is the vendor admin for the user being accessed.
-      // The `get()` call is efficient as it targets a specific document path.
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
+    // True if the current logged-in vendor owns this end-user
+    function isMyCustomer(userId) {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
     }
 
+    // ────────────────────── Super Admin Role ──────────────────────
     match /roles_super_admin/{userId} {
-      allow get, list: if isSignedIn(); // Allow read for debugging/listing admins.
-      allow create: if isSuperAdmin(); // Only a super admin can create another.
-      allow update, delete: if false; // Roles should not be changed or deleted this way.
+      allow get, list: if isSignedIn();
+      allow create: if isSuperAdmin();
+      allow update, delete: if false;
     }
 
-    match /super_admins/{superAdminId} {
-       allow get: if isOwner(superAdminId) || isSuperAdmin();
-       allow list: if isSuperAdmin();
-       allow create: if isSuperAdmin();
-       allow update: if isOwner(superAdminId) || isSuperAdmin();
-       allow delete: if false; // Super admins should not be deleted.
-    }
-
+    // ────────────────────── Vendors ──────────────────────
     match /vendors/{vendorId} {
       allow get: if isSignedIn();
       allow list: if isSuperAdmin();
       allow create: if isSuperAdmin();
       allow update: if isSuperAdmin() || isOwner(vendorId);
-      allow delete: if isSuperAdmin() && resource != null;
+      allow delete: if isSuperAdmin();
 
-      match /parking_spots/{parkingSpotId} {
-        allow get, list: if isOwner(vendorId) || isSuperAdmin();
-        allow create: if (isOwner(vendorId) || isSuperAdmin()) && request.resource.data.vendorId == vendorId;
-        allow update: if (isOwner(vendorId) || isSuperAdmin()) && resource != null && request.resource.data.vendorId == resource.data.vendorId;
-        allow delete: if (isOwner(vendorId) || isSuperAdmin()) && resource != null;
+      match /parking_spots/{spotId} {
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if isSuperAdmin() || isOwner(vendorId);
       }
     }
 
+    // ────────────────────── End Users (top-level) ──────────────────────
     match /users/{userId} {
-      allow get: if isOwner(userId) || isSuperAdmin() || isVendorAdminForUser(userId);
-      allow create: if isSuperAdmin() || (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
-      allow update: if isOwner(userId) || isVendorAdminForUser(userId) || isSuperAdmin();
-      allow delete: if isSuperAdmin() || isVendorAdminForUser(userId);
-      allow list: if isSuperAdmin() || (isSignedIn() && request.query.where.vendorId == request.auth.uid);
+      // Anyone can read their own document, their vendor, or super-admin
+      allow get: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
+
+      // Vendor can list ONLY their own customers
+      allow list: if isSuperAdmin() ||
+                     (isSignedIn() && 
+                      request.query.where != null &&
+                      request.query.where[0].field == "vendorId" &&
+                      request.query.where[0].op == "==" &&
+                      request.query.where[0].value == request.auth.uid);
+
+      // Vendor can create a customer for themselves
+      allow create: if isSuperAdmin() ||
+                       (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
+
+      // Owner, their vendor, or super-admin can update/delete
+      allow update, delete: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
     }
 
-    match /vendorInvoices/{invoiceId} {
-      // Only Super Admins can manage invoices.
+    // ────────────────────── Everything else (invoices, etc.) ──────────────────────
+    match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
   }
