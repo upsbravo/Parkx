@@ -9,10 +9,10 @@ service cloud.firestore {
     function isOwner(id) { return request.auth.uid == id; }
 
     function isSuperAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    // True if the current logged-in vendor owns this end-user
     function isMyCustomer(userId) {
       return isSignedIn() &&
         get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
@@ -29,34 +29,36 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow get: if isSignedIn();
       allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin() || isOwner(vendorId);
+      allow create, update: if isSuperAdmin() || isOwner(vendorId);
       allow delete: if isSuperAdmin();
 
       match /parking_spots/{spotId} {
-        allow get, list: if isSignedIn();
-        allow create, update, delete: if isSuperAdmin() || isOwner(vendorId);
+        allow get, list, create, update, delete: if isSuperAdmin() || isOwner(vendorId);
       }
     }
 
-    // ────────────────────── End Users (top-level) ──────────────────────
+    // ────────────────────── End Users – THIS IS THE IMPORTANT PART ──────────────────────
     match /users/{userId} {
-      // Anyone can read their own document, their vendor, or super-admin
+      // READ single document
       allow get: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
 
-      // Vendor can list ONLY their own customers
-      allow list: if isSuperAdmin() ||
-                     (isSignedIn() && 
-                      request.query.where != null &&
-                      request.query.where[0].field == "vendorId" &&
-                      request.query.where[0].op == "==" &&
-                      request.query.where[0].value == request.auth.uid);
+      // LIST – the exact rule that was blocking your vendor admin page
+      allow list: if 
+        isSuperAdmin() ||
+        (
+          isSignedIn() &&
+          request.query.where != null &&
+          size(request.query.where) == 1 &&
+          request.query.where[0].field == "vendorId" &&
+          request.query.where[0].op == "==" &&
+          request.query.where[0].value == request.auth.uid
+        );
 
-      // Vendor can create a customer for themselves
+      // CREATE – vendor can create their own customers
       allow create: if isSuperAdmin() ||
                        (isSignedIn() && request.resource.data.vendorId == request.auth.uid);
 
-      // Owner, their vendor, or super-admin can update/delete
+      // UPDATE / DELETE
       allow update, delete: if isOwner(userId) || isSuperAdmin() || isMyCustomer(userId);
     }
 
