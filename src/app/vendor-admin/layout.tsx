@@ -14,20 +14,26 @@ export default function VendorAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+
+  // Ensure user and firestore are available before creating the doc ref
   const vendorRef = useMemoFirebase(
-    () => (user ? doc(firestore, "vendors", user.uid) : null),
+    () => (user && firestore ? doc(firestore, "vendors", user.uid) : null),
     [user, firestore]
   );
-  const { data: vendorData } = useDoc<Vendor>(vendorRef);
+  
+  // The useDoc hook will now wait until vendorRef is not null
+  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
+  
+  const isLoading = isUserLoading || isVendorLoading;
 
   return (
     <DashboardLayout
       nav={<VendorAdminNav />}
       role="Vendor Admin"
-      vendorName={vendorData?.name}
-      vendorLogo={vendorData?.logoUrl}
+      vendorName={isLoading ? undefined : vendorData?.name}
+      vendorLogo={isLoading ? undefined : vendorData?.logoUrl}
     >
       {children}
     </DashboardLayout>
