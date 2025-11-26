@@ -76,14 +76,15 @@ export function updateDocumentNonBlocking(docRef: DocumentReference, data: any) 
  * Does NOT await the write operation internally.
  */
 export function deleteDocumentNonBlocking(docRef: DocumentReference) {
-  deleteDoc(docRef)
-    .catch(error => {
-      errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'delete',
-        })
-      )
+  // CRITICAL: Do NOT 'await' this call.
+  deleteDoc(docRef).catch(async (serverError) => {
+    // This '.catch' block is for capturing permission errors.
+    const permissionError = new FirestorePermissionError({
+      path: docRef.path,
+      operation: 'delete',
     });
+    // Emit the detailed error for the global listener to catch.
+    errorEmitter.emit('permission-error', permissionError);
+  });
+  // Execution continues here immediately, providing optimistic UI updates.
 }
