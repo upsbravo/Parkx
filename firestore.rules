@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -15,15 +16,23 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
-    // ==================== USERS – THIS IS THE ONE THAT WORKS EVERY TIME ====================
-    match /users/{userId} {
+    // ==================== VENDORS – VENDOR MUST READ THEIR OWN DOC ====================
+    match /vendors/{vendorId} {
+      allow read: if isSuperAdmin() || request.auth.uid == vendorId;
+      allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
+      match /parkingSpots/{spotId} {
+        allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
+      }
+    }
+
+    // ==================== USERS – ALREADY PERFECT ====================
+    match /users/{userId} {
       allow get: if
         request.auth.uid == userId ||
         isSuperAdmin() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
 
-      // THIS LINE WAS KILLING YOU — NOW FIXED FOREVER
       allow list: if
         isSuperAdmin() ||
         (
@@ -44,21 +53,16 @@ service cloud.firestore {
         isSuperAdmin() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
-    
-    // ==================== VENDORS & PARKING SPOTS ====================
-    match /vendors/{vendorId} {
-      allow read: if isSuperAdmin() || request.auth.uid == vendorId; 
-      allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
-      // This rule is needed to allow vendors to manage their own spots.
-      match /parkingSpots/{spotId} {
-        allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
-      }
+    // ==================== SUPER ADMIN ROLE ====================
+    match /roles_super_admin/{any} {
+      allow get,list: if isSignedIn();
+      allow create: if isSuperAdmin();
     }
 
-
-    // Keep everything else simple
-    match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
-    match /{document=**}           { allow read, write: if isSuperAdmin(); }
+    // ==================== CATCH-ALL FOR EVERYTHING ELSE ====================
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
   }
 }
