@@ -15,19 +15,16 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
-    // ==================== VENDORS – FIXED FOR DASHBOARD SELF-READ ====================
+    // ==================== VENDORS – VENDOR CAN READ THEIR OWN DOC ====================
     match /vendors/{vendorId} {
-      // Vendors can read their OWN document (for dashboard)
-      allow read: if isSuperAdmin() || request.auth.uid == vendorId;
-      allow write: if isSuperAdmin() || request.auth.uid == vendorId;
+      allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
 
-      // Subcollections (e.g., parking spots)
-      match /parkingSpots/{spotId} {
+      match /parkingSpots/{any} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
     }
 
-    // ==================== USERS – UNCHANGED, ALREADY PERFECT ====================
+    // ==================== USERS – ALREADY PERFECT ====================
     match /users/{userId} {
       allow get: if
         request.auth.uid == userId ||
@@ -61,7 +58,8 @@ service cloud.firestore {
       allow create: if isSuperAdmin();
     }
 
-    // ==================== CATCH-ALL FOR EVERYTHING ELSE ====================
+    // ==================== REMOVE THE CATCH-ALL OR PUT IT LAST ====================
+    // Only super admin can touch anything not explicitly allowed above
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
