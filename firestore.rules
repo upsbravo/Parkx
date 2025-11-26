@@ -24,7 +24,20 @@ service cloud.firestore {
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
-      match /parkingSpots/{spotId} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor(); }
+
+      // End-users can read their own spot, admins can manage all spots
+      match /parkingSpots/{spotId} {
+        allow read: if
+          isSuperAdmin() ||
+          request.auth.uid == vendorId ||
+          isPrivilegedVendor() ||
+          (
+            // Allow end-user to read the spot if it is assigned to them in their user document
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedSpotId == spotId
+          );
+        allow write: if isSuperAdmin() || request.auth.uid == vendorId;
+      }
+
       // Vendor Admins can manage invoices within their own subcollection
       match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
     }
@@ -37,7 +50,7 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
 
-      allow list: if isSuperAdmin() || isPrivilegedVendor() || 
+      allow list: if isSuperAdmin() || isPrivilegedVendor() ||
                       (isVendorAdmin() && request.query.where != null &&
                        size(request.query.where) > 0 &&
                        request.query.where[0].field == "vendorId" &&
