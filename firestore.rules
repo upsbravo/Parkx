@@ -47,7 +47,7 @@ service cloud.firestore {
     
     // ==================== VENDORS & PARKING SPOTS ====================
     match /vendors/{vendorId} {
-      allow read: if isSignedIn(); 
+      allow read: if isSuperAdmin() || request.auth.uid == vendorId; 
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
       // This rule is needed to allow vendors to manage their own spots.
