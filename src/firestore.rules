@@ -87,17 +87,13 @@ service cloud.firestore {
 
     // COMMUNICATIONS - users can query for messages sent to or from them
     match /communications/{commId} {
-      allow read, write: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+      // Allow read/write only if the user is the sender or receiver
+      allow read, write: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      
+      // Allow list queries only if they are constrained to the user's own UID
+      allow list: if isSignedIn() && (request.query.where.senderId == request.auth.uid || request.query.where.receiverId == request.auth.uid);
     }
-
-    match /communications/{document=**} {
-       allow list: if isSignedIn() && (
-        (request.query.where.senderId == request.auth.uid) ||
-        (request.query.where.receiverId == request.auth.uid)
-      );
-    }
-
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
 

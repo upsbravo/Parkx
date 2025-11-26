@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -21,7 +21,6 @@ import {
   query,
   where,
   orderBy,
-  or,
 } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -57,6 +56,7 @@ export default function VendorMessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -71,27 +71,39 @@ export default function VendorMessagesPage() {
   );
   const { data: vendors, isLoading: areVendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  const messagesQuery = useMemoFirebase(() => {
+  const sentMessagesQuery = useMemoFirebase(() => {
     if (!firestore || !superAdmin || !selectedVendor) return null;
-
     return query(
       collection(firestore, 'communications'),
-       or(
-           where('senderId', '==', superAdmin.uid),
-           where('receiverId', '==', superAdmin.uid)
-       ),
-      orderBy('timestamp', 'asc')
+      where('senderId', '==', superAdmin.uid),
+      where('receiverId', '==', selectedVendor.id)
     );
   }, [firestore, superAdmin, selectedVendor]);
-  const { data: messages, isLoading: areMessagesLoading } = useCollection<Message>(messagesQuery);
-  
-  const filteredMessages = useMemo(() => {
-    if(!messages || !superAdmin || !selectedVendor) return [];
-    return messages.filter(msg => 
-        (msg.senderId === superAdmin.uid && msg.receiverId === selectedVendor.id) ||
-        (msg.senderId === selectedVendor.id && msg.receiverId === superAdmin.uid)
+
+  const receivedMessagesQuery = useMemoFirebase(() => {
+    if (!firestore || !superAdmin || !selectedVendor) return null;
+    return query(
+      collection(firestore, 'communications'),
+      where('senderId', '==', selectedVendor.id),
+      where('receiverId', '==', superAdmin.uid)
     );
-  }, [messages, superAdmin, selectedVendor]);
+  }, [firestore, superAdmin, selectedVendor]);
+
+  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
+  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
+
+  useEffect(() => {
+    if (selectedVendor) {
+      const sent = sentMessages || [];
+      const received = receivedMessages || [];
+      const allMessages = [...sent, ...received].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      setCombinedMessages(allMessages);
+    } else {
+      setCombinedMessages([]);
+    }
+  }, [sentMessages, receivedMessages, selectedVendor]);
 
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !superAdmin || !selectedVendor) return;
@@ -143,6 +155,7 @@ export default function VendorMessagesPage() {
   };
 
   const isLoading = isSuperAdminLoading || areVendorsLoading;
+  const areMessagesLoading = sentLoading || receivedLoading;
 
   return (
     <div className="space-y-4">
@@ -197,7 +210,7 @@ export default function VendorMessagesPage() {
                 <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
                     {areMessagesLoading ? <Skeleton className="h-20 w-full" /> : 
-                        filteredMessages.map((msg) => (
+                        combinedMessages.map((msg) => (
                             <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === superAdmin?.uid ? 'justify-end' : ''}`}>
                                 {msg.senderId !== superAdmin?.uid && (
                                     <Avatar className="h-8 w-8">

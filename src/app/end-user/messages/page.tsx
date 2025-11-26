@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, orderBy, or, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -51,6 +51,7 @@ export default function EndUserMessagesPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [combinedMessages, setCombinedMessages] = useState<Message[]>([]);
   const { toast } = useToast();
 
   const userDocRef = useMemoFirebase(() => endUser ? doc(firestore, 'users', endUser.uid) : null, [endUser, firestore]);
@@ -59,28 +60,36 @@ export default function EndUserMessagesPage() {
   const vendorDocRef = useMemoFirebase(() => (userData && firestore) ? doc(firestore, 'vendors', userData.vendorId) : null, [userData, firestore]);
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const messagesQuery = useMemoFirebase(() => {
+  const sentMessagesQuery = useMemoFirebase(() => {
     if (!firestore || !endUser || !vendorData) return null;
-
     return query(
       collection(firestore, 'communications'),
-       or(
-           where('senderId', '==', endUser.uid),
-           where('receiverId', '==', endUser.uid)
-       ),
-      orderBy('timestamp', 'asc')
+      where('senderId', '==', endUser.uid),
+      where('receiverId', '==', vendorData.id)
     );
   }, [firestore, endUser, vendorData]);
-  const { data: messages, isLoading: areMessagesLoading } = useCollection<Message>(messagesQuery);
-  
-  const filteredMessages = useMemo(() => {
-    if(!messages || !endUser || !vendorData) return [];
-    return messages.filter(msg => 
-        (msg.senderId === endUser.uid && msg.receiverId === vendorData.id) ||
-        (msg.senderId === vendorData.id && msg.receiverId === endUser.uid)
+
+  const receivedMessagesQuery = useMemoFirebase(() => {
+    if (!firestore || !endUser || !vendorData) return null;
+    return query(
+      collection(firestore, 'communications'),
+      where('senderId', '==', vendorData.id),
+      where('receiverId', '==', endUser.uid)
     );
-  }, [messages, endUser, vendorData]);
-  
+  }, [firestore, endUser, vendorData]);
+
+  const { data: sentMessages, isLoading: sentLoading } = useCollection<Message>(sentMessagesQuery);
+  const { data: receivedMessages, isLoading: receivedLoading } = useCollection<Message>(receivedMessagesQuery);
+
+  useEffect(() => {
+    const sent = sentMessages || [];
+    const received = receivedMessages || [];
+    const allMessages = [...sent, ...received].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    setCombinedMessages(allMessages);
+  }, [sentMessages, receivedMessages]);
+
   const handleSendMessage = async () => {
     if ((!messageText && !attachment) || !endUser || !vendorData) return;
 
@@ -130,7 +139,7 @@ export default function EndUserMessagesPage() {
       }
   };
 
-  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || areMessagesLoading;
+  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || sentLoading || receivedLoading;
 
   return (
     <div className="space-y-6">
@@ -160,7 +169,7 @@ export default function EndUserMessagesPage() {
         <ScrollArea className="flex-1 p-6">
           <div className="space-y-4">
           {isLoading ? <Skeleton className="h-20 w-full" /> : 
-            filteredMessages.map((msg) => (
+            combinedMessages.map((msg) => (
                 <div key={msg.id} className={`flex items-start gap-3 ${msg.senderId === endUser?.uid ? 'justify-end' : ''}`}>
                     {msg.senderId !== endUser?.uid && (
                         <Avatar className="h-8 w-8">
