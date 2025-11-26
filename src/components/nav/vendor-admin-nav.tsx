@@ -20,6 +20,7 @@ import {
   Headset,
   Settings,
   MessageCircle,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -27,8 +28,9 @@ const navItems = [
   { href: "/vendor-admin/users", icon: <Users />, label: "User Management" },
   { href: "/vendor-admin/parking-lot", icon: <ParkingSquare />, label: "Parking Lot" },
   { href: "/vendor-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
+  { href: "/vendor-admin/user-invoices", icon: <FileText />, label: "User Invoices" },
   { href: "/vendor-admin/messages", icon: <MessageCircle />, label: "Messages" },
-  { href: "/vendor-admin/invoices", icon: <ClipboardList />, label: "Invoices" },
+  { href: "/vendor-admin/invoices", icon: <ClipboardList />, label: "My Invoices" },
   { href: "/vendor-admin/branding", icon: <Palette />, label: "Branding" },
   { href: "/vendor-admin/payouts", icon: <Banknote />, label: "Payouts" },
   { href: "/vendor-admin/support", icon: <Headset />, label: "Support" },

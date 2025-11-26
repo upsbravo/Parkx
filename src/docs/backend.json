@@ -50,6 +50,10 @@
           "description": "Contact email address for the vendor.",
           "format": "email"
         },
+        "isPrivileged": {
+          "type": "boolean",
+          "description": "Grants the vendor special, elevated permissions."
+        },
         "parkingSpotLimit": {
           "type": "number",
           "description": "Maximum number of parking spots allowed for the vendor."
@@ -89,12 +93,24 @@
           "type": "object",
           "description": "The vendor's physical address.",
           "properties": {
-            "street1": { "type": "string" },
-            "street2": { "type": "string" },
-            "city": { "type": "string" },
-            "state": { "type": "string" },
-            "zip": { "type": "string" },
-            "country": { "type": "string" }
+            "street1": {
+              "type": "string"
+            },
+            "street2": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "country": {
+              "type": "string"
+            }
           }
         },
         "timeZone": {
@@ -156,6 +172,14 @@
           ],
           "description": "The date the user requested cancellation.",
           "format": "date-time"
+        },
+        "truckParkingSpots": {
+          "type": "number",
+          "description": "Number of truck parking spots assigned to the user."
+        },
+        "isRecurringPayment": {
+          "type": "boolean",
+          "description": "Flag indicating if the user is on a recurring payment plan."
         }
       },
       "required": [
@@ -269,7 +293,11 @@
         "status": {
           "type": "string",
           "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
-          "enum": ["Pending", "Paid", "Overdue"]
+          "enum": [
+            "Pending",
+            "Paid",
+            "Overdue"
+          ]
         },
         "notes": {
           "type": "string",
@@ -280,6 +308,61 @@
         "id",
         "vendorId",
         "vendorName",
+        "amount",
+        "dueDate",
+        "status"
+      ]
+    },
+    "UserInvoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserInvoice",
+      "type": "object",
+      "description": "Represents an invoice from a Vendor to an End User for parking services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User Invoice."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "The ID of the vendor who issued this invoice."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user this invoice belongs to."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The name of the user (denormalized for display)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the invoice is due.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
+          "enum": [
+            "Pending",
+            "Paid",
+            "Overdue"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or line items for the invoice."
+        }
+      },
+      "required": [
+        "id",
+        "vendorId",
+        "userId",
+        "userName",
         "amount",
         "dueDate",
         "status"
@@ -343,18 +426,14 @@
         }
       },
       {
-        "path": "/vendors/{vendorId}/endUsers/{endUserId}",
+        "path": "/users/{endUserId}",
         "definition": {
           "entityName": "EndUser",
           "schema": {
             "$ref": "#/backend/entities/EndUser"
           },
-          "description": "Stores End Users, nested under their respective Vendor. Includes denormalized 'vendorId' for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.",
+          "description": "Stores End User profiles in a top-level collection for efficient lookup. The 'vendorId' field is used for authorization, allowing Vendor Admins to manage only their own users.",
           "params": [
-            {
-              "name": "vendorId",
-              "description": "The unique identifier for the Vendor document."
-            },
             {
               "name": "endUserId",
               "description": "The unique identifier for the EndUser document."
@@ -383,6 +462,26 @@
         }
       },
       {
+        "path": "/vendors/{vendorId}/userInvoices/{userInvoiceId}",
+        "definition": {
+          "entityName": "UserInvoice",
+          "schema": {
+            "$ref": "#/backend/entities/UserInvoice"
+          },
+          "description": "Stores invoices issued by a Vendor to their End Users. Vendor has full access to their own invoices.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the Vendor document."
+            },
+            {
+              "name": "userInvoiceId",
+              "description": "The unique identifier for the UserInvoice document."
+            }
+          ]
+        }
+      },
+      {
         "path": "/communications/{communicationId}",
         "definition": {
           "entityName": "Communication",
@@ -399,6 +498,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, role-based access control, and scalability for the ParkX application.  Authorization Independence is achieved by denormalizing authorization data, specifically `vendorId` in `endUsers` and `parkingSpots`, which prevents the need for `get()` calls in security rules. The structure is segregated based on roles and entity ownership to maintain a homogeneous security posture within collections. QAPs are supported through structural segregation and path-based ownership for private user data and membership maps where collaboration is needed.\n\nSpecifically, the structure is as follows:\n\n*   `/superAdmins/{superAdminId}`: Stores Super Admin profiles. Only one super admin will be available in the system at any time. Collection enforces that only authenticated super admins can manage super admins profiles.\n*   `/vendors/{vendorId}`: Stores Vendor profiles. Super Admin has create, read, update and delete access. Vendor can read and update own profile.\n* `/vendorInvoices/{vendorInvoiceId}`: Stores invoices for vendors. Super Admin has full access.\n*   `/vendors/{vendorId}/endUsers/{endUserId}`: Stores End Users, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all endUsers under vendor document.\n*   `/vendors/{vendorId}/parkingSpots/{parkingSpotId}`: Stores Parking Spots, nested under their respective Vendor. Includes denormalized `vendorId` for authorization. Prevents unauthorized access by other vendors and enables simple ownership-based security rules. Vendor owns all parkingSpots under vendor document.\n*   `/communications/{communicationId}`: Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via `senderId` and `receiverId`."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data."
   }
 }

@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    }
+
+    function isVendorAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
+    }
+
+    function isPrivilegedVendor() {
+      return isVendorAdmin() &&
+        get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
+    }
+
+    // VENDORS – self access + privileged read all
+    match /vendors/{vendorId} {
+      allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
+      allow write: if isSuperAdmin() || request.auth.uid == vendorId;
+      match /parkingSpots/{spotId} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor(); }
+      // Vendor Admins can manage invoices within their own subcollection
+      match /userInvoices/{invoiceId} { allow read, write: if request.auth.uid == vendorId; }
+    }
+
+    // USERS – privileged vendors see all, normal vendors see only theirs
+    match /users/{userId} {
+      allow get: if
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isPrivilegedVendor() ||
+        (resource != null && resource.data.vendorId == request.auth.uid);
+
+      allow list: if isSuperAdmin() || isPrivilegedVendor() || 
+                      (isVendorAdmin() && request.query.where != null &&
+                       size(request.query.where) > 0 &&
+                       request.query.where[0].field == "vendorId" &&
+                       request.query.where[0].op == "==" &&
+                       request.query.where[0].value == request.auth.uid);
+
+      allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
+
+      allow update, delete: if
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isPrivilegedVendor() ||
+        (resource != null && resource.data.vendorId == request.auth.uid);
+    }
+
+    match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
+
+    // Catch-all for other collections
+    match /{document=**} { allow read, write: if isSuperAdmin(); }
+  }
+}

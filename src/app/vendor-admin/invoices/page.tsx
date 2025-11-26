@@ -21,7 +21,7 @@ export default function VendorInvoicesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Your Invoices</h1>
+        <h1 className="text-3xl font-bold tracking-tight">My Invoices</h1>
         <p className="text-muted-foreground">
           Review your billing history for your ParkX subscription.
         </p>
@@ -29,7 +29,7 @@ export default function VendorInvoicesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Invoice History</CardTitle>
+          <CardTitle>My Invoice History</CardTitle>
           <CardDescription>
             A list of your monthly subscription payments to ParkX.
           </CardDescription>

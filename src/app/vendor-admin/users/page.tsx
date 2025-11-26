@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from "@/hooks/use-toast";
+import { ManageParkingDialog } from "./manage-parking-dialog";
 
 type EndUser = {
   id: string;
@@ -54,6 +55,8 @@ type EndUser = {
   email: string;
   status: 'Active' | 'Pending' | 'Inactive';
   assignedSpotId: string | null;
+  truckParkingSpots?: number;
+  isRecurringPayment?: boolean;
   vendorId: string;
 };
 
@@ -61,6 +64,7 @@ type EndUser = {
 export default function UserManagementPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAssignSpotOpen, setAssignSpotOpen] = useState(false);
+  const [isManageParkingOpen, setManageParkingOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<EndUser | null>(null);
   const { toast } = useToast();
@@ -88,6 +92,11 @@ export default function UserManagementPage() {
     setAssignSpotOpen(true);
   };
   
+  const handleManageParking = (user: EndUser) => {
+    setSelectedUser(user);
+    setManageParkingOpen(true);
+  };
+
   const handleDeactivate = (user: EndUser) => {
     if (!firestore || !vendorAdmin) return;
     const userRef = doc(firestore, 'users', user.id);
@@ -156,6 +165,7 @@ export default function UserManagementPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Spot</TableHead>
+                  <TableHead>Truck Spots</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -170,6 +180,7 @@ export default function UserManagementPage() {
                         <Skeleton className="h-4 w-32 mt-1" />
                       </TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
@@ -196,6 +207,7 @@ export default function UserManagementPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>{user.assignedSpotId || 'N/A'}</TableCell>
+                      <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -213,7 +225,8 @@ export default function UserManagementPage() {
                             <DropdownMenuItem asChild>
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Spot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Car Spot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (
                                <DropdownMenuItem onClick={() => handleReactivate(user)}>
@@ -238,7 +251,7 @@ export default function UserManagementPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={5}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No users found. Create one to get started.
@@ -256,6 +269,13 @@ export default function UserManagementPage() {
           user={selectedUser}
           open={isAssignSpotOpen}
           onOpenChange={setAssignSpotOpen}
+        />
+      )}
+      {selectedUser && (
+        <ManageParkingDialog
+          user={selectedUser}
+          open={isManageParkingOpen}
+          onOpenChange={setManageParkingOpen}
         />
       )}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>

@@ -105,8 +105,8 @@ export function AssignSpotDialog({
     try {
         await batch.commit();
         toast({
-            title: "Spot Assigned",
-            description: `${user.firstName} ${user.lastName} has been assigned a new spot.`,
+            title: "Car Spot Assigned",
+            description: `${user.firstName} ${user.lastName} has been assigned a new car spot.`,
         });
         onOpenChange(false);
     } catch(e) {
@@ -124,9 +124,9 @@ export function AssignSpotDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Spot to {user.firstName}</DialogTitle>
+          <DialogTitle>Assign Car Spot to {user.firstName}</DialogTitle>
           <DialogDescription>
-            Select an available spot from your lot. This will automatically un-assign their previous spot if they had one.
+            Select an available car spot from your lot. This is for standard vehicles.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
