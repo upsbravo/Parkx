@@ -12,17 +12,21 @@ service cloud.firestore {
     }
 
     function isSuperAdmin() {
+      // Check for a document in a specific roles collection.
+      // This is more secure than a custom claim for this use case.
       return isSignedIn() && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
     function isVendorAdminForUser(userId) {
+      // Checks if the requesting user is the vendor admin for the user being accessed.
+      // The `get()` call is efficient as it targets a specific document path.
       return isSignedIn() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
     }
 
     match /roles_super_admin/{userId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSuperAdmin();
-      allow update, delete: if false;
+      allow get, list: if isSignedIn(); // Allow read for debugging/listing admins.
+      allow create: if isSuperAdmin(); // Only a super admin can create another.
+      allow update, delete: if false; // Roles should not be changed or deleted this way.
     }
 
     match /super_admins/{superAdminId} {
@@ -30,7 +34,7 @@ service cloud.firestore {
        allow list: if isSuperAdmin();
        allow create: if isSuperAdmin();
        allow update: if isOwner(superAdminId) || isSuperAdmin();
-       allow delete: if false;
+       allow delete: if false; // Super admins should not be deleted.
     }
 
     match /vendors/{vendorId} {
@@ -57,6 +61,7 @@ service cloud.firestore {
     }
 
     match /vendorInvoices/{invoiceId} {
+      // Only Super Admins can manage invoices.
       allow read, write: if isSuperAdmin();
     }
   }
