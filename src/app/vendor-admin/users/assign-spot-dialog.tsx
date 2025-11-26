@@ -29,6 +29,7 @@ type EndUser = {
   firstName: string;
   lastName: string;
   assignedSpotId: string | null;
+  waiverSigned?: boolean;
 };
 
 type ParkingSpot = {
@@ -77,6 +78,16 @@ export function AssignSpotDialog({
 
   const handleSave = async () => {
     if (!firestore || !vendorAdmin) return;
+    
+    if (!user.waiverSigned) {
+      toast({
+        variant: "destructive",
+        title: "Cannot Assign Spot",
+        description: "The user must sign the parking agreement before being assigned a spot.",
+      });
+      return;
+    }
+
     setIsSaving(true);
     
     const batch = writeBatch(firestore);

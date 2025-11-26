@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +58,7 @@ type EndUser = {
   truckParkingSpots?: number;
   isRecurringPayment?: boolean;
   vendorId: string;
+  waiverSigned?: boolean;
 };
 
 type ParkingSpot = {
@@ -104,6 +105,14 @@ export default function UserManagementPage() {
   };
 
   const handleAssignSpot = (user: EndUser) => {
+    if (!user.waiverSigned) {
+      toast({
+        variant: "destructive",
+        title: "Agreement Not Signed",
+        description: "You cannot assign a parking lot until the user has signed the parking agreement.",
+      });
+      return;
+    }
     setSelectedUser(user);
     setAssignSpotOpen(true);
   };
@@ -180,6 +189,7 @@ export default function UserManagementPage() {
                 <TableRow>
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Agreement</TableHead>
                   <TableHead>Parking Lot</TableHead>
                   <TableHead>Truck Parks</TableHead>
                   <TableHead>
@@ -196,6 +206,7 @@ export default function UserManagementPage() {
                         <Skeleton className="h-4 w-32 mt-1" />
                       </TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
@@ -222,6 +233,19 @@ export default function UserManagementPage() {
                           {user.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        {user.waiverSigned ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-xs">Signed</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <XCircle className="h-4 w-4" />
+                            <span className="text-xs">Not Signed</span>
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{getSpotName(user.assignedSpotId)}</TableCell>
                       <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
@@ -241,7 +265,7 @@ export default function UserManagementPage() {
                             <DropdownMenuItem asChild>
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Parking Lot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)} disabled={!user.waiverSigned}>Assign Parking Lot</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (
@@ -267,7 +291,7 @@ export default function UserManagementPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No users found. Create one to get started.
