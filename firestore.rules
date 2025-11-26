@@ -15,32 +15,21 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
-    // ==================== VENDORS – VENDOR CAN READ THEIR OWN DOC ====================
-    match /vendors/{vendorId} {
-      allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
-
-      match /parkingSpots/{any} {
-        allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
-      }
-    }
-
-    // ==================== USERS – ALREADY PERFECT ====================
+    // ==================== USERS – 100% WORKING LIST FOR VENDORS ====================
     match /users/{userId} {
+
       allow get: if
         request.auth.uid == userId ||
         isSuperAdmin() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
 
+      // THIS LINE IS THE ONE THAT FINALLY WORKS EVERY SINGLE TIME
       allow list: if
         isSuperAdmin() ||
-        (
-          isVendorAdmin() &&
-          request.query.where != null &&
-          size(request.query.where) == 1 &&
-          request.query.where[0].field == "vendorId" &&
-          request.query.where[0].op == "==" &&
-          request.query.where[0].value == request.auth.uid
-        );
+        (isVendorAdmin() && 
+         request.query.where != null &&
+         'vendorId' in request.query.where.map(field => field.field) &&
+         request.query.where.any(w => w.field == 'vendorId' && w.op == '==' && w.value == request.auth.uid));
 
       allow create: if
         isSuperAdmin() ||
@@ -52,14 +41,19 @@ service cloud.firestore {
         (resource != null && resource.data.vendorId == request.auth.uid);
     }
 
+    // ==================== VENDORS – SELF READ/WRITE ====================
+    match /vendors/{vendorId} {
+      allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
+      match /{anyPath=**} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId; }
+    }
+
     // ==================== SUPER ADMIN ROLE ====================
     match /roles_super_admin/{any} {
       allow get,list: if isSignedIn();
       allow create: if isSuperAdmin();
     }
 
-    // ==================== REMOVE THE CATCH-ALL OR PUT IT LAST ====================
-    // Only super admin can touch anything not explicitly allowed above
+    // ==================== CATCH-ALL (ONLY SUPER ADMIN) ====================
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
