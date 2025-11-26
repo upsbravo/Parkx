@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import { Send, MessageCircle, Paperclip, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, setDoc, getDoc } from 'firebase/firestore';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -55,17 +55,32 @@ export default function EndUserMessagesPage() {
   const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [vendorName, setVendorName] = useState('Admin');
 
   const userDocRef = useMemoFirebase(() => endUser ? doc(firestore, 'users', endUser.uid) : null, [endUser, firestore]);
   const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
 
-  const vendorDocRef = useMemoFirebase(() => (userData && firestore) ? doc(firestore, 'vendors', userData.vendorId) : null, [userData, firestore]);
-  const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
+  useEffect(() => {
+    const fetchVendorName = async () => {
+        if (userData?.vendorId && firestore) {
+            const vendorDocRef = doc(firestore, 'vendors', userData.vendorId);
+            try {
+                const vendorSnap = await getDoc(vendorDocRef);
+                if (vendorSnap.exists()) {
+                    setVendorName(vendorSnap.data().name || 'Admin');
+                }
+            } catch (error) {
+                console.error("Failed to fetch vendor name:", error);
+            }
+        }
+    };
+    fetchVendorName();
+  }, [userData, firestore]);
 
   const conversationId = useMemo(() => {
-    if (!endUser || !vendorData) return null;
-    return getConversationId(endUser.uid, vendorData.id);
-  }, [endUser, vendorData]);
+    if (!endUser || !userData?.vendorId) return null;
+    return getConversationId(endUser.uid, userData.vendorId);
+  }, [endUser, userData]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !conversationId) return null;
@@ -76,7 +91,7 @@ export default function EndUserMessagesPage() {
 
 
   const handleSendMessage = async () => {
-    if ((!messageText && !attachment) || !endUser || !vendorData || !conversationId) return;
+    if ((!messageText && !attachment) || !endUser || !userData?.vendorId || !conversationId) return;
 
     setIsSending(true);
 
@@ -85,7 +100,7 @@ export default function EndUserMessagesPage() {
 
     // Ensure conversation document exists
     await setDoc(conversationRef, {
-        participants: [endUser.uid, vendorData.id],
+        participants: [endUser.uid, userData.vendorId],
     }, { merge: true });
 
     let attachmentData: Partial<Message> = {};
@@ -131,7 +146,7 @@ export default function EndUserMessagesPage() {
       }
   };
 
-  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading || messagesLoading;
+  const isLoading = isUserLoading || isUserDataLoading || messagesLoading;
 
   return (
     <div className="space-y-6">
@@ -150,7 +165,7 @@ export default function EndUserMessagesPage() {
               {isLoading ? (
                  <Skeleton className="h-6 w-48" />
               ) : (
-                <CardTitle>Your Conversation with {vendorData?.name || 'Admin'}</CardTitle>
+                <CardTitle>Your Conversation with {vendorName}</CardTitle>
               )}
               <CardDescription>
                 All messages are logged. Expect a response within 24 hours.
@@ -167,11 +182,11 @@ export default function EndUserMessagesPage() {
                         {msg.senderId !== endUser?.uid && (
                             <Avatar className="h-8 w-8">
                                <AvatarImage src={undefined} />
-                               <AvatarFallback>{vendorData?.name?.[0] || 'A'}</AvatarFallback>
+                               <AvatarFallback>{vendorName?.[0] || 'A'}</AvatarFallback>
                             </Avatar>
                         )}
                         <div className={`max-w-xs rounded-lg p-3 text-sm ${msg.senderId === endUser?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                            <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorData?.name}</p>
+                            <p className="font-bold mb-1">{msg.senderId === endUser?.uid ? 'You' : vendorName}</p>
                             <p>{msg.message}</p>
                              {msg.attachmentUrl && (
                                 <a href={msg.attachmentUrl} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center gap-2 text-xs underline">
@@ -224,5 +239,3 @@ export default function EndUserMessagesPage() {
     </div>
   );
 }
-
-    
