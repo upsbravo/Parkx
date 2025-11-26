@@ -23,7 +23,6 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all
     match /vendors/{vendorId} {
-      // Simplified read rule: Super Admin can read all, Vendor Admin can read their own.
       allow read: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
@@ -53,19 +52,18 @@ service cloud.firestore {
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
+
+      // Vendor Admins can manage documents for their own users
+      match /userDocuments/{docId} {
+        allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
+      }
+
+      // Vendor Admins can manage their own documents (like signed agreements)
+      match /vendorDocuments/{docId} {
+        allow read, write: if request.auth.uid == vendorId;
+      }
     }
     
-    // Vendor Admins can manage documents for their own users
-    match /vendors/{vendorId}/userDocuments/{docId} {
-      allow read, write, list: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
-    }
-
-    // Vendor Admins can manage their own documents (like signed agreements)
-    match /vendors/{vendorId}/vendorDocuments/{docId} {
-      allow read, create, update, delete: if request.auth.uid == vendorId;
-      allow list: if isVendorAdmin() && request.auth.uid == vendorId;
-    }
-
     // USERS – privileged vendors see all, normal vendors see only theirs
     match /users/{userId} {
       allow get: if
