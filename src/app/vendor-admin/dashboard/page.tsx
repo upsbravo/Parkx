@@ -16,6 +16,12 @@ import {
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
+import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
+import { useMemo } from 'react';
+import { format, subMonths } from 'date-fns';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
 
 type Vendor = {
   spotLimit: number;
@@ -23,6 +29,10 @@ type Vendor = {
 
 type EndUser = {
   id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  waiverSignedDate?: string;
 };
 
 type ParkingSpot = {
@@ -56,6 +66,7 @@ export default function VendorAdminDashboard() {
   const totalUsers = usersData?.length ?? 0;
   const totalSpots = vendorData?.spotLimit ?? 0;
   const occupiedSpots = spotsData?.filter(spot => !spot.isAvailable).length ?? 0;
+  const availableSpots = (spotsData?.length ?? 0) - occupiedSpots;
   const occupancyPercentage = totalSpots > 0 ? Math.round((occupiedSpots / totalSpots) * 100) : 0;
 
 
@@ -85,6 +96,49 @@ export default function VendorAdminDashboard() {
       icon: <TriangleAlert className="h-4 w-4 text-muted-foreground" />,
     },
   ];
+  
+  const spotStatusData = useMemo(() => {
+    return [
+      { status: 'Occupied', count: occupiedSpots, fill: 'hsl(var(--chart-1))' },
+      { status: 'Available', count: availableSpots, fill: 'hsl(var(--chart-2))' },
+    ];
+  }, [occupiedSpots, availableSpots]);
+  
+  const userGrowthData = useMemo(() => {
+    const now = new Date();
+    const data = Array.from({ length: 6 }).map((_, i) => {
+      const month = subMonths(now, 5 - i);
+      return { month: format(month, 'MMM'), newUsers: 0 };
+    });
+
+    if (usersData) {
+      usersData.forEach(user => {
+        if (user.waiverSignedDate) {
+          const joinDate = new Date(user.waiverSignedDate);
+          const monthDiff = (now.getFullYear() - joinDate.getFullYear()) * 12 + now.getMonth() - joinDate.getMonth();
+          if (monthDiff >= 0 && monthDiff < 6) {
+            const index = 5 - monthDiff;
+            data[index].newUsers += 1;
+          }
+        }
+      });
+    }
+    return data;
+  }, [usersData]);
+  
+  const recentUsers = useMemo(() => {
+    if (!usersData) return [];
+    return [...usersData]
+      .filter(u => u.waiverSignedDate)
+      .sort((a, b) => new Date(b.waiverSignedDate!).getTime() - new Date(a.waiverSignedDate!).getTime())
+      .slice(0, 5);
+  }, [usersData]);
+
+  const chartConfig = {
+      newUsers: { label: 'New Users', color: 'hsl(var(--chart-1))' },
+      Occupied: { label: 'Occupied', color: 'hsl(var(--chart-1))' },
+      Available: { label: 'Available', color: 'hsl(var(--chart-2))' },
+  } as const;
 
   return (
     <div className="flex-1 space-y-4">
@@ -119,16 +173,102 @@ export default function VendorAdminDashboard() {
           </Card>
         ))}
       </div>
-      <Card className="col-span-1 lg:col-span-3">
+
+       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <Card className="lg:col-span-3">
+            <CardHeader>
+                <CardTitle>User Growth</CardTitle>
+                <CardDescription>New users over the last 6 months.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <Skeleton className="h-80 w-full" />
+                ) : (
+                    <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                        <BarChart data={userGrowthData}>
+                            <CartesianGrid vertical={false} />
+                            <XAxis
+                                dataKey="month"
+                                stroke="#888888"
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                            />
+                            <YAxis
+                                stroke="#888888"
+                                fontSize={12}
+                                tickLine={false}
+                                axisLine={false}
+                                allowDecimals={false}
+                            />
+                            <Tooltip
+                                cursor={false}
+                                content={<ChartTooltipContent indicator="dot" />}
+                            />
+                            <Bar dataKey="newUsers" fill="var(--color-newUsers)" radius={4} />
+                        </BarChart>
+                    </ChartContainer>
+                )}
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle>Spot Occupancy</CardTitle>
+                <CardDescription>Current state of your parking spots.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <Skeleton className="h-80 w-full" />
+                ) : (
+                    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[350px]">
+                        <PieChart>
+                            <Tooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                            <Pie data={spotStatusData} dataKey="count" nameKey="status" innerRadius={60} strokeWidth={5}>
+                                {spotStatusData.map((entry) => (
+                                    <Cell key={`cell-${entry.status}`} fill={entry.fill} />
+                                ))}
+                            </Pie>
+                             <ChartLegend content={<ChartLegendContent nameKey="status" />} className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center" />
+                        </PieChart>
+                    </ChartContainer>
+                )}
+            </CardContent>
+          </Card>
+       </div>
+
+      <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>
+           <CardDescription>Newest users to complete their profile.</CardDescription>
         </CardHeader>
-        <CardContent className="pl-2">
-          <div className="flex h-48 items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              No recent activity.
-            </p>
-          </div>
+        <CardContent>
+           {isLoading ? (
+              <div className="space-y-4">
+                  <Skeleton className="h-12 w-full"/>
+                  <Skeleton className="h-12 w-full"/>
+              </div>
+            ) : recentUsers.length > 0 ? (
+                <div className="space-y-4">
+                {recentUsers.map((user) => (
+                    <div key={user.id} className="flex items-center">
+                    <Avatar className="h-9 w-9">
+                        <AvatarFallback>{user.firstName?.[0]}{user.lastName?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="ml-4 space-y-1">
+                        <p className="text-sm font-medium leading-none">{user.firstName} {user.lastName}</p>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                    </div>
+                    <div className="ml-auto font-medium text-sm text-muted-foreground">
+                        Joined {format(new Date(user.waiverSignedDate!), 'PPP')}
+                    </div>
+                    </div>
+                ))}
+                </div>
+            ) : (
+                 <div className="flex h-24 items-center justify-center">
+                    <p className="text-sm text-muted-foreground">No recent user activity.</p>
+                </div>
+            )}
         </CardContent>
       </Card>
     </div>
