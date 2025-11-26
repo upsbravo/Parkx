@@ -59,10 +59,8 @@ export default function AccountSettingsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
-
-  const [userData, setUserData] = useState<EndUser | null>(null);
   
-  // Form states
+  // Form states initialized to empty strings to be controlled
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -86,10 +84,12 @@ export default function AccountSettingsPage() {
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
 
   useEffect(() => {
+    // When user or profile data loads, populate the form state.
+    // ALWAYS provide a fallback to an empty string ('') to prevent
+    // controlled/uncontrolled input errors.
     if (userProfile) {
-        setUserData(userProfile);
-        setFullName(`${userProfile.firstName} ${userProfile.lastName}`);
-        setEmail(userProfile.email);
+        setFullName(`${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim());
+        setEmail(userProfile.email || '');
         setPhone(userProfile.phone || '');
         setStreet(userProfile.address?.street || '');
         setCity(userProfile.address?.city || '');
@@ -98,7 +98,7 @@ export default function AccountSettingsPage() {
         setEmergencyName(userProfile.emergencyContact?.name || '');
         setEmergencyPhone(userProfile.emergencyContact?.phone || '');
     } else if (user) {
-        // Fallback for when profile is loading
+        // Fallback for when profile is still loading but auth user exists
         setFullName(user.displayName || '');
         setEmail(user.email || '');
     }
