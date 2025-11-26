@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -15,8 +16,13 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/vendors/$(request.auth.uid));
     }
 
+    function isPrivilegedVendor() {
+      return isVendorAdmin() && get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
+    }
+
     // ==================== VENDORS – vendor can read/write his own profile ====================
     match /vendors/{vendorId} {
+      allow list: if isSuperAdmin() || isPrivilegedVendor();
       allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       match /{anyPath=**} { allow read, write: if isSuperAdmin() || request.auth.uid == vendorId; }
     }

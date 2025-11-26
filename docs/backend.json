@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "SuperAdmin": {
@@ -49,6 +50,10 @@
           "type": "string",
           "description": "Contact email address for the vendor.",
           "format": "email"
+        },
+        "isPrivileged": {
+          "type": "boolean",
+          "description": "Grants the vendor special, elevated permissions."
         },
         "parkingSpotLimit": {
           "type": "number",

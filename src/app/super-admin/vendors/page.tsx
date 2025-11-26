@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,8 +49,6 @@ import {
 } from '@/components/ui/alert-dialog';
 
 
-// Define a type for the vendor data coming from Firestore
-// This should align with the structure in your `backend.json` and invite dialog
 type Vendor = {
   id: string;
   name: string;
@@ -60,6 +58,7 @@ type Vendor = {
   trialEnds: string | null; // ISO string or null
   spotsUsed: number;
   spotLimit: number;
+  isPrivileged?: boolean; // New field for privileged status
 };
 
 
@@ -96,6 +95,16 @@ export default function VendorsPage() {
   const handleAdjustClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setAdjustOpen(true);
+  };
+  
+  const handleTogglePrivileged = (vendor: Vendor) => {
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    const newStatus = !vendor.isPrivileged;
+    updateDocumentNonBlocking(vendorRef, { isPrivileged: newStatus });
+    toast({
+      title: `Vendor ${newStatus ? 'Promoted' : 'Demoted'}`,
+      description: `${vendor.name} is now a ${newStatus ? 'Privileged' : 'Regular'} Vendor.`,
+    });
   };
 
   const handleDeactivate = (vendor: Vendor) => {
@@ -246,7 +255,10 @@ export default function VendorsPage() {
                   vendors.map((vendor) => (
                     <TableRow key={vendor.id}>
                       <TableCell>
-                        <div className="font-medium">{vendor.name}</div>
+                        <div className="flex items-center gap-2">
+                           {vendor.isPrivileged && <Star className="h-4 w-4 text-yellow-500 fill-yellow-400" />}
+                           <div className="font-medium">{vendor.name}</div>
+                        </div>
                         <div className="text-sm text-muted-foreground">
                           {vendor.email}
                         </div>
@@ -300,6 +312,9 @@ export default function VendorsPage() {
                               Send Password Reset
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleTogglePrivileged(vendor)}>
+                              {vendor.isPrivileged ? 'Demote to Regular' : 'Promote to Privileged'}
+                            </DropdownMenuItem>
                              {vendor.status === 'Trial' ? (
                               <DropdownMenuItem onClick={() => handleEndTrial(vendor)}>End Trial</DropdownMenuItem>
                             ) : (
