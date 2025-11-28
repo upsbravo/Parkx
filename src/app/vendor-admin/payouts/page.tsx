@@ -283,50 +283,28 @@ export default function VendorPaymentsPage() {
                     </Button>
                 </CardFooter>
             </Card>
-
-            <Card className="col-span-1 md:col-span-2">
+             <Card className="col-span-1 md:col-span-2">
                 <CardHeader>
                      <div className='flex items-center gap-2'>
                         <DollarSign className="h-5 w-5 text-muted-foreground" />
                         <CardTitle>Rates</CardTitle>
                     </div>
                 </CardHeader>
-                <CardContent className="grid gap-6 sm:grid-cols-2">
+                <CardContent>
                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-2">
-                                <svg width="40" height="25" viewBox="0 0 40 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><path d="M0 2.5C0 1.11929 1.11929 0 2.5 0H37.5C38.8807 0 40 1.11929 40 2.5V22.5C40 23.8807 38.8807 25 37.5 25H2.5C1.11929 25 0 23.8807 0 22.5V2.5Z" fill="#3A5D99"/><path d="M6 16.25V8.75H8.75L11.5 13.75L14.25 8.75H17V16.25H14.75V11.875L12.125 16.25H10.875L8.25 11.875V16.25H6Z" fill="white"/></svg>
-                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><rect width="34" height="21" rx="3" fill="black"/><path d="M9 6H11V15H9V6Z" fill="white"/><path d="M12 6H14V15H12V6Z" fill="white"/><path d="M15 6H17V15H15V6Z" fill="white"/><path d="M18 6H20V15H18V6Z" fill="white"/><path d="M21 6H23V15H21V6Z" fill="white"/><path d="M24 6H26V15H24V6Z" fill="white"/><path d="M9.19702 10.5C9.19702 12.562 10.134 14.373 11.583 15H13.228C14.677 14.373 15.614 12.562 15.614 10.5C15.614 8.43803 14.677 6.62702 13.228 6.00002H11.583C10.134 6.62702 9.19702 8.43803 9.19702 10.5Z" fill="#FF5F00"/><path d="M17.4221 10.5C17.4221 8.81803 16.8271 7.29002 15.8901 6.22302C16.5911 6.07902 17.3191 6.00002 18.0701 6.00002C20.9161 6.00002 23.2381 8.43803 23.2381 10.5C23.2381 12.562 20.9161 15 18.0701 15C17.3191 15 16.5911 14.921 15.8901 14.777C16.8271 13.71 17.4221 12.182 17.4221 10.5Z" fill="#EB001B"/></svg>
-                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><rect x="0.5" y="0.5" width="33" height="20" rx="2.5" fill="#F5F5F5" stroke="#E0E0E0"/><path d="M8.76172 10.375C8.76172 11.4583 8.36805 12.3958 7.57986 13.1875H6.2882C5.49306 12.3958 5.125 11.4583 5.125 10.375C5.125 9.3125 5.51875 8.375 6.3125 7.5625H7.55556C8.34931 8.375 8.76172 9.3125 8.76172 10.375Z" fill="#FF5F00"/><path d="M12.375 13.3125C13.0833 13.3125 13.625 12.75 13.625 12.0625V8.6875C13.625 8.02083 13.0833 7.4375 12.375 7.4375H10.125V13.3125H12.375Z" fill="#FF5F00"/><path d="M15.125 7.4375H17.25C17.7708 7.4375 18.125 7.8125 18.125 8.4375V12.3125C18.125 12.875 17.7917 13.3125 17.25 13.3125H15.125V7.4375Z" fill="#FF5F00"/><path d="M23.125 13.3125H21L23.125 7.4375H25.125L23.125 13.3125Z" fill="#FF5F00"/><path d="M26.375 13.3125V7.4375H28.125V13.3125H26.375Z" fill="#FF5F00"/></svg>
+                                <svg width="24" height="16" viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4"><rect width="23.75" height="15.625" rx="2.5" fill="#2664D4"/><path fillRule="evenodd" clipRule="evenodd" d="M11.642 3.82857H8.83581L8.25781 12.1429H11.064L11.642 3.82857ZM6.90154 3.82857L4.74725 12.1429H1.83516L3.98945 3.82857H6.90154ZM12.3516 8.01604C12.3516 7.02813 13.3443 6.30725 14.3022 6.30725C15.26 6.30725 15.8212 6.84571 15.8385 7.42461L15.0385 7.28176C14.9398 6.94066 14.6736 6.77 14.2857 6.77C13.8099 6.77 13.5264 7.04538 13.5264 7.49505C13.5264 7.8189 13.7253 8.01604 14.1648 8.17648L14.656 8.35429C15.3484 8.62967 15.7582 9.07934 15.7582 9.78637C15.7582 10.7038 14.9055 11.2424 13.9121 11.2424C12.8308 11.2424 12.2352 10.6692 12.1648 10.0772L12.9648 10.22C13.0462 10.5793 13.3648 10.7765 13.8264 10.7765C14.3648 10.7765 14.6308 10.5109 14.6308 10.0772C14.6308 9.87999 14.4967 9.68285 13.9967 9.48571L13.5352 9.32527C12.8429 9.0678 12.3516 8.64736 12.3516 8.01604ZM19.989 3.82857H22.1433L19.4993 12.1429H17.4725L16.033 6.44461C15.9343 6.03483 15.8696 5.86934 15.4879 5.86934C15.3352 5.86934 15.0516 5.95549 14.9516 5.98505L15.1176 3.49022C15.3176 3.44593 15.6527 3.37109 16.2143 3.37109C17.2791 3.37109 17.8571 3.98593 18.0989 4.9034L18.9945 8.74241L19.989 3.82857Z" fill="white"/></svg>
+                                <svg width="25" height="15" viewBox="0 0 25 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4"><path d="M12.2133 14.1167C18.23 14.1167 23.2133 10.95 23.2133 7.05833C23.2133 3.16667 18.23 0 12.2133 0C6.2 0 1.21332 3.16667 1.21332 7.05833C1.21332 10.95 6.2 14.1167 12.2133 14.1167Z" fill="#F79E1B"/><path d="M8.28333 7.05833C8.28333 4.81667 9.94667 2.95 12.2167 2.95C14.4867 2.95 16.15 4.81667 16.15 7.05833C16.15 9.3 14.4867 11.1667 12.2167 11.1667C9.94667 11.1667 8.28333 9.3 8.28333 7.05833Z" fill="#EB001B"/><path d="M19.1462 7.05833C19.1462 9.3 17.4828 11.1667 15.2128 11.1667C15.7195 10.1583 16.1495 8.73333 16.1495 7.05833C16.1495 5.38333 15.7195 3.95833 15.2128 2.95C17.4828 2.95 19.1462 4.81667 19.1462 7.05833Z" fill="#00A1DF"/></svg>
+                                <svg width="24" height="15" viewBox="0 0 24 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4"><path d="M22.9536 2.07922C22.9536 1.03961 21.9961 0.207031 20.8036 0.207031H3.19302C1.99687 0.207031 1.04297 1.03961 1.04297 2.07922V12.4753C1.04297 13.5149 1.99687 14.3475 3.19302 14.3475H20.8036C21.9961 14.3475 22.9536 13.5149 22.9536 12.4753V2.07922Z" fill="#3A5D99"/><path d="M6 10.9375V4.625H8.75L11.5 8.9375L14.25 4.625H17V10.9375H14.75V7.59375L12.125 10.9375H10.875L8.25 7.59375V10.9375H6Z" fill="white"/></svg>
+                                <svg width="23" height="15" viewBox="0 0 23 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4"><path d="M21.9845 1.55859C21.9845 0.779297 21.2267 0.15625 20.3048 0.15625H2.3302C1.40833 0.15625 0.652466 0.779297 0.652466 1.55859V12.8633C0.652466 13.6426 1.40833 14.2656 2.3302 14.2656H20.3048C21.2267 14.2656 21.9845 13.6426 21.9845 12.8633V1.55859Z" fill="#FF5F00"/><path d="M12.5976 11.0801H15.0117L15.3242 9.54492H13.6367L13.4414 8.5293H15.4218L15.7343 7.02734H13.246L13.0117 5.76562H10.7304L7.30071 11.0801H9.7929L10.3632 8.36914L11.6054 11.0801H12.5976Z" fill="#424242"/></svg>
                                 <span className="text-xs text-muted-foreground">+ more</span>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
+                        <CardContent>
+                             <div>
                                 <p className="text-xl font-semibold">2.9% + 30¢</p>
                                 <p className="text-sm text-muted-foreground">Per Online Payment</p>
-                            </div>
-                            <div>
-                                <p className="text-xl font-semibold">2.7% + 15¢</p>
-                                <p className="text-sm text-muted-foreground">Per In-Person Payment</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                     <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="21" rx="3" fill="#2E78C4"/><path d="M12.02 12.44V8.5H15.16C15.9 8.5 16.52 8.64 17.02 8.92C17.52 9.2 17.78 9.62 17.78 10.18C17.78 10.64 17.63 11.02 17.33 11.32C17.03 11.62 16.63 11.82 16.13 11.92L18.06 15H15.82L14.04 12.44H12.02ZM14.48 11.36C14.78 11.36 15.02 11.3 15.2 11.18C15.38 11.06 15.48 10.86 15.48 10.58C15.48 10.3 15.38 10.08 15.18 9.92C14.98 9.76 14.7 9.68 14.34 9.68H12.02V11.36H14.48Z" fill="white"/><path d="M23.9515 12.35V15H21.6515V8.5H25.3915C26.1115 8.5 26.6915 8.63 27.1315 8.89C27.5715 9.15 27.7915 9.5 27.7915 9.94C27.7915 10.42 27.5915 10.8 27.1915 11.08C26.7915 11.36 26.2715 11.5 25.6315 11.5H23.9515V12.35ZM23.9515 10.45H25.5315C25.9315 10.45 26.2315 10.39 26.4315 10.27C26.6315 10.15 26.7315 9.97 26.7315 9.73C26.7315 9.51 26.6315 9.33 26.4315 9.19C26.2315 9.05 25.9315 8.98 25.5315 8.98H23.9515V10.45Z" fill="white"/></svg>
-                                <Switch defaultChecked/>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <p className="text-xl font-semibold">3.5% + 30¢</p>
-                                <p className="text-sm text-muted-foreground">Per Online Payment</p>
-                            </div>
-                            <div>
-                                <p className="text-xl font-semibold">3.5% + 15¢</p>
-                                <p className="text-sm text-muted-foreground">Per In-Person Payment</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -601,3 +579,5 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
+
+    
