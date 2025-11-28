@@ -44,7 +44,7 @@ service cloud.firestore {
       match /userInvoices/{invoiceId} {
           allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
           allow write: if request.auth.uid == vendorId;
-          allow list: if (isVendorAdmin() && request.query.where.vendorId == request.auth.uid) ||
+          allow list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
                          (isSignedIn() && request.query.where.userId == request.auth.uid);
       }
 
