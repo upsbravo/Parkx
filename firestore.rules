@@ -108,8 +108,22 @@ service cloud.firestore {
     
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
-      allow read, write: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+      allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
       allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.vendorId == request.auth.uid);
+      allow write: if isSuperAdmin();
+    }
+    
+    // Stripe Transactions
+    match /transactions/{transactionId} {
+        allow list: if isSuperAdmin() || 
+                       (isVendorAdmin() && 
+                        request.query.get("where") != null && 
+                        request.query.where[0].field == 'vendorId' && 
+                        request.query.where[0].op == '==' && 
+                        request.query.where[0].value == request.auth.uid);
+        allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+        // Only allow creation via backend functions (Stripe Extension)
+        allow create, update, delete: if false;
     }
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
