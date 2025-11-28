@@ -105,7 +105,11 @@ export function useCollection<T = any>(
       }
     );
 
-    return () => unsubscribe();
+    return () => {
+      // Defer the unsubscribe call to prevent a race condition
+      // that can cause an internal SDK error on rapid component unmounts.
+      setTimeout(() => unsubscribe(), 0);
+    };
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
