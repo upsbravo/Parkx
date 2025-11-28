@@ -55,6 +55,11 @@ export default function VendorInvoicesPage() {
   } as const;
 
   const handleSubscribe = async () => {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to subscribe.' });
+        return;
+    }
+
     setIsSubscribing(true);
     toast({
       title: 'Redirecting to Stripe...',
@@ -62,20 +67,21 @@ export default function VendorInvoicesPage() {
     });
 
     try {
-      // This is a placeholder product ID. You would create this product in your Stripe Dashboard
-      // and add the corresponding Price ID to a document in your Firestore `products` collection.
-      const productId = process.env.NEXT_PUBLIC_STRIPE_PRODUCT_ID || 'prod_YOUR_PRODUCT_ID'; // Replace with your actual product ID from Firestore
+      // This is a placeholder price ID. You would create a product and price in your Stripe Dashboard.
+      // The price ID would typically be stored in a 'products' collection in Firestore.
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_YOUR_PRICE_ID';
       
       const result = await createStripeCheckout({
-        priceId: productId, 
+        priceId: priceId, 
         successUrl: window.location.href,
         cancelUrl: window.location.href,
+        uid: user.uid, // Pass the user's UID
       });
 
       if (result.url) {
         window.location.assign(result.url);
       } else {
-        throw new Error('Could not retrieve checkout URL.');
+        throw new Error(result.error || 'Could not retrieve checkout URL.');
       }
     } catch (error: any) {
       console.error('Stripe checkout error:', error);

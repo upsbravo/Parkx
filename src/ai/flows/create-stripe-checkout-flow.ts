@@ -11,15 +11,13 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getAuth } from 'google-auth-library';
-import { useUser } from '@/firebase';
-
 
 const CreateStripeCheckoutInputSchema = z.object({
   priceId: z.string().describe('The ID of the Stripe price object.'),
   successUrl: z.string().url().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
   promoCode: z.string().optional().describe('An optional promotion code.'),
+  uid: z.string().describe("The UID of the authenticated user."),
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
@@ -44,12 +42,13 @@ const createStripeCheckoutFlow = ai.defineFlow(
     outputSchema: CreateStripeCheckoutOutputSchema,
   },
   async (input) => {
-    const { user } = useUser();
+    // This server-side logic is now correctly placed inside the Genkit flow.
+    const { getAuth } = await import('google-auth-library');
 
     if (!process.env.GCLOUD_PROJECT) {
       throw new Error('GCLOUD_PROJECT environment variable not set.');
     }
-    if (!user) {
+    if (!input.uid) {
       throw new Error('User must be authenticated to create a checkout session.');
     }
 
@@ -72,7 +71,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
           success_url: input.successUrl,
           cancel_url: input.cancelUrl,
           allow_promotion_codes: !!input.promoCode,
-          uid: user.uid,
+          uid: input.uid,
         },
       };
 
