@@ -38,6 +38,8 @@ type Transaction = {
   vendorName: string;
   receiptUrl?: string;
   type: 'subscription' | 'payment';
+  fee?: number;
+  net?: number;
 };
 
 export default function PlatformPaymentsPage() {
@@ -61,6 +63,7 @@ export default function PlatformPaymentsPage() {
   }, [transactions, searchTerm]);
 
   const formatCurrency = (amountInCents: number, currency: string) => {
+    if (typeof amountInCents !== 'number') return '-';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
@@ -122,6 +125,8 @@ export default function PlatformPaymentsPage() {
                         <TableHead>Vendor</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Amount</TableHead>
+                        <TableHead>Fee</TableHead>
+                        <TableHead>Net</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Receipt</TableHead>
@@ -134,6 +139,8 @@ export default function PlatformPaymentsPage() {
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -149,6 +156,8 @@ export default function PlatformPaymentsPage() {
                             <TableCell>{tx.vendorName}</TableCell>
                             <TableCell>{tx.customerEmail}</TableCell>
                             <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                            <TableCell>{formatCurrency(tx.fee || 0, tx.currency)}</TableCell>
+                            <TableCell>{formatCurrency(tx.net || 0, tx.currency)}</TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-2">
                                    {typeIcon[tx.type]}
@@ -173,7 +182,7 @@ export default function PlatformPaymentsPage() {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
+                          <TableCell colSpan={9} className="h-24 text-center">
                             No transactions found.
                           </TableCell>
                         </TableRow>

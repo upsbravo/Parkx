@@ -57,6 +57,8 @@ type Transaction = {
   customerEmail: string;
   vendorId: string;
   receiptUrl?: string;
+  fee?: number;
+  net?: number;
 };
 
 type Vendor = {
@@ -115,9 +117,6 @@ export default function VendorPaymentsPage() {
   const { user: vendorAdmin } = useUser();
   const { toast } = useToast();
 
-  const [accountHolder, setAccountHolder] = useState('Acme Parking Inc.');
-  const [routingNumber, setRoutingNumber] = useState('••••••••123');
-  const [accountNumber, setAccountNumber] = useState('••••••••456');
   const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -159,18 +158,13 @@ export default function VendorPaymentsPage() {
   }, [transactions, searchTerm]);
 
   const formatCurrency = (amount: number, currency = 'USD') => {
+    if (typeof amount !== 'number') return '-';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
     }).format(amount);
   };
 
-  const handleSavePayouts = () => {
-    toast({
-        title: 'Payout Information Saved',
-        description: 'Your bank account details have been updated.',
-    });
-  }
 
   const handleSaveDescriptor = () => {
      toast({
@@ -264,7 +258,7 @@ export default function VendorPaymentsPage() {
                         <CardTitle>Stripe Account</CardTitle>
                     </div>
                     <CardDescription>
-                        Manage your Stripe account and view your connected account details.
+                        Manage your Stripe account and update your bank details for payouts.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -275,7 +269,7 @@ export default function VendorPaymentsPage() {
                         </div>
                         <Badge variant="default">Enabled</Badge>
                     </div>
-                     <p className='text-sm text-muted-foreground'>ParkX uses Stripe to process payments from your customers. You are in complete control of your funds.</p>
+                     <p className='text-sm text-muted-foreground'>ParkX uses Stripe to process payments from your customers. Click below to securely manage your account details, including your bank account for payouts.</p>
                 </CardContent>
                 <CardFooter>
                      <Button variant="outline">
@@ -291,7 +285,7 @@ export default function VendorPaymentsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <Card>
+                     <Card>
                         <CardHeader>
                             <div className="flex items-center gap-2">
                                 <svg width="24" height="16" viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4"><rect width="23.75" height="15.625" rx="2.5" fill="#2664D4"/><path fillRule="evenodd" clipRule="evenodd" d="M11.642 3.82857H8.83581L8.25781 12.1429H11.064L11.642 3.82857ZM6.90154 3.82857L4.74725 12.1429H1.83516L3.98945 3.82857H6.90154ZM12.3516 8.01604C12.3516 7.02813 13.3443 6.30725 14.3022 6.30725C15.26 6.30725 15.8212 6.84571 15.8385 7.42461L15.0385 7.28176C14.9398 6.94066 14.6736 6.77 14.2857 6.77C13.8099 6.77 13.5264 7.04538 13.5264 7.49505C13.5264 7.8189 13.7253 8.01604 14.1648 8.17648L14.656 8.35429C15.3484 8.62967 15.7582 9.07934 15.7582 9.78637C15.7582 10.7038 14.9055 11.2424 13.9121 11.2424C12.8308 11.2424 12.2352 10.6692 12.1648 10.0772L12.9648 10.22C13.0462 10.5793 13.3648 10.7765 13.8264 10.7765C14.3648 10.7765 14.6308 10.5109 14.6308 10.0772C14.6308 9.87999 14.4967 9.68285 13.9967 9.48571L13.5352 9.32527C12.8429 9.0678 12.3516 8.64736 12.3516 8.01604ZM19.989 3.82857H22.1433L19.4993 12.1429H17.4725L16.033 6.44461C15.9343 6.03483 15.8696 5.86934 15.4879 5.86934C15.3352 5.86934 15.0516 5.95549 14.9516 5.98505L15.1176 3.49022C15.3176 3.44593 15.6527 3.37109 16.2143 3.37109C17.2791 3.37109 17.8571 3.98593 18.0989 4.9034L18.9945 8.74241L19.989 3.82857Z" fill="white"/></svg>
@@ -309,35 +303,6 @@ export default function VendorPaymentsPage() {
                         </CardContent>
                     </Card>
                 </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                     <div className='flex items-center gap-2'>
-                        <Landmark className="h-5 w-5 text-muted-foreground" />
-                        <CardTitle>Payouts Bank Account</CardTitle>
-                    </div>
-                    <CardDescription>
-                       Your payout schedule and connected bank account.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="account-holder">Account Holder Name</Label>
-                        <Input id="account-holder" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="routing-number">Routing Number</Label>
-                        <Input id="routing-number" value={routingNumber} onChange={(e) => setRoutingNumber(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="account-number">Account Number</Label>
-                        <Input id="account-number" type="password" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
-                    </div>
-                </CardContent>
-                 <CardFooter>
-                    <Button onClick={handleSavePayouts}>Save Payouts</Button>
-                </CardFooter>
             </Card>
 
              <Card>
@@ -388,6 +353,8 @@ export default function VendorPaymentsPage() {
                     <TableHead>Date</TableHead>
                     <TableHead>Customer</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Fee</TableHead>
+                    <TableHead>Net</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Receipt</TableHead>
                   </TableRow>
@@ -398,6 +365,8 @@ export default function VendorPaymentsPage() {
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
@@ -411,6 +380,8 @@ export default function VendorPaymentsPage() {
                         </TableCell>
                         <TableCell>{tx.customerEmail}</TableCell>
                         <TableCell>{formatCurrency(tx.amount / 100, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency((tx.fee || 0) / 100, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency((tx.net || 0) / 100, tx.currency)}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[tx.status]}>{tx.status}</Badge>
                         </TableCell>
@@ -429,7 +400,7 @@ export default function VendorPaymentsPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
+                      <TableCell colSpan={7} className="h-24 text-center">
                         No transactions found.
                       </TableCell>
                     </TableRow>
@@ -579,5 +550,3 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
-
-    

@@ -355,7 +355,15 @@
         "vendorName": { "type": "string", "description": "Denormalized name of the vendor." },
         "customerEmail": { "type": "string", "description": "Email of the customer who made the payment." },
         "receiptUrl": { "type": "string", "format": "uri", "description": "URL to the Stripe receipt." },
-        "type": { "type": "string", "enum": ["subscription", "payment"], "description": "Type of transaction." }
+        "type": { "type": "string", "enum": ["subscription", "payment"], "description": "Type of transaction." },
+        "fee": {
+          "type": "number",
+          "description": "The fee amount charged by Stripe, in the smallest currency unit."
+        },
+        "net": {
+          "type": "number",
+          "description": "The net amount received after fees, in the smallest currency unit."
+        }
       },
       "required": ["id", "created", "amount", "currency", "status", "vendorId", "customerEmail"]
     },
