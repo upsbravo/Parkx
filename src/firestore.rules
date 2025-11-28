@@ -21,6 +21,15 @@ service cloud.firestore {
         get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
     }
 
+    function isVendorQueryingSelf(query) {
+      return isVendorAdmin() &&
+             query.where.filter(
+               constraint => constraint.field == "vendorId" &&
+                             constraint.op == "==" &&
+                             constraint.value == request.auth.uid
+             ).size() > 0;
+    }
+
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
       allow read: if isSuperAdmin() ||
@@ -109,10 +118,7 @@ service cloud.firestore {
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
       allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || 
-                     (isVendorAdmin() && request.query.where[0].field == 'vendorId' &&
-                      request.query.where[0].op == '==' &&
-                      request.query.where[0].value == request.auth.uid);
+      allow list: if isSuperAdmin() || isVendorQueryingSelf(request.query);
       allow write: if isSuperAdmin();
     }
 
