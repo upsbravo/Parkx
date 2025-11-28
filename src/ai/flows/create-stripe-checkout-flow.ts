@@ -64,15 +64,12 @@ const createStripeCheckoutFlow = ai.defineFlow(
       const client = await auth.getIdTokenClient(functionUrl);
 
       // The body of the request must match what the Stripe extension function expects.
-      // We pass the currently authenticated user's UID to associate the checkout with them.
       const body = {
-        data: {
-          price: input.priceId,
-          success_url: input.successUrl,
-          cancel_url: input.cancelUrl,
-          allow_promotion_codes: !!input.promoCode,
-          uid: input.uid,
-        },
+        price: input.priceId,
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        allow_promotion_codes: !!input.promoCode,
+        uid: input.uid,
       };
 
       const response = await client.request({
@@ -83,14 +80,14 @@ const createStripeCheckoutFlow = ai.defineFlow(
       
       const responseData = response.data as any;
 
-      if (responseData.data.error) {
-        return { error: responseData.data.error.message };
+      if (responseData.error) {
+        return { error: responseData.error.message };
       }
-      if (!responseData.data.url) {
+      if (!responseData.url) {
         throw new Error('Invalid response from checkout session function.');
       }
       
-      return { url: responseData.data.url };
+      return { url: responseData.url };
 
     } catch (e: any) {
       console.error('Error invoking createCheckoutSession function:', e.response?.data || e.message);
