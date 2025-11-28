@@ -61,7 +61,7 @@
         },
         "status": {
           "type": "string",
-          "description": "Status of the vendor (e.g., Pending, Active, Trial)."
+          "description": "Status of the vendor (e.g., Pending Agreement, Active, Trial)."
         },
         "joinDate": {
           "type": "string",
@@ -94,12 +94,24 @@
           "type": "object",
           "description": "The vendor's physical address.",
           "properties": {
-            "street1": { "type": "string" },
-            "street2": { "type": "string" },
-            "city": { "type": "string" },
-            "state": { "type": "string" },
-            "zip": { "type": "string" },
-            "country": { "type": "string" }
+            "street1": {
+              "type": "string"
+            },
+            "street2": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "zip": {
+              "type": "string"
+            },
+            "country": {
+              "type": "string"
+            }
           }
         },
         "timeZone": {
@@ -161,6 +173,100 @@
           ],
           "description": "The date the user requested cancellation.",
           "format": "date-time"
+        },
+        "truckParkingSpots": {
+          "type": "number",
+          "description": "Number of truck parking spots assigned to the user."
+        },
+        "isRecurringPayment": {
+          "type": "boolean",
+          "description": "Flag indicating if the user is on a recurring payment plan."
+        },
+        "truckCompanyName": {
+          "type": "string",
+          "description": "The name of the user's truck company."
+        },
+        "truckUnitNumber": {
+          "type": "string",
+          "description": "The unit number of the user's truck."
+        },
+        "vinNumber": {
+          "type": "string",
+          "description": "The VIN of the user's truck."
+        },
+        "tagNumber": {
+          "type": "string",
+          "description": "The license plate or tag number of the user's truck."
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the end-user."
+        },
+        "address": {
+          "type": "object",
+          "description": "The end-user's physical address.",
+          "properties": {
+            "street": {
+              "type": "string"
+            },
+            "city": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "zip": {
+              "type": "string"
+            }
+          }
+        },
+        "emergencyContact": {
+          "type": "object",
+          "description": "The end-user's emergency contact.",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "phone": {
+              "type": "string"
+            }
+          }
+        },
+        "waiverSigned": {
+          "type": "boolean",
+          "description": "Indicates if the user has signed the liability waiver."
+        },
+        "waiverSignedDate": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The date the user signed the waiver.",
+          "format": "date-time"
+        },
+        "profileComplete": {
+          "type": "boolean",
+          "description": "Indicates if the user has completed the initial profile setup."
+        },
+        "vehicleYear": {
+          "type": "string",
+          "description": "The year of the user's vehicle."
+        },
+        "vehicleMake": {
+          "type": "string",
+          "description": "The make of the user's vehicle."
+        },
+        "vehicleModel": {
+          "type": "string",
+          "description": "The model of the user's vehicle."
+        },
+        "licensePlate": {
+          "type": "string",
+          "description": "The license plate of the user's vehicle."
+        },
+        "trailerPlate": {
+          "type": "string",
+          "description": "The trailer plate of the user's vehicle, if any."
         }
       },
       "required": [
@@ -208,41 +314,50 @@
         "isAvailable"
       ]
     },
-    "Communication": {
+    "Message": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Communication",
+      "title": "Message",
       "type": "object",
-      "description": "Represents a communication thread or message between users.",
+      "description": "Represents a single message within a conversation between an end user and their vendor.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Communication entity."
-        },
-        "senderId": {
-          "type": "string",
-          "description": "Identifier of the user who sent the message. Could be SuperAdmin, Vendor, or EndUser."
-        },
-        "receiverId": {
-          "type": "string",
-          "description": "Identifier of the user who received the message. Could be SuperAdmin, Vendor, or EndUser."
-        },
-        "message": {
-          "type": "string",
-          "description": "Content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp of when the message was sent.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "senderId",
-        "receiverId",
-        "message",
-        "timestamp"
-      ]
+      "required": ["id", "senderId", "text", "timestamp"]
+    },
+    "SupportMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SupportMessage",
+      "type": "object",
+      "description": "Represents a single message within a support conversation between a vendor and a super admin.",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "senderId", "text", "timestamp"]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a financial transaction processed by Stripe, synced to Firestore.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID from Stripe." },
+        "created": { "type": "number", "description": "Unix timestamp of transaction creation." },
+        "amount": { "type": "number", "description": "Amount in the smallest currency unit (e.g., cents)." },
+        "currency": { "type": "string", "description": "Three-letter ISO currency code." },
+        "status": { "type": "string", "enum": ["succeeded", "pending", "failed"] },
+        "vendorId": { "type": "string", "description": "The ID of the vendor who received the payment." },
+        "vendorName": { "type": "string", "description": "Denormalized name of the vendor." },
+        "customerEmail": { "type": "string", "description": "Email of the customer who made the payment." },
+        "receiptUrl": { "type": "string", "format": "uri", "description": "URL to the Stripe receipt." },
+        "type": { "type": "string", "enum": ["subscription", "payment"], "description": "Type of transaction." }
+      },
+      "required": ["id", "created", "amount", "currency", "status", "vendorId", "customerEmail"]
     },
     "VendorInvoice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -274,7 +389,11 @@
         "status": {
           "type": "string",
           "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
-          "enum": ["Pending", "Paid", "Overdue"]
+          "enum": [
+            "Pending",
+            "Paid",
+            "Overdue"
+          ]
         },
         "notes": {
           "type": "string",
@@ -289,13 +408,125 @@
         "dueDate",
         "status"
       ]
+    },
+    "UserInvoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserInvoice",
+      "type": "object",
+      "description": "Represents an invoice from a Vendor to an End User for parking services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User Invoice."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "The ID of the vendor who issued this invoice."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user this invoice belongs to."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The name of the user (denormalized for display)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount of the invoice."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date the invoice is due.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the invoice (e.g., Pending, Paid, Overdue).",
+          "enum": [
+            "Pending",
+            "Paid",
+            "Overdue"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or line items for the invoice."
+        }
+      },
+      "required": [
+        "id",
+        "vendorId",
+        "userId",
+        "userName",
+        "amount",
+        "dueDate",
+        "status"
+      ]
+    },
+    "UserDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserDocument",
+      "type": "object",
+      "description": "Represents a document associated with a user, such as a signed waiver or a spot change record.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "vendorId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the document, e.g., 'Parking Agreement' or 'Spot Change Record'."
+        },
+        "content": {
+          "type": "string",
+          "description": "The full text or content of the document."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the document was created."
+        }
+      },
+      "required": [
+        "userId",
+        "vendorId",
+        "name",
+        "content",
+        "createdAt"
+      ]
+    },
+    "VendorDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VendorDocument",
+      "type": "object",
+      "description": "Represents a document associated with a vendor, such as a signed master agreement.",
+      "properties": {
+        "id": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "name": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["vendorId", "name", "content", "createdAt"]
     }
   },
   "auth": {
     "providers": [
       "password",
       "anonymous"
-    ]
+    ],
+    "customClaims": {
+        "isPrivileged": {
+            "type": "boolean",
+            "description": "Grants the vendor special, elevated permissions to view data across all vendors."
+        }
+    }
   },
   "firestore": {
     "structure": [
@@ -332,6 +563,18 @@
         }
       },
       {
+        "path": "/vendors/{vendorId}/support-messages/{messageId}",
+        "definition": {
+          "entityName": "SupportMessage",
+          "schema": { "$ref": "#/backend/entities/SupportMessage" },
+          "description": "Stores support messages between a Vendor and the Super Admin, nested under the vendor.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the Vendor document." },
+            { "name": "messageId", "description": "The unique ID for the support message." }
+          ]
+        }
+      },
+      {
         "path": "/vendorInvoices/{vendorInvoiceId}",
         "definition": {
           "entityName": "VendorInvoice",
@@ -364,6 +607,26 @@
         }
       },
       {
+        "path": "/users/{userId}/messages/{messageId}",
+        "definition": {
+          "entityName": "Message",
+          "schema": {
+            "$ref": "#/backend/entities/Message"
+          },
+          "description": "Stores messages for an end user, nested under their own document. This allows the user and their vendor to communicate directly.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the EndUser document."
+            },
+            {
+              "name": "messageId",
+              "description": "The unique identifier for the Message document."
+            }
+          ]
+        }
+      },
+      {
         "path": "/vendors/{vendorId}/parkingSpots/{parkingSpotId}",
         "definition": {
           "entityName": "ParkingSpot",
@@ -384,22 +647,74 @@
         }
       },
       {
-        "path": "/communications/{communicationId}",
+        "path": "/vendors/{vendorId}/userInvoices/{userInvoiceId}",
         "definition": {
-          "entityName": "Communication",
+          "entityName": "UserInvoice",
           "schema": {
-            "$ref": "#/backend/entities/Communication"
+            "$ref": "#/backend/entities/UserInvoice"
           },
-          "description": "Stores communications between SuperAdmins, Vendors and EndUsers. Access control is managed via 'senderId' and 'receiverId'.",
+          "description": "Stores invoices issued by a Vendor to their End Users. Vendor has full access to their own invoices.",
           "params": [
             {
-              "name": "communicationId",
-              "description": "The unique identifier for the Communication document."
+              "name": "vendorId",
+              "description": "The unique identifier for the Vendor document."
+            },
+            {
+              "name": "userInvoiceId",
+              "description": "The unique identifier for the UserInvoice document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/userDocuments/{userDocumentId}",
+        "definition": {
+          "entityName": "UserDocument",
+          "schema": {
+            "$ref": "#/backend/entities/UserDocument"
+          },
+          "description": "Stores documents for an end user, such as signed waivers or spot change records.",
+          "params": [
+            {
+              "name": "vendorId",
+              "description": "The unique identifier for the Vendor document."
+            },
+            {
+              "name": "userDocumentId",
+              "description": "The unique identifier for the UserDocument document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/vendorDocuments/{vendorDocumentId}",
+        "definition": {
+          "entityName": "VendorDocument",
+          "schema": { "$ref": "#/backend/entities/VendorDocument" },
+          "description": "Stores documents for a vendor, such as the signed master services agreement.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the Vendor document." },
+            { "name": "vendorDocumentId", "description": "The unique ID for the VendorDocument document." }
+          ]
+        }
+      },
+       {
+        "path": "/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores all financial transactions from Stripe for auditing and display.",
+          "params": [
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for the Transaction document, typically the Stripe charge ID."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. The rest of the structure remains the same."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA. A top-level `transactions` collection is added to log all payments from Stripe."
   }
 }

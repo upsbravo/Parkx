@@ -17,8 +17,8 @@ service cloud.firestore {
     }
 
     function isPrivilegedVendor() {
-      return isVendorAdmin() &&
-        get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
+      // CORRECT: Check for a custom claim on the auth token. This is fast and allowed in list queries.
+      return isVendorAdmin() && request.auth.token.isPrivileged == true;
     }
 
     // VENDORS – self access + privileged read all + end-user read access
@@ -44,7 +44,7 @@ service cloud.firestore {
       match /userInvoices/{invoiceId} {
           allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
           allow write: if request.auth.uid == vendorId;
-          allow list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
+          allow list: if (isVendorAdmin() && request.query.where.vendorId == request.auth.uid) ||
                          (isSignedIn() && request.query.where.userId == request.auth.uid);
       }
 

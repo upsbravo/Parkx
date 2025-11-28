@@ -1,6 +1,6 @@
+
 'use client';
 
-import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -25,8 +25,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 
@@ -41,17 +41,31 @@ type Transaction = {
   receiptUrl?: string;
 };
 
+type Vendor = {
+    isPrivileged?: boolean;
+}
+
 
 export default function VendorPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
   const { user: vendorAdmin } = useUser();
 
-  const transactionsQuery = useMemoFirebase(
-    () => (firestore && vendorAdmin ? query(collection(firestore, 'transactions'), where('vendorId', '==', vendorAdmin.uid), orderBy('created', 'desc')) : null),
-    [firestore, vendorAdmin]
+  const vendorRef = useMemoFirebase(
+      () => (vendorAdmin ? doc(firestore, 'vendors', vendorAdmin.uid) : null),
+      [vendorAdmin, firestore]
   );
-  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+  const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
+
+  const transactionsQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorAdmin) return null;
+    if (vendorData?.isPrivileged) {
+        return query(collection(firestore, 'transactions'), orderBy('created', 'desc'));
+    }
+    return query(collection(firestore, 'transactions'), where('vendorId', '==', vendorAdmin.uid), orderBy('created', 'desc'));
+  }, [firestore, vendorAdmin, vendorData]);
+
+  const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -74,6 +88,8 @@ export default function VendorPaymentsPage() {
     pending: 'secondary',
     failed: 'destructive',
   } as const;
+
+  const isLoading = areTransactionsLoading || isVendorDataLoading;
 
 
   return (
