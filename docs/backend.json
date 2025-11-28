@@ -522,10 +522,10 @@
       "anonymous"
     ],
     "customClaims": {
-        "isPrivileged": {
-            "type": "boolean",
-            "description": "Grants the vendor special, elevated permissions to view data across all vendors."
-        }
+      "isPrivileged": {
+        "type": "boolean",
+        "description": "Grants the vendor special, elevated permissions to view data across all vendors."
+      }
     }
   },
   "firestore": {
