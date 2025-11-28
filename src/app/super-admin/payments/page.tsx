@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -8,123 +12,239 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CreditCard, Banknote, DollarSign } from "lucide-react";
+import { CreditCard, Banknote, DollarSign, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+
+type Transaction = {
+  id: string;
+  created: number; // Unix timestamp
+  amount: number; // in cents
+  currency: string;
+  status: 'succeeded' | 'pending' | 'failed';
+  customerEmail: string;
+  vendorName: string;
+  receiptUrl?: string;
+  type: 'subscription' | 'payment';
+};
 
 export default function PlatformPaymentsPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const firestore = useFirestore();
+
+  const transactionsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
+    [firestore]
+  );
+  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+
+  const filteredTransactions = useMemo(() => {
+    if (!transactions) return [];
+    if (!searchTerm) return transactions;
+    return transactions.filter(
+      (tx) =>
+        tx.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        tx.vendorName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [transactions, searchTerm]);
+
+  const formatCurrency = (amountInCents: number, currency: string) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(amountInCents / 100);
+  };
+
+  const statusVariant = {
+    succeeded: 'default',
+    pending: 'secondary',
+    failed: 'destructive',
+  } as const;
+  
+  const typeIcon = {
+      subscription: <CreditCard className="h-4 w-4 text-muted-foreground" />,
+      payment: <DollarSign className="h-4 w-4 text-muted-foreground" />
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Platform Payment Settings
+          Platform Payments
         </h1>
         <p className="text-muted-foreground">
-          Configure Stripe integration and set pricing for your vendors.
+          Configure Stripe, set pricing, and view all transactions.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            <CardTitle>Stripe Integration</CardTitle>
-          </div>
-          <CardDescription>
-            Enter your Stripe API keys to process payments from vendors. This is
-            a global setting for the entire platform.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="stripe-secret">Stripe Secret Key</Label>
-            <Input
-              id="stripe-secret"
-              type="password"
-              defaultValue="sk_test_************************"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="transactions">
+        <TabsList>
+          <TabsTrigger value="transactions">Global Transactions</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5" />
-            <CardTitle>Default Pricing Model</CardTitle>
-          </div>
-          <CardDescription>
-            Set the default monthly subscription price for new vendors and the
-            cost for each additional parking spot. This can be overridden per
-            vendor.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="base-price">Base Monthly Price</Label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  $
-                </span>
+        <TabsContent value="transactions" className="mt-6">
+            <Card>
+                <CardHeader>
+                  <CardTitle>All Transactions</CardTitle>
+                  <CardDescription>
+                    A real-time log of every transaction from all vendors.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by customer email or vendor..."
+                        className="pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Receipt</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                          </TableRow>
+                        ))
+                      ) : filteredTransactions.length > 0 ? (
+                        filteredTransactions.map((tx) => (
+                          <TableRow key={tx.id}>
+                            <TableCell className="font-medium">
+                              {format(new Date(tx.created * 1000), 'PPp')}
+                            </TableCell>
+                            <TableCell>{tx.vendorName}</TableCell>
+                            <TableCell>{tx.customerEmail}</TableCell>
+                            <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-2">
+                                   {typeIcon[tx.type]}
+                                   <span className='capitalize'>{tx.type}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusVariant[tx.status]}>{tx.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {tx.receiptUrl ? (
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={tx.receiptUrl} target="_blank" rel="noopener noreferrer">
+                                    View
+                                  </a>
+                                </Button>
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="h-24 text-center">
+                            No transactions found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Stripe Integration</CardTitle>
+              </div>
+              <CardDescription>
+                Manage your global Stripe API keys. These keys are used to process all vendor subscriptions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="stripe-secret">Stripe Secret Key</Label>
                 <Input
-                  id="base-price"
-                  type="number"
-                  defaultValue="250"
-                  className="pl-7"
+                  id="stripe-secret"
+                  type="password"
+                  defaultValue="sk_test_************************"
                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="spot-price">Price Per Extra Spot (Monthly)</Label>
-               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                  $
-                </span>
+               <p className="text-sm text-muted-foreground">
+                  Products and prices for vendor subscriptions are managed directly in your Stripe Dashboard.
+                </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Banknote className="h-5 w-5" />
+                <CardTitle>Platform Payout Account</CardTitle>
+              </div>
+              <CardDescription>
+                This is the bank account where your platform earnings from all
+                vendor subscriptions will be sent.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="holder-name">Account Holder Name</Label>
+                  <Input id="holder-name" defaultValue="ParkX Inc." />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="routing-number">Routing Number</Label>
+                  <Input id="routing-number" defaultValue="123456789" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-number">Account Number</Label>
                 <Input
-                  id="spot-price"
-                  type="number"
-                  defaultValue="10"
-                  className="pl-7"
+                  id="account-number"
+                  type="password"
+                  defaultValue="************1234"
                 />
               </div>
-            </div>
-          </div>
-           <Button>Save Pricing</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Banknote className="h-5 w-5" />
-            <CardTitle>Platform Payout Account</CardTitle>
-          </div>
-          <CardDescription>
-            This is the bank account where your platform earnings from all
-            vendor subscriptions will be sent.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="holder-name">Account Holder Name</Label>
-              <Input id="holder-name" defaultValue="ParkX Inc." />
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="routing-number">Routing Number</Label>
-              <Input id="routing-number" defaultValue="123456789" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="account-number">Account Number</Label>
-            <Input
-              id="account-number"
-              type="password"
-              defaultValue="************1234"
-            />
-          </div>
-          <Button>Save Payout Account</Button>
-        </CardContent>
-      </Card>
+              <Button>Save Payout Account</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
