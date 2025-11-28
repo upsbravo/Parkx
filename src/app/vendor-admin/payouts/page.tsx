@@ -1,6 +1,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -10,127 +11,196 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DollarSign,
+  CreditCard,
+  Landmark,
+  ShieldCheck,
+  AlertCircle,
+  ExternalLink,
+  Smartphone,
+  BookUser,
+  Clock,
+  ArrowRight,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Payout, payouts } from '@/lib/data';
-import { ExternalLink } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 
-export default function PayoutsPage() {
-  const statusVariant = {
-    Completed: 'default',
-    'In Transit': 'secondary',
-  };
-
+export default function VendorPaymentsPage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Payment & Payout Settings
-        </h1>
-        <p className="text-muted-foreground">
-          Connect your Stripe account to receive payments from your users.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
+          <p className="text-muted-foreground">
+            Manage your payments, payouts, and billing settings.
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Receive Payments from Your Users</CardTitle>
-          <CardDescription>
-            To charge your users for parking, you must connect your own Stripe
-            account to the ParkX platform. This allows you to securely manage
-            payments and receive direct payouts.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex w-full flex-col items-start gap-4 rounded-lg border p-6">
-            <div className="flex items-center gap-4">
-              <svg
-                role="img"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-10 w-10"
-              >
-                <title>Stripe</title>
-                <path
-                  d="M19.349 8.182h-2.924c.484-.814.86-1.637.896-2.436h3.468c-.144.823-.48 1.637-.94 2.436Zm-.679 3.551c0-.284.024-.56.06-.828h-3.904a10.428 10.428 0 0 0-.06.828c0 .264.024.52.06.776h3.904c-.036-.256-.06-.512-.06-.776Zm-4.572-1.22c.1-.815.168-1.638.168-2.46h-3.48c.012.822.06 1.645.168 2.46h3.144Zm-1.896 2.048c-.084-.52-.132-1.048-.132-1.592s.048-1.072.132-1.592h-2.616c-.084.52-.132 1.048-.132 1.592s.048 1.072.132 1.592h2.616Zm-3.132-2.048c.108-.815.156-1.638.168-2.46H5.448c.012.822.06 1.645.168 2.46h3.12Zm-.552 4.34c.036-.264.06-.52.06-.784s-.024-.52-.06-.784H4.332c-.084.52-.132 1.048-.132 1.592s.048 1.072.132 1.592h3.336c.036-.264.06-.536.06-.816Zm1.896 1.624c.084.52.132 1.048.132 1.592a15.86 15.86 0 0 1-.132 1.592h2.616c.084-.52.132-1.048.132-1.592s-.048-1.072-.132-1.592h-2.616Zm3.132-1.624c.108.823.156 1.645.168 2.46h3.48c-.012-.815-.06-1.637-.168-2.46H13.6Zm.564 4.34c-.036.264-.06.536-.06.816s.024.52.06.784h3.336c.084-.52.132-1.048.132-1-5.92s-.048-1.072-.132-1.592H14.164Zm5.185-2.072c.48.8.816 1.613.94 2.436h-3.468c-.036-.8-.412-1-6.23-.896-2.436h2.924Zm-16.732 0c.528 0 .972.336 1.152.792h1.56c-.192-.936-.924-1.62-1.848-1.62-.264 0-.516.06-.744.156a2.23 2.23 0 0 0-.852-.156c-1.284 0-2.316 1.032-2.316 2.316s1.032 2.316 2.316 2.316c.3 0 .588-.06.852-.156.228.096.48.156.744.156.924 0 1.656-.684 1.848-1.62h-1.56c-.18.456-.624.792-1.152.792-.528 0-.972-.336-1.152-.792h-.036v.636H0V9.818h2.62Zm21.379.036c.456 0 .828.372.828.828s-.372.828-.828.828h-2.1v1.548h-1.632V9.854h3.732Zm-1.631 1.296h.792v-.468h-.792v.468Z"
-                  fill="currentColor"
-                />
-              </svg>
-              <div>
-                <h3 className="font-semibold">Connect with Stripe</h3>
-                <p className="text-sm text-muted-foreground">
-                  ParkX uses Stripe Connect to handle payments securely.
-                </p>
-              </div>
-            </div>
-            <Button className="w-full sm:w-auto">
-              Connect with Stripe
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <p className="text-xs text-muted-foreground">
-            By connecting your Stripe account, you agree to the Stripe
-            Connected Account Agreement. ParkX does not store your financial
-            details.
-          </p>
-        </CardFooter>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Online Payments</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">Active</div>
+            <p className="text-xs text-muted-foreground">
+              You can accept online payments.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Payouts</CardTitle>
+            <Landmark className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Enabled</div>
+            <p className="text-xs text-muted-foreground">
+              Payouts are sent to your bank account.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In-Person Payments</CardTitle>
+            <Smartphone className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Not Active</div>
+            <p className="text-xs text-muted-foreground">
+              Contact support to enable readers.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Payout History</CardTitle>
-          <CardDescription>
-            History of payouts sent from Stripe to your connected bank account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Gross Amount</TableHead>
-                <TableHead>Fees (Stripe + ParkX)</TableHead>
-                <TableHead>Net Payout</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payouts.map((payout) => (
-                <TableRow key={payout.date}>
-                  <TableCell>{payout.date}</TableCell>
-                  <TableCell>${payout.grossAmount.toFixed(2)}</TableCell>
-                  <TableCell className="text-red-500">
-                    -${payout.stripeFees.toFixed(2)}
-                  </TableCell>
-                  <TableCell className="font-semibold">
-                    ${payout.netPayout.toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        statusVariant[payout.status] as
-                          | 'default'
-                          | 'secondary'
-                      }
-                    >
-                      {payout.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="account">
+        <TabsList>
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="transactions" asChild>
+             <Link href="/vendor-admin/transactions">Transactions</Link>
+          </TabsTrigger>
+          <TabsTrigger value="payouts" disabled>Payouts</TabsTrigger>
+          <TabsTrigger value="readers" disabled>Readers</TabsTrigger>
+          <TabsTrigger value="ach" disabled>ACH</TabsTrigger>
+          <TabsTrigger value="bnpl" disabled>Buy Now Pay Later</TabsTrigger>
+        </TabsList>
+        <TabsContent value="account" className="mt-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <div className='flex items-center gap-2'>
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <CardTitle>Stripe Account</CardTitle>
+                    </div>
+                    <CardDescription>
+                        Manage your Stripe account and view your connected account details.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     <div className="flex items-center justify-between rounded-lg border bg-card p-4">
+                        <div>
+                            <p className="text-sm font-medium">Acme Parking Inc.</p>
+                            <p className="text-sm text-muted-foreground">acct_123...xyz</p>
+                        </div>
+                        <Badge variant="default">Enabled</Badge>
+                    </div>
+                     <p className='text-sm text-muted-foreground'>ParkX uses Stripe to process payments from your customers. You are in complete control of your funds.</p>
+                </CardContent>
+                <CardFooter>
+                     <Button variant="outline">
+                        Manage on Stripe <ExternalLink className='ml-2 h-4 w-4'/>
+                    </Button>
+                </CardFooter>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                     <div className='flex items-center gap-2'>
+                        <DollarSign className="h-5 w-5 text-muted-foreground" />
+                        <CardTitle>Rates & Fees</CardTitle>
+                    </div>
+                    <CardDescription>
+                       The fees applied to each transaction.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                   <div className="flex justify-between items-center text-sm">
+                        <p className="text-muted-foreground">ParkX Platform Fee</p>
+                        <p className="font-medium">10%</p>
+                   </div>
+                    <div className="flex justify-between items-center text-sm">
+                        <p className="text-muted-foreground">Stripe Processing Fee</p>
+                        <p className="font-medium">~2.9% + 30¢</p>
+                   </div>
+                    <Separator/>
+                     <div className="flex justify-between items-center text-sm font-semibold">
+                        <p>You Receive (approx.)</p>
+                        <p>~87.1%</p>
+                   </div>
+                </CardContent>
+                 <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
+                    <p>The Stripe processing fee is an estimate and may vary.</p>
+                    <p>ParkX platform fees are deducted automatically from each transaction.</p>
+                </CardFooter>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                     <div className='flex items-center gap-2'>
+                        <Landmark className="h-5 w-5 text-muted-foreground" />
+                        <CardTitle>Payouts</CardTitle>
+                    </div>
+                    <CardDescription>
+                       Your payout schedule and connected bank account.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center text-sm">
+                        <p className="text-muted-foreground">Payout Schedule</p>
+                        <p className="font-medium">Daily</p>
+                   </div>
+                    <div className="flex justify-between items-center text-sm">
+                        <p className="text-muted-foreground">Payout Account</p>
+                        <p className="font-medium flex items-center gap-2">Chase Bank <span className='font-mono'>••••1234</span></p>
+                   </div>
+                </CardContent>
+                 <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
+                   <p>Payouts are managed through your Stripe Express dashboard.</p>
+                </CardFooter>
+            </Card>
+
+             <Card>
+                <CardHeader>
+                     <div className='flex items-center gap-2'>
+                        <BookUser className="h-5 w-5 text-muted-foreground" />
+                        <CardTitle>Statement Descriptor</CardTitle>
+                    </div>
+                    <CardDescription>
+                       How charges will appear on your customers' bank statements.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="flex items-center justify-between rounded-lg border bg-card p-4">
+                        <div>
+                            <p className="text-sm font-medium">ACME PARKING</p>
+                            <p className="text-sm text-muted-foreground">acmeparking.com</p>
+                        </div>
+                    </div>
+                </CardContent>
+                  <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
+                   <p>This helps customers recognize their payments to you.</p>
+                </CardFooter>
+            </Card>
+
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
