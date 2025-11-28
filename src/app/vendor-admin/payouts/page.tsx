@@ -18,6 +18,10 @@ import {
   ExternalLink,
   Smartphone,
   BookUser,
+  Star,
+  FileDown,
+  ListFilter,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -47,6 +51,37 @@ type Vendor = {
     isPrivileged?: boolean;
 }
 
+type Payout = {
+    initiatedDate: string;
+    arrivalDate: string;
+    location: string;
+    description: string;
+    method: string;
+    total: number;
+    status: 'Paid' | 'In Transit' | 'Failed';
+};
+
+const samplePayouts: Payout[] = [
+    {
+        initiatedDate: '06/10/2025',
+        arrivalDate: '06/12/2025',
+        location: 'MALWA TRUCK AND TRAILER REPAIR INC',
+        description: 'STRIPE PAYOUT',
+        method: 'Standard',
+        total: 140.77,
+        status: 'Paid',
+    },
+    {
+        initiatedDate: '06/09/2025',
+        arrivalDate: '06/11/2025',
+        location: 'MALWA TRUCK AND TRAILER REPAIR INC',
+        description: 'STRIPE PAYOUT',
+        method: 'Standard',
+        total: 6583.67,
+        status: 'Paid',
+    }
+]
+
 
 export default function VendorPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,7 +89,6 @@ export default function VendorPaymentsPage() {
   const { user: vendorAdmin } = useUser();
   const { toast } = useToast();
 
-  // State for editable fields
   const [accountHolder, setAccountHolder] = useState('Acme Parking Inc.');
   const [routingNumber, setRoutingNumber] = useState('••••••••123');
   const [accountNumber, setAccountNumber] = useState('••••••••456');
@@ -85,13 +119,13 @@ export default function VendorPaymentsPage() {
     );
   }, [transactions, searchTerm]);
 
-  const formatCurrency = (amountInCents: number, currency: string) => {
+  const formatCurrency = (amount: number, currency = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
-    }).format(amountInCents / 100);
+    }).format(amount);
   };
-  
+
   const handleSavePayouts = () => {
     toast({
         title: 'Payout Information Saved',
@@ -112,7 +146,14 @@ export default function VendorPaymentsPage() {
     failed: 'destructive',
   } as const;
 
+  const payoutStatusVariant = {
+    Paid: 'default',
+    'In Transit': 'secondary',
+    Failed: 'destructive',
+  } as const;
+
   const isLoading = areTransactionsLoading || isVendorDataLoading;
+  const totalPayout = samplePayouts.reduce((acc, p) => acc + p.total, 0);
 
 
   return (
@@ -169,11 +210,12 @@ export default function VendorPaymentsPage() {
         <TabsList>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="payouts" disabled>Payouts</TabsTrigger>
+          <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="readers" disabled>Readers</TabsTrigger>
           <TabsTrigger value="ach" disabled>ACH</TabsTrigger>
           <TabsTrigger value="bnpl" disabled>Buy Now Pay Later</TabsTrigger>
         </TabsList>
+
         <TabsContent value="account" className="mt-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -238,7 +280,7 @@ export default function VendorPaymentsPage() {
                 <CardHeader>
                      <div className='flex items-center gap-2'>
                         <Landmark className="h-5 w-5 text-muted-foreground" />
-                        <CardTitle>Payouts</CardTitle>
+                        <CardTitle>Payouts Bank Account</CardTitle>
                     </div>
                     <CardDescription>
                        Your payout schedule and connected bank account.
@@ -333,7 +375,7 @@ export default function VendorPaymentsPage() {
                           {format(new Date(tx.created * 1000), 'PPp')}
                         </TableCell>
                         <TableCell>{tx.customerEmail}</TableCell>
-                        <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency(tx.amount / 100, tx.currency)}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[tx.status]}>{tx.status}</Badge>
                         </TableCell>
@@ -362,7 +404,77 @@ export default function VendorPaymentsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="payouts" className="mt-6 space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-semibold tracking-tight">Payouts</h2>
+                    <p className="text-muted-foreground">Record of payments to your bank account.</p>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon"><Star className="h-5 w-5" /></Button>
+                    <Button variant="outline">Save New Report</Button>
+                </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                    <CardHeader><CardTitle>$0.00</CardTitle></CardHeader>
+                    <CardContent><p className="text-sm text-muted-foreground">In Transit — No current in-transit payout</p></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader><CardTitle>$144.22</CardTitle></CardHeader>
+                    <CardContent><p className="text-sm text-muted-foreground">Remaining Balance <a href="#" className="text-primary underline">What is this?</a></p></CardContent>
+                </Card>
+            </div>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <Button variant="outline" size="sm"><ListFilter className="mr-2 h-4 w-4" /> Filters</Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Export XLS</Button>
+                            <Button variant="outline" size="sm"><SlidersHorizontal className="mr-2 h-4 w-4" /> Customize</Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Initiated Date</TableHead>
+                                <TableHead>Estimated Arrival Date</TableHead>
+                                <TableHead>Location</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Method</TableHead>
+                                <TableHead>Total</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                           {samplePayouts.map((payout, index) => (
+                                <TableRow key={index}>
+                                    <TableCell>{payout.initiatedDate}</TableCell>
+                                    <TableCell>{payout.arrivalDate}</TableCell>
+                                    <TableCell>{payout.location}</TableCell>
+                                    <TableCell>{payout.description}</TableCell>
+                                    <TableCell>{payout.method}</TableCell>
+                                    <TableCell>{formatCurrency(payout.total)}</TableCell>
+                                    <TableCell><Badge variant={payoutStatusVariant[payout.status]}>{payout.status}</Badge></TableCell>
+                                </TableRow>
+                           ))}
+                        </TableBody>
+                        <TableFooter>
+                            <TableRow>
+                                <TableCell colSpan={5} className="font-semibold">Total: {samplePayouts.length}</TableCell>
+                                <TableCell className="font-semibold">{formatCurrency(totalPayout)}</TableCell>
+                                <TableCell></TableCell>
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
+                </CardContent>
+            </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
+
+    
