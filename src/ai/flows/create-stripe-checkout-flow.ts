@@ -12,8 +12,13 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
+const LineItemSchema = z.object({
+  price: z.string().describe("The ID of the Stripe Price object."),
+  quantity: z.number().int().min(1).describe("The quantity of the price object."),
+});
+
 const CreateStripeCheckoutInputSchema = z.object({
-  priceId: z.string().describe('The ID of the Stripe price object.'),
+  line_items: z.array(LineItemSchema).min(1).describe("An array of line items, each with a price and quantity."),
   successUrl: z.string().url().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
   promoCode: z.string().optional().describe('An optional promotion code.'),
@@ -65,11 +70,12 @@ const createStripeCheckoutFlow = ai.defineFlow(
 
       // The body of the request must match what the Stripe extension function expects.
       const body = {
-        price: input.priceId,
+        line_items: input.line_items,
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         allow_promotion_codes: !!input.promoCode,
         uid: input.uid,
+        mode: 'subscription', // Important for recurring payments
       };
 
       const response = await client.request({

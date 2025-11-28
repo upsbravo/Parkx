@@ -82,6 +82,7 @@ type VendorInvoice = {
 type Vendor = {
     id: string;
     name: string;
+    spotLimit: number;
 }
 
 type InvoiceLineItem = {
@@ -306,8 +307,16 @@ export default function VendorInvoicesPage() {
   };
 
   const handleSubscribe = async () => {
-    if (!vendorId) {
+    if (!vendorId || !vendor) {
         toast({ variant: 'destructive', title: 'Error', description: 'Vendor not found.' });
+        return;
+    }
+    
+    const basePriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PRICE_ID;
+    const addonPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDON_PRICE_ID;
+
+    if (!basePriceId || !addonPriceId) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured.' });
         return;
     }
 
@@ -318,10 +327,14 @@ export default function VendorInvoicesPage() {
     });
 
     try {
-      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_1PgQCrRpJUn7y5x5Jk1NTpVi';
+        const lineItems = [{ price: basePriceId, quantity: 1 }];
+        const extraSpots = Math.max(0, vendor.spotLimit - 20);
+        if (extraSpots > 0) {
+            lineItems.push({ price: addonPriceId, quantity: extraSpots });
+        }
       
       const result = await createStripeCheckout({
-        priceId: priceId, 
+        line_items: lineItems, 
         successUrl: window.location.href,
         cancelUrl: window.location.href,
         uid: vendorId, // Pass the vendor's ID as the user ID for the checkout
@@ -388,7 +401,7 @@ export default function VendorInvoicesPage() {
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <Button onClick={handleSubscribe} disabled={isSubscribing}>
+            <Button onClick={handleSubscribe} disabled={isSubscribing || isLoading}>
                 {isSubscribing ? 'Redirecting...' : 'Manage Billing via Stripe'}
                 <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
