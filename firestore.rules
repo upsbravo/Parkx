@@ -44,8 +44,8 @@ service cloud.firestore {
       match /userInvoices/{invoiceId} {
           allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
           allow write: if request.auth.uid == vendorId;
-          allow list: if (isVendorAdmin() && request.query.where.vendorId == request.auth.uid) ||
-                         (isSignedIn() && request.query.where.userId == request.auth.uid);
+          allow list: if (isVendorAdmin() && request.query.get("vendorId") == request.auth.uid) ||
+                         (isSignedIn() && request.query.get("userId") == request.auth.uid);
       }
 
       // Vendor Admins can manage documents for their own users
@@ -73,7 +73,7 @@ service cloud.firestore {
         (resource != null && resource.data.vendorId == request.auth.uid);
 
       allow list: if isSuperAdmin() || isPrivilegedVendor() ||
-                      (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+                      (isVendorAdmin() && request.query.get("vendorId") == request.auth.uid);
 
       allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
 
@@ -101,7 +101,7 @@ service cloud.firestore {
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
       allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.get("vendorId") == request.auth.uid);
       allow write: if isSuperAdmin();
     }
     
@@ -109,7 +109,7 @@ service cloud.firestore {
     match /transactions/{transactionId} {
         allow read: if isSuperAdmin() || isPrivilegedVendor() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
         allow list: if isSuperAdmin() || isPrivilegedVendor() ||
-                     (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+                     (isVendorAdmin() && request.query.get("vendorId") == request.auth.uid);
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
     }
