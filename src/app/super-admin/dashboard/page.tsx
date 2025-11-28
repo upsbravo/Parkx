@@ -7,9 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Building, DollarSign, Users, AreaChart } from 'lucide-react';
+import { Building, DollarSign, Users, AreaChart, AlertTriangle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Bar,
@@ -25,7 +25,9 @@ import {
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useMemo } from 'react';
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, differenceInDays } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 
 type Vendor = {
@@ -39,6 +41,14 @@ type Vendor = {
 type User = {
   id: string;
   vendorId: string;
+};
+
+type VendorInvoice = {
+    id: string;
+    vendorName: string;
+    amount: number;
+    dueDate: string;
+    status: 'Pending' | 'Overdue' | 'Paid';
 };
 
 
@@ -57,8 +67,22 @@ export default function SuperAdminDashboard() {
   }, [firestore, user]);
 
   const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
+  
+  const invoicesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'vendorInvoices'), where('status', 'in', ['Pending', 'Overdue']));
+  }, [firestore]);
+  const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<VendorInvoice>(invoicesQuery);
+  
+  const overdueInvoices = useMemo(() => {
+      if (!pendingInvoices) return [];
+      return pendingInvoices.filter(invoice => 
+          invoice.status === 'Overdue' || differenceInDays(new Date(), new Date(invoice.dueDate)) > 0
+      );
+  }, [pendingInvoices]);
 
-  const isLoading = isAuthLoading || vendorsLoading || usersLoading;
+
+  const isLoading = isAuthLoading || vendorsLoading || usersLoading || invoicesLoading;
 
   const totalVendors = vendors?.length ?? 0;
   const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
@@ -136,6 +160,33 @@ export default function SuperAdminDashboard() {
           Global overview of the ParkX platform.
         </p>
       </div>
+
+       {isLoading ? <Skeleton className="h-24 w-full" /> : overdueInvoices.length > 0 && (
+            <Card className="border-destructive/50">
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                        <CardTitle className="text-destructive">Action Required: {overdueInvoices.length} Overdue Invoice(s)</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        {overdueInvoices.slice(0, 3).map(inv => (
+                            <div key={inv.id} className="flex justify-between items-center text-sm">
+                                <p><span className="font-semibold">{inv.vendorName}</span> is {differenceInDays(new Date(), new Date(inv.dueDate))} days overdue on invoice for ${inv.amount.toFixed(2)}.</p>
+                            </div>
+                        ))}
+                        {overdueInvoices.length > 3 && <p className="text-sm text-muted-foreground">...and {overdueInvoices.length - 3} more.</p>}
+                    </div>
+                </CardContent>
+                <CardContent>
+                     <Button asChild variant="destructive">
+                        <Link href="/super-admin/invoices">View All Invoices</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title}>

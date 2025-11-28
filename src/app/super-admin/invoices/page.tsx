@@ -18,13 +18,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Search, Download } from 'lucide-react';
+import { MoreHorizontal, Search, Download, Send } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -165,6 +166,15 @@ Thank you for your business.
     URL.revokeObjectURL(url);
   };
 
+  const handleSendInvoice = (invoice: VendorInvoice) => {
+    // Placeholder for sending email
+    console.log(`Sending invoice ${invoice.id} to ${invoice.vendorName}`);
+    toast({
+      title: 'Invoice Sent',
+      description: `An email reminder has been sent for invoice to ${invoice.vendorName}.`,
+    });
+  };
+
   const getAgingStatus = (invoice: VendorInvoice) => {
     if (invoice.status === 'Paid' || !invoice.dueDate) {
       return null;
@@ -284,6 +294,11 @@ Thank you for your business.
                                 <Download className="mr-2 h-4 w-4" />
                                 <span>Download</span>
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleSendInvoice(invoice)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                <span>Send Invoice</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleMarkAsPaid(invoice)}>Mark as Paid</DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:bg-destructive/10 focus:text-destructive"
