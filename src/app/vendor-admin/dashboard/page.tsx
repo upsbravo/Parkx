@@ -11,7 +11,7 @@ import {
   Users,
   Car,
   DollarSign,
-  TriangleAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
@@ -19,8 +19,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { useMemo } from 'react';
-import { format, subMonths } from 'date-fns';
+import { format, subMonths, differenceInDays } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 
 type Vendor = {
@@ -37,6 +39,14 @@ type EndUser = {
 
 type ParkingSpot = {
   isAvailable: boolean;
+};
+
+type UserInvoice = {
+    id: string;
+    userName: string;
+    amount: number;
+    dueDate: string;
+    status: 'Pending' | 'Overdue' | 'Paid';
 };
 
 export default function VendorAdminDashboard() {
@@ -61,7 +71,21 @@ export default function VendorAdminDashboard() {
   );
   const { data: spotsData, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(spotsQuery);
   
-  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading;
+  const invoicesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, `vendors/${user.uid}/userInvoices`), where('status', 'in', ['Pending', 'Overdue']));
+  }, [firestore, user]);
+  const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
+
+  const overdueInvoices = useMemo(() => {
+      if (!pendingInvoices) return [];
+      return pendingInvoices.filter(invoice => 
+          invoice.status === 'Overdue' || differenceInDays(new Date(), new Date(invoice.dueDate)) > 0
+      );
+  }, [pendingInvoices]);
+
+  
+  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading || invoicesLoading;
   
   const totalUsers = usersData?.length ?? 0;
   const totalSpots = vendorData?.spotLimit ?? 0;
@@ -93,7 +117,7 @@ export default function VendorAdminDashboard() {
       title: 'Issues Reported',
       value: '0',
       description: 'No new issues reported',
-      icon: <TriangleAlert className="h-4 w-4 text-muted-foreground" />,
+      icon: <AlertTriangle className="h-4 w-4 text-muted-foreground" />,
     },
   ];
   
@@ -148,6 +172,33 @@ export default function VendorAdminDashboard() {
           Overview of your parking management system.
         </p>
       </div>
+
+      {isLoading ? <Skeleton className="h-24 w-full" /> : overdueInvoices.length > 0 && (
+            <Card className="border-destructive/50">
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                        <CardTitle className="text-destructive">Action Required: {overdueInvoices.length} Overdue Invoice(s)</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        {overdueInvoices.slice(0, 3).map(inv => (
+                            <div key={inv.id} className="flex justify-between items-center text-sm">
+                                <p><span className="font-semibold">{inv.userName}</span> is {differenceInDays(new Date(), new Date(inv.dueDate))} days overdue on invoice for ${inv.amount.toFixed(2)}.</p>
+                            </div>
+                        ))}
+                        {overdueInvoices.length > 3 && <p className="text-sm text-muted-foreground">...and {overdueInvoices.length - 3} more.</p>}
+                    </div>
+                </CardContent>
+                <CardContent>
+                     <Button asChild variant="destructive">
+                        <Link href="/vendor-admin/user-invoices">View All Invoices</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title}>
