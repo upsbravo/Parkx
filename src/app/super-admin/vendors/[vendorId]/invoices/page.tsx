@@ -9,6 +9,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import {
   Table,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +66,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+
 
 type VendorInvoice = {
   id: string;
@@ -104,6 +107,7 @@ export default function VendorInvoicesPage() {
   const [isRecordPaymentOpen, setRecordPaymentOpen] = useState(false);
   const [paymentView, setPaymentView] = useState('options');
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
   const { toast } = useToast();
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
@@ -300,6 +304,44 @@ export default function VendorInvoicesPage() {
       currency: 'USD',
     }).format(amount);
   };
+
+  const handleSubscribe = async () => {
+    if (!vendorId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Vendor not found.' });
+        return;
+    }
+
+    setIsSubscribing(true);
+    toast({
+      title: 'Redirecting to Stripe...',
+      description: 'Please wait while we create a secure checkout session.',
+    });
+
+    try {
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_1PgQCrRpJUn7y5x5Jk1NTpVi';
+      
+      const result = await createStripeCheckout({
+        priceId: priceId, 
+        successUrl: window.location.href,
+        cancelUrl: window.location.href,
+        uid: vendorId, // Pass the vendor's ID as the user ID for the checkout
+      });
+
+      if (result.url) {
+        window.location.assign(result.url);
+      } else {
+        throw new Error(result.error || 'Could not retrieve checkout URL.');
+      }
+    } catch (error: any) {
+      console.error('Stripe checkout error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Subscription Failed',
+        description: error.message || 'Could not redirect to Stripe. Please try again.',
+      });
+      setIsSubscribing(false);
+    }
+  };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
   
@@ -337,6 +379,23 @@ export default function VendorInvoicesPage() {
                 </p>
             </div>
         </div>
+
+        <Card>
+            <CardHeader>
+            <CardTitle>Manage Subscription</CardTitle>
+            <CardDescription>
+                Use the button below to subscribe this vendor or manage their billing information through Stripe.
+            </CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Button onClick={handleSubscribe} disabled={isSubscribing}>
+                {isSubscribing ? 'Redirecting...' : 'Manage Billing via Stripe'}
+                <ExternalLink className="ml-2 h-4 w-4" />
+                </Button>
+            </CardContent>
+        </Card>
+
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>

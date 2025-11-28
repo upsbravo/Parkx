@@ -69,7 +69,7 @@ export default function VendorInvoicesPage() {
     try {
       // This is a placeholder price ID. You would create a product and price in your Stripe Dashboard.
       // The price ID would typically be stored in a 'products' collection in Firestore.
-      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_YOUR_PRICE_ID';
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_1PgQCrRpJUn7y5x5Jk1NTpVi';
       
       const result = await createStripeCheckout({
         priceId: priceId, 
@@ -104,21 +104,6 @@ export default function VendorInvoicesPage() {
           Review your billing history for your ParkX subscription.
         </p>
       </div>
-      
-       <Card>
-        <CardHeader>
-          <CardTitle>Manage Subscription</CardTitle>
-          <CardDescription>
-            Use the button below to subscribe or manage your billing information through our secure Stripe portal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-           <Button onClick={handleSubscribe} disabled={isSubscribing}>
-              {isSubscribing ? 'Redirecting...' : 'Subscribe & Manage Billing'}
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </Button>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
