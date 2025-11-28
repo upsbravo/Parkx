@@ -22,7 +22,7 @@ const CreateStripeCheckoutInputSchema = z.object({
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
 const CreateStripeCheckoutOutputSchema = z.object({
-  url: z.string().url().describe('The URL for the Stripe Checkout session.'),
+  url: z.string().url().optional().describe('The URL for the Stripe Checkout session.'),
   error: z.string().optional().describe('An error message if the session creation failed.'),
 });
 export type CreateStripeCheckoutOutput = z.infer<typeof CreateStripeCheckoutOutputSchema>;
@@ -84,7 +84,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
       const responseData = response.data as any;
 
       if (responseData.data.error) {
-        return { url: '', error: responseData.data.error.message };
+        return { error: responseData.data.error.message };
       }
       if (!responseData.data.url) {
         throw new Error('Invalid response from checkout session function.');
@@ -95,7 +95,6 @@ const createStripeCheckoutFlow = ai.defineFlow(
     } catch (e: any) {
       console.error('Error invoking createCheckoutSession function:', e.response?.data || e.message);
       return {
-        url: '',
         error: e.response?.data?.error?.message || 'Failed to create checkout session.',
       };
     }
