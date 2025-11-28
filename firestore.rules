@@ -24,7 +24,7 @@ service cloud.firestore {
     function isVendorQueryingSelf(query) {
       return isVendorAdmin() &&
              query.where.filter(
-               constraint => constraint.field == "vendorId" &&
+               constraint -> constraint.field == "vendorId" &&
                              constraint.op == "==" &&
                              constraint.value == request.auth.uid
              ).size() > 0;
