@@ -22,7 +22,13 @@ service cloud.firestore {
     }
 
     function isVendorQueryingSelf() {
-      return isVendorAdmin() && request.query.where.filter(constraint => constraint.field == "vendorId" && constraint.op == "==" && constraint.value == request.auth.uid).size() > 0;
+      // Check if there is a 'where' clause filtering by the vendor's own UID.
+      // This is more robust than checking a specific index.
+      return isVendorAdmin() && request.query.where.filter(constraint => 
+        constraint.field == "vendorId" && 
+        constraint.op == "==" && 
+        constraint.value == request.auth.uid
+      ).size() > 0;
     }
 
     // VENDORS – self access + privileged read all + end-user read access
