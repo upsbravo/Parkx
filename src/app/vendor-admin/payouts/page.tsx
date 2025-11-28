@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useMemo, ChangeEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -22,6 +23,10 @@ import {
   FileDown,
   ListFilter,
   SlidersHorizontal,
+  ArrowUpDown,
+  RefreshCw,
+  X,
+  CalendarIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -31,10 +36,16 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+
 
 type Transaction = {
   id: string;
@@ -57,6 +68,7 @@ type Payout = {
     location: string;
     description: string;
     method: string;
+    initiatedBy: string;
     total: number;
     status: 'Paid' | 'In Transit' | 'Failed';
 };
@@ -68,6 +80,7 @@ const samplePayouts: Payout[] = [
         location: 'MALWA TRUCK AND TRAILER REPAIR INC',
         description: 'STRIPE PAYOUT',
         method: 'Standard',
+        initiatedBy: '',
         total: 140.77,
         status: 'Paid',
     },
@@ -77,10 +90,22 @@ const samplePayouts: Payout[] = [
         location: 'MALWA TRUCK AND TRAILER REPAIR INC',
         description: 'STRIPE PAYOUT',
         method: 'Standard',
+        initiatedBy: '',
         total: 6583.67,
         status: 'Paid',
     }
 ]
+
+type VisibleColumns = {
+  initiatedDate: boolean;
+  estimatedArrivalDate: boolean;
+  location: boolean;
+  description: boolean;
+  method: boolean;
+  initiatedBy: boolean;
+  total: boolean;
+  status: boolean;
+}
 
 
 export default function VendorPaymentsPage() {
@@ -93,6 +118,19 @@ export default function VendorPaymentsPage() {
   const [routingNumber, setRoutingNumber] = useState('••••••••123');
   const [accountNumber, setAccountNumber] = useState('••••••••456');
   const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
+
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
+    initiatedDate: true,
+    estimatedArrivalDate: true,
+    location: true,
+    description: true,
+    method: true,
+    initiatedBy: false, // Hidden by default as in screenshot
+    total: true,
+    status: true,
+  });
+
 
   const vendorRef = useMemoFirebase(
       () => (vendorAdmin ? doc(firestore, 'vendors', vendorAdmin.uid) : null),
@@ -343,7 +381,7 @@ export default function VendorPaymentsPage() {
                     placeholder="Search by customer email..."
                     className="pl-10"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
@@ -428,10 +466,27 @@ export default function VendorPaymentsPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <Button variant="outline" size="sm"><ListFilter className="mr-2 h-4 w-4" /> Filters</Button>
+                        <Button variant="outline" size="sm" onClick={() => setIsFiltersOpen(true)}><ListFilter className="mr-2 h-4 w-4" /> Filters</Button>
                         <div className="flex items-center gap-2">
                             <Button variant="outline" size="sm"><FileDown className="mr-2 h-4 w-4" /> Export XLS</Button>
-                            <Button variant="outline" size="sm"><SlidersHorizontal className="mr-2 h-4 w-4" /> Customize</Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm"><SlidersHorizontal className="mr-2 h-4 w-4" /> Customize</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Columns</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {Object.keys(visibleColumns).map((key) => (
+                                        <DropdownMenuCheckboxItem
+                                            key={key}
+                                            checked={visibleColumns[key as keyof VisibleColumns]}
+                                            onCheckedChange={(checked) => setVisibleColumns(prev => ({...prev, [key]: checked}))}
+                                        >
+                                           {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </CardHeader>
@@ -439,33 +494,35 @@ export default function VendorPaymentsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Initiated Date</TableHead>
-                                <TableHead>Estimated Arrival Date</TableHead>
-                                <TableHead>Location</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Method</TableHead>
-                                <TableHead>Total</TableHead>
-                                <TableHead>Status</TableHead>
+                                {visibleColumns.initiatedDate && <TableHead><div className="flex items-center gap-1">Initiated Date <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
+                                {visibleColumns.estimatedArrivalDate && <TableHead><div className="flex items-center gap-1">Estimated Arrival Date <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
+                                {visibleColumns.location && <TableHead><div className="flex items-center gap-1">Location <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
+                                {visibleColumns.description && <TableHead>Description</TableHead>}
+                                {visibleColumns.method && <TableHead><div className="flex items-center gap-1">Method <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
+                                {visibleColumns.initiatedBy && <TableHead>Initiated By</TableHead>}
+                                {visibleColumns.total && <TableHead><div className="flex items-center gap-1">Total <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
+                                {visibleColumns.status && <TableHead>Status</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                            {samplePayouts.map((payout, index) => (
                                 <TableRow key={index}>
-                                    <TableCell>{payout.initiatedDate}</TableCell>
-                                    <TableCell>{payout.arrivalDate}</TableCell>
-                                    <TableCell>{payout.location}</TableCell>
-                                    <TableCell>{payout.description}</TableCell>
-                                    <TableCell>{payout.method}</TableCell>
-                                    <TableCell>{formatCurrency(payout.total)}</TableCell>
-                                    <TableCell><Badge variant={payoutStatusVariant[payout.status]}>{payout.status}</Badge></TableCell>
+                                    {visibleColumns.initiatedDate && <TableCell>{payout.initiatedDate}</TableCell>}
+                                    {visibleColumns.estimatedArrivalDate && <TableCell>{payout.arrivalDate}</TableCell>}
+                                    {visibleColumns.location && <TableCell>{payout.location}</TableCell>}
+                                    {visibleColumns.description && <TableCell>{payout.description}</TableCell>}
+                                    {visibleColumns.method && <TableCell>{payout.method}</TableCell>}
+                                    {visibleColumns.initiatedBy && <TableCell>{payout.initiatedBy || '-'}</TableCell>}
+                                    {visibleColumns.total && <TableCell>{formatCurrency(payout.total)}</TableCell>}
+                                    {visibleColumns.status && <TableCell><Badge variant={payoutStatusVariant[payout.status]}>{payout.status}</Badge></TableCell>}
                                 </TableRow>
                            ))}
                         </TableBody>
                         <TableFooter>
                             <TableRow>
-                                <TableCell colSpan={5} className="font-semibold">Total: {samplePayouts.length}</TableCell>
+                                <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length - 2} className="font-semibold">Total: {samplePayouts.length}</TableCell>
                                 <TableCell className="font-semibold">{formatCurrency(totalPayout)}</TableCell>
-                                <TableCell></TableCell>
+                                {visibleColumns.status && <TableCell></TableCell>}
                             </TableRow>
                         </TableFooter>
                     </Table>
@@ -473,6 +530,57 @@ export default function VendorPaymentsPage() {
             </Card>
         </TabsContent>
       </Tabs>
+      <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+        <SheetContent className="w-[350px] sm:w-[400px]">
+            <SheetHeader className="flex-row items-center justify-between mb-4">
+                <SheetTitle>Filters</SheetTitle>
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon"><RefreshCw className="h-4 w-4" /></Button>
+                    <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4" /></Button></SheetClose>
+                </div>
+            </SheetHeader>
+            <div className="space-y-6">
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label className="font-semibold">Arrival</Label>
+                        <Button variant="link" className="p-0 h-auto">Reset</Button>
+                    </div>
+                    <RadioGroup defaultValue="custom" className="space-y-2">
+                        <div>
+                            <RadioGroupItem value="custom" id="custom" className="peer sr-only" />
+                            <Label htmlFor="custom" className="block rounded-md border p-4 cursor-pointer peer-data-[state=checked]:border-primary">
+                                <p className="font-semibold">Custom</p>
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="font-normal w-full"><CalendarIcon className="mr-2 h-4 w-4" /> {format(new Date(), "MM/dd/yyyy")}</Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" /></PopoverContent>
+                                    </Popover>
+                                     <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="font-normal w-full"><CalendarIcon className="mr-2 h-4 w-4" /> {format(new Date(), "MM/dd/yyyy")}</Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0"><Calendar mode="single" /></PopoverContent>
+                                    </Popover>
+                                </div>
+                            </Label>
+                        </div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="today" /><Label htmlFor="today">Today</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="yesterday" id="yesterday" /><Label htmlFor="yesterday">Yesterday</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="this-week" id="this-week" /><Label htmlFor="this-week">This Week (M-Su)</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="last-week" id="last-week" /><Label htmlFor="last-week">Last Week (M-Su)</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="this-month" id="this-month" /><Label htmlFor="this-month">This Month</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="last-month" id="last-month" /><Label htmlFor="last-month">Last Month</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="year-to-date" id="year-to-date" /><Label htmlFor="year-to-date">Year to Date</Label></div>
+                        <div className="flex items-center space-x-2"><RadioGroupItem value="all-time" id="all-time" /><Label htmlFor="all-time">All Time</Label></div>
+                    </RadioGroup>
+                </div>
+            </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
+
+    
