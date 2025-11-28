@@ -21,7 +21,6 @@ import {
   MessageCircle,
   FileText,
   LifeBuoy,
-  List,
 } from "lucide-react";
 
 const navItems = [
@@ -30,12 +29,11 @@ const navItems = [
   { href: "/vendor-admin/parking-lot", icon: <ParkingSquare />, label: "Parking Lot" },
   { href: "/vendor-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
   { href: "/vendor-admin/user-invoices", icon: <FileText />, label: "User Invoices" },
-  { href: "/vendor-admin/transactions", icon: <List />, label: "Transactions" },
   { href: "/vendor-admin/messages", icon: <MessageCircle />, label: "User Messages" },
   { href: "/vendor-admin/invoices", icon: <ClipboardList />, label: "My Invoices" },
   { href: "/vendor-admin/branding", icon: <Palette />, label: "Branding" },
   { href: "/vendor-admin/support", icon: <LifeBuoy />, label: "My Support" },
-  { href: "/vendor-admin/payments", icon: <Banknote />, label: "Payments" },
+  { href: "/vendor-admin/payouts", icon: <Banknote />, label: "Payments" },
   { href: "/vendor-admin/account", icon: <Settings />, label: "Account" },
 ];
 
