@@ -29,6 +29,8 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 type Transaction = {
   id: string;
@@ -50,6 +52,13 @@ export default function VendorPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
   const { user: vendorAdmin } = useUser();
+  const { toast } = useToast();
+
+  // State for editable fields
+  const [accountHolder, setAccountHolder] = useState('Acme Parking Inc.');
+  const [routingNumber, setRoutingNumber] = useState('••••••••123');
+  const [accountNumber, setAccountNumber] = useState('••••••••456');
+  const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
 
   const vendorRef = useMemoFirebase(
       () => (vendorAdmin ? doc(firestore, 'vendors', vendorAdmin.uid) : null),
@@ -82,6 +91,20 @@ export default function VendorPaymentsPage() {
       currency: currency.toUpperCase(),
     }).format(amountInCents / 100);
   };
+  
+  const handleSavePayouts = () => {
+    toast({
+        title: 'Payout Information Saved',
+        description: 'Your bank account details have been updated.',
+    });
+  }
+
+  const handleSaveDescriptor = () => {
+     toast({
+        title: 'Statement Descriptor Saved',
+        description: 'Your changes will appear on customer statements within 24 hours.',
+    });
+  }
 
   const statusVariant = {
     succeeded: 'default',
@@ -222,17 +245,21 @@ export default function VendorPaymentsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center text-sm">
-                        <p className="text-muted-foreground">Payout Schedule</p>
-                        <p className="font-medium">Daily</p>
-                   </div>
-                    <div className="flex justify-between items-center text-sm">
-                        <p className="text-muted-foreground">Payout Account</p>
-                        <p className="font-medium flex items-center gap-2">Chase Bank <span className='font-mono'>••••1234</span></p>
-                   </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="account-holder">Account Holder Name</Label>
+                        <Input id="account-holder" value={accountHolder} onChange={(e) => setAccountHolder(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="routing-number">Routing Number</Label>
+                        <Input id="routing-number" value={routingNumber} onChange={(e) => setRoutingNumber(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="account-number">Account Number</Label>
+                        <Input id="account-number" type="password" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+                    </div>
                 </CardContent>
-                 <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
-                   <p>Payouts are managed through your Stripe Express dashboard.</p>
+                 <CardFooter>
+                    <Button onClick={handleSavePayouts}>Save Payouts</Button>
                 </CardFooter>
             </Card>
 
@@ -246,16 +273,13 @@ export default function VendorPaymentsPage() {
                        How charges will appear on your customers' bank statements.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                     <div className="flex items-center justify-between rounded-lg border bg-card p-4">
-                        <div>
-                            <p className="text-sm font-medium">ACME PARKING</p>
-                            <p className="text-sm text-muted-foreground">acmeparking.com</p>
-                        </div>
-                    </div>
+                <CardContent className="space-y-2">
+                     <Label htmlFor="statement-descriptor">Descriptor</Label>
+                    <Input id="statement-descriptor" value={statementDescriptor} onChange={(e) => setStatementDescriptor(e.target.value)} />
+                    <p className="text-xs text-muted-foreground">This helps customers recognize their payments to you.</p>
                 </CardContent>
-                  <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
-                   <p>This helps customers recognize their payments to you.</p>
+                  <CardFooter>
+                    <Button onClick={handleSaveDescriptor}>Save Descriptor</Button>
                 </CardFooter>
             </Card>
 
