@@ -23,9 +23,10 @@ import { Button } from '@/components/ui/button';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink } from 'lucide-react';
+import { Download, MoreHorizontal } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
 
 type VendorInvoice = {
   id: string;
@@ -39,8 +40,6 @@ type VendorInvoice = {
 export default function VendorInvoicesPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isSubscribing, setIsSubscribing] = useState(false);
 
   const invoicesQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'vendorInvoices'), where('vendorId', '==', user.uid)) : null),
@@ -54,45 +53,57 @@ export default function VendorInvoicesPage() {
     Overdue: 'destructive',
   } as const;
 
-  const handleSubscribe = async () => {
-    if (!user) {
-        toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to subscribe.' });
-        return;
-    }
-
-    setIsSubscribing(true);
-    toast({
-      title: 'Redirecting to Stripe...',
-      description: 'Please wait while we create your secure checkout session.',
-    });
-
-    try {
-      // This is a placeholder price ID. You would create a product and price in your Stripe Dashboard.
-      // The price ID would typically be stored in a 'products' collection in Firestore.
-      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID || 'price_1PgQCrRpJUn7y5x5Jk1NTpVi';
-      
-      const result = await createStripeCheckout({
-        priceId: priceId, 
-        successUrl: window.location.href,
-        cancelUrl: window.location.href,
-        uid: user.uid, // Pass the user's UID
-      });
-
-      if (result.url) {
-        window.location.assign(result.url);
-      } else {
-        throw new Error(result.error || 'Could not retrieve checkout URL.');
-      }
-    } catch (error: any) {
-      console.error('Stripe checkout error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Subscription Failed',
-        description: error.message || 'Could not redirect to Stripe. Please try again.',
-      });
-      setIsSubscribing(false);
-    }
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '...';
+    return new Date(dateString).toLocaleDateString();
   };
+
+  const formatCurrency = (amount: number) => {
+    if (typeof amount !== 'number') return '...';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+  
+  const generateInvoiceContent = (invoice: VendorInvoice): string => {
+    return `
+INVOICE FROM PARKX
+---------------------
+Invoice ID: ${invoice.id}
+Date Due: ${formatDate(invoice.dueDate)}
+Status: ${invoice.status}
+
+BILLED TO:
+${user?.displayName || 'Your Company'}
+
+---------------------
+DESCRIPTION
+${invoice.notes || 'Subscription Fee'}
+
+AMOUNT
+${formatCurrency(invoice.amount)}
+---------------------
+
+Total Due: ${formatCurrency(invoice.amount)}
+
+Thank you for your business.
+    `.trim();
+  };
+
+  const handleDownloadInvoice = (invoice: VendorInvoice) => {
+    const textContent = generateInvoiceContent(invoice);
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_ParkX_${invoice.id.substring(0, 6)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
 
   const isLoading = isUserLoading || areInvoicesLoading;
 
@@ -148,15 +159,33 @@ export default function VendorInvoicesPage() {
                  invoices.map((invoice) => (
                     <TableRow key={invoice.id}>
                         <TableCell className="font-mono text-xs max-w-xs truncate">{invoice.id}</TableCell>
-                        <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
-                        <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                        <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                        <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                         <TableCell>
                             <Badge variant={statusVariant[invoice.status]}>
                                 {invoice.status}
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                            <Button variant="outline" size="sm">View</Button>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                    aria-haspopup="true"
+                                    size="icon"
+                                    variant="ghost"
+                                    >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)}>
+                                        <Download className="mr-2 h-4 w-4" />
+                                        <span>Download</span>
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                     </TableRow>
                  ))
