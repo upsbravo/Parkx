@@ -24,19 +24,7 @@ service cloud.firestore {
     // Helper function to robustly check for a vendorId filter in a query.
     // This correctly handles queries with multiple 'where' or 'orderBy' clauses.
     function isQueryingOwnVendorId() {
-      let isFilteringByOwnId = false;
-      if (request.query.where != null) {
-        let filters = request.query.where;
-        let i = 0;
-        while (i < size(filters)) {
-          if (filters[i].field == "vendorId" && filters[i].op == "==" && filters[i].value == request.auth.uid) {
-            isFilteringByOwnId = true;
-            break;
-          }
-          i = i + 1;
-        }
-      }
-      return isVendorAdmin() && isFilteringByOwnId;
+      return isVendorAdmin() && request.auth.uid == request.query.where.vendorId;
     }
 
     // VENDORS – self access + privileged read all + end-user read access
@@ -64,10 +52,7 @@ service cloud.firestore {
           allow write: if request.auth.uid == vendorId;
           allow list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
                          (isSignedIn() && request.query.where != null &&
-                          size(request.query.where) > 0 &&
-                          request.query.where[0].field == "userId" &&
-                          request.query.where[0].op == "==" &&
-                          request.query.where[0].value == request.auth.uid);
+                          request.query.where.userId == request.auth.uid);
       }
 
       // Vendor Admins can manage documents for their own users
@@ -96,10 +81,7 @@ service cloud.firestore {
 
       allow list: if isSuperAdmin() || isPrivilegedVendor() ||
                       (isVendorAdmin() && request.query.where != null &&
-                       size(request.query.where) > 0 &&
-                       request.query.where[0].field == "vendorId" &&
-                       request.query.where[0].op == "==" &&
-                       request.query.where[0].value == request.auth.uid);
+                       request.query.where.vendorId == request.auth.uid);
 
       allow create: if isSuperAdmin() || (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid);
 
@@ -133,8 +115,8 @@ service cloud.firestore {
     
     // Stripe Transactions
     match /transactions/{transactionId} {
-        allow list: if isSuperAdmin() || isQueryingOwnVendorId();
         allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+        allow list: if isSuperAdmin() || isQueryingOwnVendorId();
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
     }
