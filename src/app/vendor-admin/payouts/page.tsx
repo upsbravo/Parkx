@@ -45,6 +45,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 
 
 type Transaction = {
@@ -283,35 +284,53 @@ export default function VendorPaymentsPage() {
                 </CardFooter>
             </Card>
 
-            <Card>
+            <Card className="col-span-1 md:col-span-2">
                 <CardHeader>
                      <div className='flex items-center gap-2'>
                         <DollarSign className="h-5 w-5 text-muted-foreground" />
-                        <CardTitle>Rates & Fees</CardTitle>
+                        <CardTitle>Rates</CardTitle>
                     </div>
-                    <CardDescription>
-                       The fees applied to each transaction.
-                    </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                   <div className="flex justify-between items-center text-sm">
-                        <p className="text-muted-foreground">ParkX Platform Fee</p>
-                        <p className="font-medium">10%</p>
-                   </div>
-                    <div className="flex justify-between items-center text-sm">
-                        <p className="text-muted-foreground">Stripe Processing Fee</p>
-                        <p className="font-medium">~2.9% + 30¢</p>
-                   </div>
-                    <Separator/>
-                     <div className="flex justify-between items-center text-sm font-semibold">
-                        <p>You Receive (approx.)</p>
-                        <p>~87.1%</p>
-                   </div>
+                <CardContent className="grid gap-6 sm:grid-cols-2">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <svg width="40" height="25" viewBox="0 0 40 25" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><path d="M0 2.5C0 1.11929 1.11929 0 2.5 0H37.5C38.8807 0 40 1.11929 40 2.5V22.5C40 23.8807 38.8807 25 37.5 25H2.5C1.11929 25 0 23.8807 0 22.5V2.5Z" fill="#3A5D99"/><path d="M6 16.25V8.75H8.75L11.5 13.75L14.25 8.75H17V16.25H14.75V11.875L12.125 16.25H10.875L8.25 11.875V16.25H6Z" fill="white"/></svg>
+                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><rect width="34" height="21" rx="3" fill="black"/><path d="M9 6H11V15H9V6Z" fill="white"/><path d="M12 6H14V15H12V6Z" fill="white"/><path d="M15 6H17V15H15V6Z" fill="white"/><path d="M18 6H20V15H18V6Z" fill="white"/><path d="M21 6H23V15H21V6Z" fill="white"/><path d="M24 6H26V15H24V6Z" fill="white"/><path d="M9.19702 10.5C9.19702 12.562 10.134 14.373 11.583 15H13.228C14.677 14.373 15.614 12.562 15.614 10.5C15.614 8.43803 14.677 6.62702 13.228 6.00002H11.583C10.134 6.62702 9.19702 8.43803 9.19702 10.5Z" fill="#FF5F00"/><path d="M17.4221 10.5C17.4221 8.81803 16.8271 7.29002 15.8901 6.22302C16.5911 6.07902 17.3191 6.00002 18.0701 6.00002C20.9161 6.00002 23.2381 8.43803 23.2381 10.5C23.2381 12.562 20.9161 15 18.0701 15C17.3191 15 16.5911 14.921 15.8901 14.777C16.8271 13.71 17.4221 12.182 17.4221 10.5Z" fill="#EB001B"/></svg>
+                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg" className="rounded-sm"><rect x="0.5" y="0.5" width="33" height="20" rx="2.5" fill="#F5F5F5" stroke="#E0E0E0"/><path d="M8.76172 10.375C8.76172 11.4583 8.36805 12.3958 7.57986 13.1875H6.2882C5.49306 12.3958 5.125 11.4583 5.125 10.375C5.125 9.3125 5.51875 8.375 6.3125 7.5625H7.55556C8.34931 8.375 8.76172 9.3125 8.76172 10.375Z" fill="#FF5F00"/><path d="M12.375 13.3125C13.0833 13.3125 13.625 12.75 13.625 12.0625V8.6875C13.625 8.02083 13.0833 7.4375 12.375 7.4375H10.125V13.3125H12.375Z" fill="#FF5F00"/><path d="M15.125 7.4375H17.25C17.7708 7.4375 18.125 7.8125 18.125 8.4375V12.3125C18.125 12.875 17.7917 13.3125 17.25 13.3125H15.125V7.4375Z" fill="#FF5F00"/><path d="M23.125 13.3125H21L23.125 7.4375H25.125L23.125 13.3125Z" fill="#FF5F00"/><path d="M26.375 13.3125V7.4375H28.125V13.3125H26.375Z" fill="#FF5F00"/></svg>
+                                <span className="text-xs text-muted-foreground">+ more</span>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <p className="text-xl font-semibold">2.9% + 30¢</p>
+                                <p className="text-sm text-muted-foreground">Per Online Payment</p>
+                            </div>
+                            <div>
+                                <p className="text-xl font-semibold">2.7% + 15¢</p>
+                                <p className="text-sm text-muted-foreground">Per In-Person Payment</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <svg width="34" height="21" viewBox="0 0 34 21" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="34" height="21" rx="3" fill="#2E78C4"/><path d="M12.02 12.44V8.5H15.16C15.9 8.5 16.52 8.64 17.02 8.92C17.52 9.2 17.78 9.62 17.78 10.18C17.78 10.64 17.63 11.02 17.33 11.32C17.03 11.62 16.63 11.82 16.13 11.92L18.06 15H15.82L14.04 12.44H12.02ZM14.48 11.36C14.78 11.36 15.02 11.3 15.2 11.18C15.38 11.06 15.48 10.86 15.48 10.58C15.48 10.3 15.38 10.08 15.18 9.92C14.98 9.76 14.7 9.68 14.34 9.68H12.02V11.36H14.48Z" fill="white"/><path d="M23.9515 12.35V15H21.6515V8.5H25.3915C26.1115 8.5 26.6915 8.63 27.1315 8.89C27.5715 9.15 27.7915 9.5 27.7915 9.94C27.7915 10.42 27.5915 10.8 27.1915 11.08C26.7915 11.36 26.2715 11.5 25.6315 11.5H23.9515V12.35ZM23.9515 10.45H25.5315C25.9315 10.45 26.2315 10.39 26.4315 10.27C26.6315 10.15 26.7315 9.97 26.7315 9.73C26.7315 9.51 26.6315 9.33 26.4315 9.19C26.2315 9.05 25.9315 8.98 25.5315 8.98H23.9515V10.45Z" fill="white"/></svg>
+                                <Switch defaultChecked/>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <p className="text-xl font-semibold">3.5% + 30¢</p>
+                                <p className="text-sm text-muted-foreground">Per Online Payment</p>
+                            </div>
+                            <div>
+                                <p className="text-xl font-semibold">3.5% + 15¢</p>
+                                <p className="text-sm text-muted-foreground">Per In-Person Payment</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </CardContent>
-                 <CardFooter className="flex-col items-start gap-2 text-xs text-muted-foreground">
-                    <p>The Stripe processing fee is an estimate and may vary.</p>
-                    <p>ParkX platform fees are deducted automatically from each transaction.</p>
-                </CardFooter>
             </Card>
 
             <Card>
@@ -582,5 +601,3 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
-
-    
