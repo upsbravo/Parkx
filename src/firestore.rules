@@ -62,7 +62,7 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
       
-      // VENDOR'S OWN DOCUMENTS – THIS FIXES THE ERROR
+      // VENDOR'S OWN DOCUMENTS
       match /vendorDocuments/{docId} {
         allow read, write: if request.auth.uid == vendorId || isSuperAdmin();
       }
@@ -105,10 +105,22 @@ service cloud.firestore {
         allow read, write: if isSuperAdmin();
       }
     }
+    
+    // Allow vendors to list their own invoices, and super admins to see all
+    match /vendorInvoices/{invoiceId} {
+      allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || 
+                     (isVendorAdmin() && request.query.where[0].field == 'vendorId' &&
+                      request.query.where[0].op == '==' &&
+                      request.query.where[0].value == request.auth.uid);
+      allow write: if isSuperAdmin();
+    }
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
 
-    // Catch-all for other collections
-    match /{document=**} { allow read, write: if isSuperAdmin(); }
+    // Catch-all for other collections - restricted to Super Admin
+    match /{path=**} {
+      allow read, write: if isSuperAdmin();
+    }
   }
 }
