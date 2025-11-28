@@ -17,8 +17,8 @@ service cloud.firestore {
     }
 
     function isPrivilegedVendor() {
-      // CORRECT: Check for a custom claim on the auth token. This is fast and allowed in list queries.
-      return isVendorAdmin() && request.auth.token.isPrivileged == true;
+      return isVendorAdmin() &&
+        get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
     }
 
     // VENDORS – self access + privileged read all + end-user read access
@@ -108,7 +108,8 @@ service cloud.firestore {
     // Stripe Transactions
     match /transactions/{transactionId} {
         allow read: if isSuperAdmin() || isPrivilegedVendor() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-        allow list: if isSuperAdmin() || isPrivilegedVendor() ||
+        allow list: if isSuperAdmin() || 
+                     (isVendorAdmin() && get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true) ||
                      (isVendorAdmin() && request.query.get("vendorId") == request.auth.uid);
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
