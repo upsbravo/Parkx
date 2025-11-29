@@ -24,6 +24,7 @@ import {
 import { Button } from "./ui/button";
 import Link from "next/link";
 import { LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Notifications } from "./notifications";
 
 export default function DashboardLayout({
   children,
@@ -76,45 +77,48 @@ export default function DashboardLayout({
             <div className="flex-1">
               {/* Future search bar or breadcrumbs can go here */}
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="overflow-hidden rounded-full"
-                >
-                  {role === 'Super Admin' ? (
-                     <Avatar>
-                        <AvatarFallback>
-                          <ShieldCheck className="h-5 w-5" />
-                        </AvatarFallback>
+            <div className="flex items-center gap-2">
+              {role === 'End User' && <Notifications />}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="overflow-hidden rounded-full"
+                  >
+                    {role === 'Super Admin' ? (
+                       <Avatar>
+                          <AvatarFallback>
+                            <ShieldCheck className="h-5 w-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                    ) : (
+                      <Avatar>
+                        <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="User avatar" />
+                        <AvatarFallback>{role.charAt(0)}</AvatarFallback>
                       </Avatar>
-                  ) : (
-                    <Avatar>
-                      <AvatarImage src="https://picsum.photos/seed/avatar/100/100" alt="User avatar" />
-                      <AvatarFallback>{role.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{role} Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href={accountPageUrl}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/login">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Logout
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{role} Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={accountPageUrl}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/login">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </header>
           <main className="p-4 md:p-6">
             {children}

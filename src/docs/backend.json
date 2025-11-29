@@ -539,6 +539,21 @@
         "description": { "type": "string" }
       },
       "required": ["id", "amount", "currency", "arrival_date", "created", "status"]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification for an end-user.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["invoice", "message", "payment"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
     }
   },
   "auth": {
@@ -647,6 +662,26 @@
             {
               "name": "messageId",
               "description": "The unique identifier for the Message document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for an end user, such as new messages or invoices.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the EndUser document."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier for the Notification document."
             }
           ]
         }
