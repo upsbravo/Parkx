@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink, Send } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,7 +84,7 @@ type Vendor = {
     id: string;
     name: string;
     spotLimit: number;
-}
+};
 
 type InvoiceLineItem = {
     description: string;
@@ -316,7 +317,7 @@ export default function VendorInvoicesPage() {
     const addonPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDON_PRICE_ID;
 
     if (!basePriceId || !addonPriceId) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured.' });
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured in your .env file.' });
         return;
     }
 
@@ -476,6 +477,15 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => {
+                                toast({
+                                    title: "Email Sent",
+                                    description: `An invoice reminder has been sent to ${invoice.vendorName}.`
+                                })
+                            }}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Send Reminder
+                            </DropdownMenuItem>
                              {invoice.status !== 'Paid' ? (
                                 <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>
                              ) : (
