@@ -66,43 +66,20 @@ type Vendor = {
 }
 
 type Payout = {
-    initiatedDate: string;
-    arrivalDate: string;
-    location: string;
+    id: string;
+    amount: number;
+    currency: string;
+    arrival_date: number;
+    created: number;
+    status: string;
+    type: string;
     description: string;
-    method: string;
-    initiatedBy: string;
-    total: number;
-    status: 'Paid' | 'In Transit' | 'Failed';
 };
 
-const samplePayouts: Payout[] = [
-    {
-        initiatedDate: '06/10/2025',
-        arrivalDate: '06/12/2025',
-        location: 'MALWA TRUCK AND TRAILER REPAIR INC',
-        description: 'STRIPE PAYOUT',
-        method: 'Standard',
-        initiatedBy: '',
-        total: 140.77,
-        status: 'Paid',
-    },
-    {
-        initiatedDate: '06/09/2025',
-        arrivalDate: '06/11/2025',
-        location: 'MALWA TRUCK AND TRAILER REPAIR INC',
-        description: 'STRIPE PAYOUT',
-        method: 'Standard',
-        initiatedBy: '',
-        total: 6583.67,
-        status: 'Paid',
-    }
-]
 
 type VisibleColumns = {
   initiatedDate: boolean;
   estimatedArrivalDate: boolean;
-  location: boolean;
   description: boolean;
   method: boolean;
   initiatedBy: boolean;
@@ -123,7 +100,6 @@ export default function VendorPaymentsPage() {
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     initiatedDate: true,
     estimatedArrivalDate: true,
-    location: true,
     description: true,
     method: true,
     initiatedBy: false, // Hidden by default as in screenshot
@@ -148,6 +124,13 @@ export default function VendorPaymentsPage() {
 
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
 
+  const payoutsQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorAdmin) return null;
+    return query(collection(firestore, 'vendors', vendorAdmin.uid, 'payouts'), orderBy('created', 'desc'));
+  }, [firestore, vendorAdmin]);
+
+  const { data: payouts, isLoading: arePayoutsLoading } = useCollection<Payout>(payoutsQuery);
+
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
     if (!searchTerm) return transactions;
@@ -159,10 +142,11 @@ export default function VendorPaymentsPage() {
 
   const formatCurrency = (amount: number, currency = 'USD') => {
     if (typeof amount !== 'number') return '-';
+    // Payout amounts are in cents/smallest unit
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currency.toUpperCase(),
-    }).format(amount);
+    }).format(amount / 100);
   };
 
 
@@ -180,13 +164,14 @@ export default function VendorPaymentsPage() {
   } as const;
 
   const payoutStatusVariant = {
-    Paid: 'default',
-    'In Transit': 'secondary',
-    Failed: 'destructive',
+    paid: 'default',
+    in_transit: 'secondary',
+    failed: 'destructive',
+    pending: 'secondary',
   } as const;
 
-  const isLoading = areTransactionsLoading || isVendorDataLoading;
-  const totalPayout = samplePayouts.reduce((acc, p) => acc + p.total, 0);
+  const isLoading = areTransactionsLoading || isVendorDataLoading || arePayoutsLoading;
+  const totalPayout = payouts?.reduce((acc, p) => acc + p.amount, 0) ?? 0;
 
 
   return (
@@ -379,9 +364,9 @@ export default function VendorPaymentsPage() {
                           {format(new Date(tx.created * 1000), 'PPp')}
                         </TableCell>
                         <TableCell>{tx.customerEmail}</TableCell>
-                        <TableCell>{formatCurrency(tx.amount / 100, tx.currency)}</TableCell>
-                        <TableCell>{formatCurrency((tx.fee || 0) / 100, tx.currency)}</TableCell>
-                        <TableCell>{formatCurrency((tx.net || 0) / 100, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency(tx.fee || 0, tx.currency)}</TableCell>
+                        <TableCell>{formatCurrency(tx.net || 0, tx.currency)}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[tx.status]}>{tx.status}</Badge>
                         </TableCell>
@@ -464,7 +449,6 @@ export default function VendorPaymentsPage() {
                             <TableRow>
                                 {visibleColumns.initiatedDate && <TableHead><div className="flex items-center gap-1">Initiated Date <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
                                 {visibleColumns.estimatedArrivalDate && <TableHead><div className="flex items-center gap-1">Estimated Arrival Date <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
-                                {visibleColumns.location && <TableHead><div className="flex items-center gap-1">Location <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
                                 {visibleColumns.description && <TableHead>Description</TableHead>}
                                 {visibleColumns.method && <TableHead><div className="flex items-center gap-1">Method <ArrowUpDown className="h-3 w-3" /></div></TableHead>}
                                 {visibleColumns.initiatedBy && <TableHead>Initiated By</TableHead>}
@@ -473,22 +457,32 @@ export default function VendorPaymentsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {samplePayouts.map((payout, index) => (
-                                <TableRow key={index}>
-                                    {visibleColumns.initiatedDate && <TableCell>{payout.initiatedDate}</TableCell>}
-                                    {visibleColumns.estimatedArrivalDate && <TableCell>{payout.arrivalDate}</TableCell>}
-                                    {visibleColumns.location && <TableCell>{payout.location}</TableCell>}
-                                    {visibleColumns.description && <TableCell>{payout.description}</TableCell>}
-                                    {visibleColumns.method && <TableCell>{payout.method}</TableCell>}
-                                    {visibleColumns.initiatedBy && <TableCell>{payout.initiatedBy || '-'}</TableCell>}
-                                    {visibleColumns.total && <TableCell>{formatCurrency(payout.total)}</TableCell>}
-                                    {visibleColumns.status && <TableCell><Badge variant={payoutStatusVariant[payout.status]}>{payout.status}</Badge></TableCell>}
+                           {isLoading ? (
+                                Array.from({ length: 3 }).map((_, i) => (
+                                    <TableRow key={i}><TableCell colSpan={Object.values(visibleColumns).filter(v => v).length}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                                ))
+                           ) : payouts && payouts.length > 0 ? (
+                            payouts.map((payout) => (
+                                <TableRow key={payout.id}>
+                                    {visibleColumns.initiatedDate && <TableCell>{format(new Date(payout.created * 1000), 'PP')}</TableCell>}
+                                    {visibleColumns.estimatedArrivalDate && <TableCell>{format(new Date(payout.arrival_date * 1000), 'PP')}</TableCell>}
+                                    {visibleColumns.description && <TableCell className="capitalize">{payout.description || '-'}</TableCell>}
+                                    {visibleColumns.method && <TableCell className="capitalize">{payout.type}</TableCell>}
+                                    {visibleColumns.initiatedBy && <TableCell>{'-'}</TableCell>}
+                                    {visibleColumns.total && <TableCell>{formatCurrency(payout.amount, payout.currency)}</TableCell>}
+                                    {visibleColumns.status && <TableCell><Badge variant={payoutStatusVariant[payout.status as keyof typeof payoutStatusVariant]}>{payout.status}</Badge></TableCell>}
                                 </TableRow>
-                           ))}
+                           ))) : (
+                            <TableRow>
+                                <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length} className="h-24 text-center">
+                                    No payouts found.
+                                </TableCell>
+                            </TableRow>
+                           )}
                         </TableBody>
                         <TableFooter>
                             <TableRow>
-                                <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length - 2} className="font-semibold">Total: {samplePayouts.length}</TableCell>
+                                <TableCell colSpan={Object.values(visibleColumns).filter(v => v).length - 2} className="font-semibold">Total: {payouts?.length || 0}</TableCell>
                                 <TableCell className="font-semibold">{formatCurrency(totalPayout)}</TableCell>
                                 {visibleColumns.status && <TableCell></TableCell>}
                             </TableRow>
@@ -550,3 +544,5 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
+
+    

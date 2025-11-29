@@ -141,7 +141,9 @@ async function handlePayoutPaid(payout: any) {
       created: payout.created,
       status: payout.status,
       description: payout.description,
-      method: payout.type,
+      type: payout.type,
   };
   await setDoc(doc(payoutsRef, payout.id), payoutDoc);
 }
+
+    
