@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -652,7 +653,10 @@ export default function VendorInvoicesPage() {
                         )}
 
                         {paymentView === 'credit' && (
-                             <PaymentMethodForm method="Card" onRecord={() => handleConfirmPayment('Credit Card')}>
+                             <PaymentMethodForm method="Card" onRecord={() => {
+                                 toast({title: "Feature not available", description: "Manual card entry is not yet implemented."});
+                                 handleConfirmPayment('Credit Card (Manual)')
+                             }}>
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="payment-amount-credit">Amount</Label>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -364,7 +365,10 @@ Thank you for your business.
                             </>
                         )}
                         {paymentView === 'credit' && (
-                             <PaymentMethodForm method="Card" onRecord={() => handleConfirmPayment('Credit Card')}>
+                             <PaymentMethodForm method="Card" onRecord={() => {
+                                 toast({title: "Feature not available", description: "Manual card entry is not yet implemented."});
+                                 handleConfirmPayment('Credit Card (Manual)')
+                             }}>
                                 <div className="space-y-4">
                                     <div className="space-y-2"><Label htmlFor="payment-amount-credit">Amount</Label><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount-credit" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7" /></div></div>
                                     <div className="space-y-2"><Label htmlFor="card-number">Card Information</Label><div className="relative"><Input id="card-number" placeholder="Card number" className="pr-12" /><div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></div></div></div>
