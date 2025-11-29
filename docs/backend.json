@@ -522,6 +522,23 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["vendorId", "name", "content", "createdAt"]
+    },
+    "Payout": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payout",
+      "type": "object",
+      "description": "Represents a payout from Stripe to a vendor's bank account.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID from Stripe." },
+        "amount": { "type": "number", "description": "Amount in the smallest currency unit." },
+        "currency": { "type": "string" },
+        "arrival_date": { "type": "number", "description": "Unix timestamp of expected arrival." },
+        "created": { "type": "number", "description": "Unix timestamp of creation." },
+        "status": { "type": "string" },
+        "type": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "amount", "currency", "arrival_date", "created", "status"]
     }
   },
   "auth": {
@@ -719,6 +736,20 @@
               "name": "transactionId",
               "description": "The unique identifier for the Transaction document, typically the Stripe charge ID."
             }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/payouts/{payoutId}",
+        "definition": {
+          "entityName": "Payout",
+          "schema": {
+            "$ref": "#/backend/entities/Payout"
+          },
+          "description": "Stores payout records from Stripe for a vendor.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID of the vendor." },
+            { "name": "payoutId", "description": "The unique ID of the payout from Stripe." }
           ]
         }
       }
