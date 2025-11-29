@@ -25,7 +25,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Download, MoreHorizontal, Info } from 'lucide-react';
+import { Download, MoreHorizontal, Info, LifeBuoy } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { differenceInDays } from 'date-fns';
@@ -141,16 +141,27 @@ Thank you for your business.
         </p>
       </div>
 
-        {vendorData?.status === 'Trial' && vendorData.trialEnds && (
+        {vendorData?.status === 'Trial' && vendorData.trialEnds && trialDaysLeft > 0 && (
             <Alert>
                 <Info className="h-4 w-4" />
                 <AlertTitle>You are on a trial!</AlertTitle>
                 <AlertDescription>
                     Your 30-day trial is currently active. Your first subscription payment will be charged on {formatDate(vendorData.trialEnds)}.
-                    You have {trialDaysLeft > 0 ? trialDaysLeft : 0} days remaining.
+                    You have {trialDaysLeft} days remaining.
                 </AlertDescription>
             </Alert>
         )}
+
+        {vendorData?.status === 'Active' && (
+            <Alert variant="default">
+                <LifeBuoy className="h-4 w-4" />
+                <AlertTitle>Subscription Management</AlertTitle>
+                <AlertDescription>
+                    To manage your payment methods, please use the Stripe Customer Portal. To cancel your subscription, you must contact ParkX support directly.
+                </AlertDescription>
+            </Alert>
+        )}
+
 
       <Card>
         <CardHeader>
