@@ -184,5 +184,3 @@ export function InviteVendorDialog({
     </Dialog>
   );
 }
-
-    

@@ -406,5 +406,3 @@ export default function VendorsPage() {
     </>
   );
 }
-
-    

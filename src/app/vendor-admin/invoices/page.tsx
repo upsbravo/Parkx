@@ -1,8 +1,9 @@
+
 // src/app/vendor-admin/invoices/page.tsx
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -20,13 +21,22 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Download, MoreHorizontal } from 'lucide-react';
+import { Download, MoreHorizontal, Info } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { differenceInDays } from 'date-fns';
 
+
+type Vendor = {
+    id: string;
+    name: string;
+    status: string;
+    trialEnds: string | null;
+}
 
 type VendorInvoice = {
   id: string;
@@ -40,6 +50,18 @@ type VendorInvoice = {
 export default function VendorInvoicesPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const vendorRef = useMemoFirebase(
+      () => (user ? doc(firestore, 'vendors', user.uid) : null),
+      [user, firestore]
+  );
+  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
+
 
   const invoicesQuery = useMemoFirebase(
     () => (user ? query(collection(firestore, 'vendorInvoices'), where('vendorId', '==', user.uid)) : null),
@@ -53,13 +75,13 @@ export default function VendorInvoicesPage() {
     Overdue: 'destructive',
   } as const;
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '...';
+  const formatDate = (dateString: string | null) => {
+    if (!isClient || !dateString) return '...';
     return new Date(dateString).toLocaleDateString();
   };
 
   const formatCurrency = (amount: number) => {
-    if (typeof amount !== 'number') return '...';
+    if (!isClient || typeof amount !== 'number') return '...';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -105,7 +127,10 @@ Thank you for your business.
   };
 
 
-  const isLoading = isUserLoading || areInvoicesLoading;
+  const isLoading = isUserLoading || areInvoicesLoading || isVendorLoading;
+
+  const trialDaysLeft = vendorData?.trialEnds ? differenceInDays(new Date(vendorData.trialEnds), new Date()) : 0;
+
 
   return (
     <div className="space-y-6">
@@ -115,6 +140,17 @@ Thank you for your business.
           Review your billing history for your ParkX subscription.
         </p>
       </div>
+
+        {vendorData?.status === 'Trial' && vendorData.trialEnds && (
+            <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>You are on a trial!</AlertTitle>
+                <AlertDescription>
+                    Your 30-day trial is currently active. Your first subscription payment will be charged on {formatDate(vendorData.trialEnds)}.
+                    You have {trialDaysLeft > 0 ? trialDaysLeft : 0} days remaining.
+                </AlertDescription>
+            </Alert>
+        )}
 
       <Card>
         <CardHeader>
