@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 type Vendor = {
   name: string;
   logoUrl?: string;
-  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement';
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement' | 'requires_payment_method';
 };
 
 export default function VendorAdminLayout({
@@ -36,9 +36,16 @@ export default function VendorAdminLayout({
     }
 
     if (user && vendorData) {
+      // Rule 1: Must sign the Master Agreement first.
       if (vendorData.status === 'Pending Agreement' && pathname !== '/vendor-admin/master-agreement') {
         router.replace('/vendor-admin/master-agreement');
-      } else if (vendorData.status !== 'Pending Agreement' && pathname === '/vendor-admin/master-agreement') {
+      } 
+      // Rule 2: After trial, must provide payment method.
+      else if (vendorData.status === 'requires_payment_method' && pathname !== '/vendor-admin/invoices') {
+         router.replace('/vendor-admin/invoices');
+      }
+      // Rule 3: If they are on a page they shouldn't be on (e.g. agreement page after signing), redirect to dashboard.
+      else if (vendorData.status !== 'Pending Agreement' && pathname === '/vendor-admin/master-agreement') {
         router.replace('/vendor-admin/dashboard');
       }
     }
@@ -47,20 +54,12 @@ export default function VendorAdminLayout({
 
   const isLoading = isUserLoading || isVendorLoading;
   
-  const isAllowedToSeeContent = 
-    (pathname === '/vendor-admin/master-agreement' && vendorData?.status === 'Pending Agreement') ||
-    (vendorData?.status !== 'Pending Agreement');
-
-  const content = (
-    <DashboardLayout
-      nav={<VendorAdminNav />}
-      role="Vendor Admin"
-      vendorName={isLoading ? undefined : vendorData?.name}
-      vendorLogo={isLoading ? undefined : vendorData?.logoUrl}
-    >
-      {children}
-    </DashboardLayout>
+  const isAllowedToSeeContent = !isLoading && vendorData && (
+    (pathname === '/vendor-admin/master-agreement' && vendorData.status === 'Pending Agreement') ||
+    (pathname === '/vendor-admin/invoices' && vendorData.status === 'requires_payment_method') ||
+    (vendorData.status !== 'Pending Agreement' && vendorData.status !== 'requires_payment_method')
   );
+
 
   if (isLoading) {
     return (
@@ -84,6 +83,14 @@ export default function VendorAdminLayout({
      )
   }
 
-
-  return content;
+  return (
+    <DashboardLayout
+      nav={<VendorAdminNav />}
+      role="Vendor Admin"
+      vendorName={vendorData?.name}
+      vendorLogo={vendorData?.logoUrl}
+    >
+      {children}
+    </DashboardLayout>
+  );
 }
