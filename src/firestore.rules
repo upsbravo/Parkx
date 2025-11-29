@@ -106,8 +106,8 @@ service cloud.firestore {
       
       // USER NOTIFICATIONS
       match /notifications/{notificationId} {
-        // A user can read and write to their own notifications subcollection
-        allow read, write: if request.auth.uid == userId;
+        // A user can read, write, and list their own notifications.
+        allow read, write, list: if request.auth.uid == userId;
       }
     }
     
