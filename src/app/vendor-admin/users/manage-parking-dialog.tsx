@@ -37,8 +37,7 @@ export function ManageParkingDialog({
 }: {
   user: EndUser;
   open: boolean;
-  onOpencha
-nge: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void;
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();

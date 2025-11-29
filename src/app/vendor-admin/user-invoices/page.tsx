@@ -261,6 +261,7 @@ Thank you for your business.
                 Receive a {method.toLowerCase()}
             </Button>
           </DialogTitle>
+          <DialogDescription>Record a manual payment for this invoice.</DialogDescription>
         </DialogHeader>
         {children}
         <Button className="w-full" onClick={onRecord}>Record</Button>
@@ -353,7 +354,7 @@ Thank you for your business.
                     <div className="p-6">
                         {paymentView === 'options' && (
                             <>
-                                <DialogHeader className="mb-4"><DialogTitle>New Payment</DialogTitle></DialogHeader>
+                                <DialogHeader className="mb-4"><DialogTitle>New Payment</DialogTitle><DialogDescription>Select a payment method to record the payment for this invoice.</DialogDescription></DialogHeader>
                                 <div className="space-y-2">
                                     <div className="space-y-2"><Label htmlFor="payment-amount">Amount</Label><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7 text-lg" /></div></div>
                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('credit')}><CreditCard className="mr-2" /> Charge a card manually</Button>

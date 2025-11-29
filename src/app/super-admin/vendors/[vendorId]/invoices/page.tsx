@@ -618,6 +618,7 @@ export default function VendorInvoicesPage() {
                             <>
                                 <DialogHeader className="mb-4">
                                     <DialogTitle>New Payment</DialogTitle>
+                                    <DialogDescription>Select a payment method to record the payment for this invoice.</DialogDescription>
                                 </DialogHeader>
                                 <div className="space-y-2">
                                     <div className="space-y-2">
@@ -633,21 +634,11 @@ export default function VendorInvoicesPage() {
                                             />
                                         </div>
                                     </div>
-                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('credit')}>
-                                        <CreditCard className="mr-2" /> Charge a card manually
-                                    </Button>
-                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('check')}>
-                                        <Landmark className="mr-2" /> Receive a check
-                                    </Button>
-                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('cash')}>
-                                        <Banknote className="mr-2" /> Receive cash
-                                    </Button>
-                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('venmo')}>
-                                        <Smartphone className="mr-2" /> Receive via Venmo
-                                    </Button>
-                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('zelle')}>
-                                        <Smartphone className="mr-2" /> Receive via Zelle
-                                    </Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('credit')}><CreditCard className="mr-2" /> Charge a card manually</Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('check')}><Landmark className="mr-2" /> Receive a check</Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('cash')}><Banknote className="mr-2" /> Receive cash</Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('venmo')}><Smartphone className="mr-2" /> Receive via Venmo</Button>
+                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('zelle')}><Smartphone className="mr-2" /> Receive via Zelle</Button>
                                 </div>
                             </>
                         )}
@@ -718,18 +709,9 @@ export default function VendorInvoicesPage() {
                         {paymentView === 'cash' && (
                             <PaymentMethodForm method="Cash" onRecord={() => handleConfirmPayment('Cash')}>
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="payment-amount-cash">Amount</Label>
-                                        <div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount-cash" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7" /></div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Date</Label>
-                                        <Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !paymentDetails.date && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{paymentDetails.date ? format(paymentDetails.date, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={paymentDetails.date} onSelect={(d) => handlePaymentDetailChange('date', d)} initialFocus /></PopoverContent></Popover>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="cash-note">Note</Label>
-                                        <Textarea id="cash-note" value={paymentDetails.note} onChange={(e) => handlePaymentDetailChange('note', e.target.value)} placeholder="Add a note..." />
-                                    </div>
+                                    <div className="space-y-2"><Label htmlFor="payment-amount-cash">Amount</Label><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount-cash" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7" /></div></div>
+                                    <div className="space-y-2"><Label>Date</Label><Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !paymentDetails.date && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{paymentDetails.date ? format(paymentDetails.date, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={paymentDetails.date} onSelect={(d) => handlePaymentDetailChange('date', d)} initialFocus /></PopoverContent></Popover></div>
+                                    <div className="space-y-2"><Label htmlFor="cash-note">Note</Label><Textarea id="cash-note" value={paymentDetails.note} onChange={(e) => handlePaymentDetailChange('note', e.target.value)} placeholder="Add a note..." /></div>
                                 </div>
                             </PaymentMethodForm>
                         )}
