@@ -60,14 +60,17 @@ export function InviteVendorDialog({
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       newUser = userCredential.user;
 
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 30);
+
       // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
       // This part of the code runs under the authority of the currently logged-in Super Admin
       await setDoc(doc(firestore, "vendors", newUser.uid), {
         name: name,
         email: email,
-        status: "Pending Agreement", // Set initial status to Pending Agreement
+        status: "Trial", // Set initial status to Trial
         joinDate: new Date().toISOString(),
-        trialEnds: null,
+        trialEnds: trialEndDate.toISOString(),
         spotsUsed: 0,
         spotLimit: spotLimit,
         id: newUser.uid,
@@ -76,7 +79,7 @@ export function InviteVendorDialog({
 
       toast({
         title: "Vendor Created!",
-        description: `${name} can now log in to sign the agreement.`,
+        description: `${name} has been created and their 30-day trial has started.`,
       });
       
       // Reset form and close dialog
@@ -109,7 +112,7 @@ export function InviteVendorDialog({
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
-            Create a new vendor account. They will need to sign the Master Agreement upon first login.
+            Create a new vendor account. A 30-day trial will be started automatically.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -181,3 +184,5 @@ export function InviteVendorDialog({
     </Dialog>
   );
 }
+
+    

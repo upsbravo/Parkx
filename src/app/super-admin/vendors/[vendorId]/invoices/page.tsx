@@ -85,6 +85,7 @@ type Vendor = {
     id: string;
     name: string;
     spotLimit: number;
+    status: string;
 };
 
 type InvoiceLineItem = {
@@ -308,60 +309,24 @@ export default function VendorInvoicesPage() {
     }).format(amount);
   };
 
-  const handleSubscribe = async () => {
+  const handleManageBilling = async () => {
     if (!vendorId || !vendor) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Vendor not found.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Vendor not found.' });
+      return;
+    }
+    if (vendor.status === 'Trial') {
+        toast({ variant: 'destructive', title: 'Action Not Available', description: 'Cannot manage billing for a vendor on trial. End the trial first.' });
         return;
     }
     
-    const basePriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PRICE_ID;
-    const addonPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDON_PRICE_ID;
-
-    if (!basePriceId || !addonPriceId) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured. Please add them to your .env.local file.' });
-        return;
-    }
-
-    setIsSubscribing(true);
+    // In a real app, this would call a cloud function to get a Stripe Customer Portal link.
+    // For now, we will simulate this by showing a toast.
     toast({
-      title: 'Redirecting to Stripe...',
-      description: 'Please wait while we create a secure checkout session.',
+      title: 'Redirecting to Stripe Customer Portal...',
+      description: 'This would securely redirect the user to manage their subscription.',
     });
+    console.log("createBillingPortalSession would be called for vendor:", vendorId);
 
-    try {
-        const lineItems = [{ price: basePriceId, quantity: 1 }];
-        const extraSpots = Math.max(0, vendor.spotLimit - 20);
-        if (extraSpots > 0) {
-            lineItems.push({ price: addonPriceId, quantity: extraSpots });
-        }
-      
-      const result = await createStripeCheckout({
-        line_items: lineItems, 
-        successUrl: window.location.href,
-        cancelUrl: window.location.href,
-        uid: vendorId, // Pass the vendor's ID as the user ID for the checkout
-      });
-
-      if (result.url) {
-        window.location.assign(result.url);
-      } else {
-        // Use a toast to display the error gracefully instead of throwing
-        toast({
-            variant: "destructive",
-            title: "Checkout Error",
-            description: result.error || "Could not retrieve the checkout URL. This may be due to a local environment configuration."
-        });
-      }
-    } catch (error: any) {
-      console.error('Stripe checkout error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Subscription Failed',
-        description: error.message || 'Could not redirect to Stripe. Please try again.',
-      });
-    } finally {
-        setIsSubscribing(false);
-    }
   };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
@@ -405,11 +370,11 @@ export default function VendorInvoicesPage() {
             <CardHeader>
             <CardTitle>Manage Subscription</CardTitle>
             <CardDescription>
-                Use the button below to subscribe this vendor or manage their billing information through Stripe.
+                Use the button below to allow the vendor to manage their billing information through Stripe.
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <Button onClick={handleSubscribe} disabled={isSubscribing || isLoading}>
+            <Button onClick={handleManageBilling} disabled={isSubscribing || isLoading}>
                 {isSubscribing ? 'Redirecting...' : 'Manage Billing via Stripe'}
                 <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
@@ -795,3 +760,5 @@ export default function VendorInvoicesPage() {
     </>
   );
 }
+
+    

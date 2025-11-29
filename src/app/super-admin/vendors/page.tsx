@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { differenceInDays } from "date-fns";
 
 
 type Vendor = {
@@ -189,6 +190,14 @@ export default function VendorsPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const getTrialStatus = (trialEnds: string | null) => {
+    if (!trialEnds || !isClient) return null;
+    const daysLeft = differenceInDays(new Date(trialEnds), new Date());
+    if (daysLeft < 0) return 'Trial Ended';
+    return `Trial (${daysLeft}d left)`;
+  };
+
+
   if (!isClient) {
     return null;
   }
@@ -277,7 +286,7 @@ export default function VendorsPage() {
                               | "destructive"
                           }
                         >
-                          {vendor.status}
+                          {vendor.status === 'Trial' ? getTrialStatus(vendor.trialEnds) : vendor.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -397,3 +406,5 @@ export default function VendorsPage() {
     </>
   );
 }
+
+    
