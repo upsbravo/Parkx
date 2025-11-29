@@ -50,8 +50,12 @@ const createStripeCheckoutFlow = ai.defineFlow(
     // This server-side logic is now correctly placed inside the Genkit flow.
     const { getAuth } = await import('google-auth-library');
 
+    // This check prevents the function from running in a local environment where it cannot get credentials.
     if (!process.env.GCLOUD_PROJECT) {
-      throw new Error('GCLOUD_PROJECT environment variable not set.');
+      console.error('GCLOUD_PROJECT environment variable not set. This function must be run in a Google Cloud environment.');
+      return {
+        error: 'This feature is only available in the deployed production environment, not on the local developer machine.',
+      };
     }
     if (!input.uid) {
       throw new Error('User must be authenticated to create a checkout session.');
@@ -59,7 +63,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
 
     // These should match your Firebase project details and function names.
     const projectId = process.env.GCLOUD_PROJECT;
-    const location = 'us-central1';
+    const location = 'us-central1'; // Or your function's region
     const functionName = 'ext-firestore-stripe-payments-createCheckoutSession';
     const functionUrl = `https://${location}-${projectId}.cloudfunctions.net/${functionName}`;
 
@@ -98,7 +102,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
     } catch (e: any) {
       console.error('Error invoking createCheckoutSession function:', e.response?.data || e.message);
       return {
-        error: e.response?.data?.error?.message || 'Failed to create checkout session.',
+        error: e.response?.data?.error?.message || 'Failed to create checkout session. Check server logs.',
       };
     }
   }

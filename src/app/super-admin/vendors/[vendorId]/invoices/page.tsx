@@ -317,7 +317,7 @@ export default function VendorInvoicesPage() {
     const addonPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDON_PRICE_ID;
 
     if (!basePriceId || !addonPriceId) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured in your .env file.' });
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Stripe Price IDs are not configured. Please add them to your .env.local file.' });
         return;
     }
 
@@ -344,7 +344,12 @@ export default function VendorInvoicesPage() {
       if (result.url) {
         window.location.assign(result.url);
       } else {
-        throw new Error(result.error || 'Could not retrieve checkout URL.');
+        // Use a toast to display the error gracefully instead of throwing
+        toast({
+            variant: "destructive",
+            title: "Checkout Error",
+            description: result.error || "Could not retrieve the checkout URL. This may be due to a local environment configuration."
+        });
       }
     } catch (error: any) {
       console.error('Stripe checkout error:', error);
@@ -353,7 +358,8 @@ export default function VendorInvoicesPage() {
         title: 'Subscription Failed',
         description: error.message || 'Could not redirect to Stripe. Please try again.',
       });
-      setIsSubscribing(false);
+    } finally {
+        setIsSubscribing(false);
     }
   };
   
