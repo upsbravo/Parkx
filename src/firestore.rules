@@ -62,6 +62,13 @@ service cloud.firestore {
       match /vendorDocuments/{docId} {
         allow read, write: if request.auth.uid == vendorId || isSuperAdmin();
       }
+      
+      // PAYOUTS - Only readable by owner and super admin, not writable from client
+      match /payouts/{payoutId} {
+        allow read: if isSuperAdmin() || request.auth.uid == vendorId;
+        allow list: if isSuperAdmin() || request.auth.uid == vendorId;
+        allow write: if false; // Only backend can create/update payouts
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -95,6 +102,12 @@ service cloud.firestore {
 
         // Super admin sees everything
         allow read, write: if isSuperAdmin();
+      }
+      
+      // USER NOTIFICATIONS
+      match /notifications/{notificationId} {
+        // A user can read and write to their own notifications subcollection
+        allow read, write: if request.auth.uid == userId;
       }
     }
     
