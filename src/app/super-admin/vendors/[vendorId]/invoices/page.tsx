@@ -249,8 +249,8 @@ export default function VendorInvoicesPage() {
     try {
         const checkoutInput = {
             mode: 'payment' as const,
-            uid: superAdmin.uid, // The action is performed by the super admin
-            customer: vendor.stripeCustomerId, // We charge the vendor
+            uid: superAdmin.uid,
+            customer: vendor.stripeCustomerId,
             line_items: lineItems.map(item => ({
                 price_data: {
                     currency: 'usd',
@@ -281,7 +281,7 @@ export default function VendorInvoicesPage() {
         toast({
             variant: "destructive",
             title: "Failed to Create Payment Link",
-            description: e.message || "An unexpected error occurred.",
+            description: e.message || "Failed to create checkout session. Check server logs.",
         });
     } finally {
         setIsSubmitting(false);
