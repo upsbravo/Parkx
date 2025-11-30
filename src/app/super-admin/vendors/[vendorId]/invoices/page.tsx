@@ -297,6 +297,56 @@ export default function VendorInvoicesPage() {
     }
   }
 
+  const handleSendPaymentLink = async (invoice: VendorInvoice) => {
+    if (!vendor || !superAdmin) return;
+
+    setIsSubmitting(true);
+    try {
+        const checkoutInput = {
+            mode: 'payment' as const,
+            uid: superAdmin.uid,
+            customer: vendor.stripeCustomerId,
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: { name: invoice.notes || `Invoice #${invoice.id.substring(0,6)}` },
+                    unit_amount: Math.round(invoice.amount * 100),
+                },
+                quantity: 1,
+            }],
+            successUrl: window.location.href,
+            cancelUrl: window.location.href,
+        };
+
+        const result = await createStripeCheckout(checkoutInput);
+
+        if (result.url) {
+            toast({
+                title: "Payment Link Generated",
+                description: "Share this secure link with the vendor to collect payment.",
+                duration: 10000,
+                action: (
+                    <div className='flex gap-2'>
+                        <Button onClick={() => navigator.clipboard.writeText(result.url || '')}>Copy Link</Button>
+                        <Button variant="secondary" onClick={() => window.open(result.url, '_blank')}>Open</Button>
+                    </div>
+                )
+            });
+        } else {
+            throw new Error(result.error || "Failed to get checkout URL.");
+        }
+
+    } catch (e: any) {
+        toast({
+            variant: "destructive",
+            title: "Failed to Create Payment Link",
+            description: e.message || "Could not create link. Check server logs.",
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   const handleLineItemChange = (index: number, field: keyof InvoiceLineItem, value: string | number) => {
     const newLineItems = [...lineItems];
     const item = newLineItems[index];
@@ -498,14 +548,9 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => {
-                                toast({
-                                    title: "Email Sent",
-                                    description: `An invoice reminder has been sent to ${invoice.vendorName}.`
-                                })
-                            }}>
+                            <DropdownMenuItem onClick={() => handleSendPaymentLink(invoice)} disabled={isSubmitting}>
                                 <Send className="mr-2 h-4 w-4" />
-                                Send Reminder
+                                Send Payment Link
                             </DropdownMenuItem>
                              {invoice.status !== 'Paid' ? (
                                 <DropdownMenuItem onClick={() => handleRecordPaymentClick(invoice)}>Record Payment</DropdownMenuItem>
