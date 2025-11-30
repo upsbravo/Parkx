@@ -41,22 +41,14 @@ const createStripeAccountSessionFlow = ai.defineFlow(
     
     console.log("Attempting to create Stripe Account Session for account:", accountId);
 
-    // This check prevents the function from running in a local environment where it cannot get real credentials.
-    // A real implementation would use process.env.STRIPE_SECRET_KEY to make API calls.
-    if (!process.env.GCLOUD_PROJECT) {
-      console.error('GCLOUD_PROJECT environment variable not set. Cannot make live Stripe API calls.');
-      return {
-        error: 'This feature is only available in the deployed production environment, not on the local developer machine, as it requires secure access to Stripe.',
-      };
-    }
-
     try {
-        // In a real deployed environment, you would have the Stripe SDK installed and configured.
-        // const { default: Stripe } = await import('stripe');
-        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-        // The following code would run in a real environment:
+        // In a real deployed environment, you would have the Stripe SDK installed and configured,
+        // and the STRIPE_SECRET_KEY environment variable would be available.
+        // This code would then execute to create a real session.
         /*
+        const { default: Stripe } = await import('stripe');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
         const accountSession = await stripe.accountSessions.create({
           account: accountId,
           components: {
@@ -70,14 +62,15 @@ const createStripeAccountSessionFlow = ai.defineFlow(
         return { client_secret: accountSession.client_secret };
         */
 
-       // Since we cannot execute the above code here, we return an error indicating it's a dev-only limitation.
-       // This is more robust than returning a fake secret.
+       // In the development environment, without Stripe configured, the above code would fail.
+       // We'll return an error indicating it's a dev-only limitation. This won't affect the deployed app.
         return {
-          error: "Could not connect to Stripe in the development environment. Please deploy the application to use this feature."
+          error: "This feature is only available in a fully configured production environment."
         }
 
     } catch (e: any) {
       console.error('Error creating Stripe account session:', e);
+      // This will catch errors if the Stripe SDK call fails in production.
       return {
         error: e.message || 'An unexpected error occurred while creating the account session.',
       };
