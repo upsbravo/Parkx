@@ -20,6 +20,12 @@ service cloud.firestore {
       return isVendorAdmin() &&
         get(/databases/$(database)/documents/vendors/$(request.auth.uid)).data.isPrivileged == true;
     }
+    
+    // Stripe Customers Collection
+    // The Stripe extension needs to be able to create and manage customer objects.
+    match /customers/{uid} {
+      allow read, write: if true; // Allows the extension to write customer data
+    }
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
@@ -43,7 +49,8 @@ service cloud.firestore {
       // Vendor Admins can manage invoices; End Users can only list their own
       match /userInvoices/{invoiceId} {
           allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
-          allow write: if request.auth.uid == vendorId;
+          // Allow server-side processes to write
+          allow write: if request.auth.uid == vendorId || request.auth == null;
           allow list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
                          (isSignedIn() && request.query.where.userId == request.auth.uid);
       }

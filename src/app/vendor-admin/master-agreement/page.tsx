@@ -34,7 +34,7 @@ Effective Date: ${today}
 
 This is a legally binding agreement between ParkX Technologies LLC ("ParkX", "we") and ${vendorName} ("Vendor", "you").
 
-By clicking "I Accept & Pay First Month" you agree to all terms below:
+By clicking "I Accept & Begin Trial" you agree to all terms below:
 
 1. Service
 ParkX provides software that lets you list truck parking spaces and collect rent from tenants. ParkX is NOT the owner, landlord, or operator of any parking lot.
@@ -68,7 +68,7 @@ You indemnify and defend ParkX from all claims. ParkX’s total liability is cap
 Texas law. Arbitration in Houston, Texas.
 
 9. Electronic Signature
-By clicking “I Accept & Pay First Month” you provide a legally binding signature under the ESIGN Act.
+By clicking “I Accept & Begin Trial” you provide a legally binding signature under the ESIGN Act.
 `;
 };
 
@@ -129,29 +129,21 @@ ParkX Technologies LLC – Auto-signed
         createdAt: new Date().toISOString(),
     });
     
-    // Start trial and update status
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    const vendorRef = doc(firestore, 'vendors', user.uid);
-    updateDocumentNonBlocking(vendorRef, {
-        status: 'Trial',
-        agreementSignedDate: new Date().toISOString(),
-        trialEnds: trialEndDate.toISOString(),
-    });
-
     toast({
         title: 'Agreement Signed!',
-        description: "Redirecting to payment to activate your account...",
+        description: "Redirecting to payment setup to begin your trial...",
     });
 
-    // Now, create the Stripe Checkout Session
+    // Now, create the Stripe Checkout Session for subscription with trial
     try {
         const result = await createStripeCheckout({
             mode: 'subscription',
             uid: user.uid,
-            customer: vendorData.stripeCustomerId,
+            // The Stripe customer object should have been created by the extension when the vendor was created.
+            // We pass it here to link the subscription to the customer.
+            customer: vendorData.stripeCustomerId, 
             line_items: [{
-                // In a real app, this price ID would come from your Stripe product catalog
+                // In a real app, this price ID would come from your Stripe product catalog for your monthly plan
                 price: 'price_1P6c4RFOrzQHr7JwaL8jX5gY', 
                 quantity: 1,
             }],
@@ -161,6 +153,16 @@ ParkX Technologies LLC – Auto-signed
         });
 
         if (result.url) {
+            // Update vendor status to Trial before redirecting
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 30);
+            const vendorRef = doc(firestore, 'vendors', user.uid);
+            await updateDocumentNonBlocking(vendorRef, {
+                status: 'Trial',
+                agreementSignedDate: new Date().toISOString(),
+                trialEnds: trialEndDate.toISOString(),
+            });
+            
             window.location.href = result.url; // Redirect to Stripe
         } else {
             throw new Error(result.error || "Failed to get checkout URL.");

@@ -62,6 +62,7 @@ export function InviteVendorDialog({
 
       // Create a document in the `customers` collection.
       // This will trigger the Stripe extension to create a Stripe Customer object.
+      // The customer ID will be synced back to the vendor document by the extension.
       const customerRef = doc(firestore, 'customers', newUser.uid);
       await setDoc(customerRef, {
         email: email,
@@ -79,7 +80,7 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         id: newUser.uid,
         role: "vendorAdmin",
-        stripeCustomerId: null
+        // stripeCustomerId is intentionally omitted; the extension will add it.
       });
 
       toast({
