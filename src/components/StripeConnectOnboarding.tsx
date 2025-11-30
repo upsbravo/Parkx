@@ -28,8 +28,10 @@ function OnboardingForm() {
         const result = await createStripeAccountSession({ accountId: user.uid });
         if (result.client_secret) {
           setClientSecret(result.client_secret);
+        } else if (result.error) {
+          setError(result.error); // Set the error in state instead of throwing
         } else {
-          throw new Error(result.error || 'Failed to retrieve client secret.');
+          setError('Failed to retrieve client secret.');
         }
       } catch (err: any) {
         console.error('Error creating account session:', err);
