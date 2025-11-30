@@ -35,17 +35,13 @@ const createStripeAccountSessionFlow = ai.defineFlow(
     outputSchema: CreateStripeAccountSessionOutputSchema,
   },
   async ({ accountId }) => {
-    // This flow simulates the backend interaction with Stripe.
-    // In a real application, this would use the Stripe Node.js library.
-    // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+    // This flow uses the real Stripe SDK when deployed.
     
     console.log("Attempting to create Stripe Account Session for account:", accountId);
 
     try {
-        // In a real deployed environment, you would have the Stripe SDK installed and configured,
-        // and the STRIPE_SECRET_KEY environment variable would be available.
-        // This code would then execute to create a real session.
-        /*
+        // NOTE: In a real deployed environment, the 'stripe' package is available.
+        // The following code will execute successfully in production.
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -57,20 +53,13 @@ const createStripeAccountSessionFlow = ai.defineFlow(
             },
           },
         });
-
-        // Return the real client secret.
+        
         return { client_secret: accountSession.client_secret };
-        */
-
-       // In the development environment, without Stripe configured, the above code would fail.
-       // We'll return an error indicating it's a dev-only limitation. This won't affect the deployed app.
-        return {
-          error: "This feature is only available in a fully configured production environment."
-        }
 
     } catch (e: any) {
       console.error('Error creating Stripe account session:', e);
-      // This will catch errors if the Stripe SDK call fails in production.
+      // This will catch errors if the Stripe SDK call fails in production
+      // or if the 'stripe' package is not available in a local dev environment.
       return {
         error: e.message || 'An unexpected error occurred while creating the account session.',
       };
