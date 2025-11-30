@@ -64,19 +64,37 @@ const stripeWebhookFlow = ai.defineFlow(
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object);
         break;
+      case 'invoice.paid':
+         await handleInvoicePaid(event.data.object);
+        break;
+      case 'invoice.payment_succeeded':
+        await handleInvoicePaymentSucceeded(event.data.object);
+        break;
+      case 'invoice.payment_failed':
+        await handleInvoicePaymentFailed(event.data.object);
+        break;
       case 'charge.succeeded':
         await handleChargeSucceeded(event.data.object);
         break;
       case 'payout.paid':
         await handlePayoutPaid(event.data.object);
         break;
-      // Add other event types here as needed
-      // e.g., case 'invoice.payment_succeeded':
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
   }
 );
+
+async function getVendorIdFromCustomerId(customerId: string): Promise<string | null> {
+    // In a real app, you would query your users/vendors collection where stripeCustomerId === customerId
+    // For this demo, we assume the customer ID from Stripe might be the vendor's UID if stored there.
+    // This is a simplification. A robust implementation would have a dedicated mapping.
+    const vendorRef = doc(firestore, 'vendors', customerId);
+    const vendorSnap = await getDoc(vendorRef);
+    // A better query would be query(collection(firestore, 'vendors'), where('stripeCustomerId', '==', customerId))
+    // but for now, we'll assume the customer ID *might* be the vendor UID if no metadata is present.
+    return vendorSnap.exists() ? customerId : null;
+}
 
 /**
  * Handles subscription status changes.
@@ -113,6 +131,87 @@ async function handleSubscriptionDeleted(subscription: any) {
   console.log(`Deactivating vendor ${vendorId} due to subscription deletion.`);
   await updateDoc(vendorRef, { status: 'Inactive' });
 }
+
+/**
+ * Handles the `invoice.paid` event.
+ * @param invoice The Stripe Invoice object.
+ */
+async function handleInvoicePaid(invoice: any) {
+    const vendorId = invoice.metadata?.vendorId || invoice.customer;
+    if (vendorId) {
+        const vendorRef = doc(firestore, 'vendors', vendorId);
+        await updateDoc(vendorRef, { 
+            paymentStatus: 'active',
+            lastPaidAt: new Date(invoice.status_transitions.paid_at * 1000)
+        });
+        console.log(`Vendor ${vendorId} payment status set to active.`);
+    }
+}
+
+/**
+ * Handles the `invoice.payment_succeeded` event.
+ * @param invoice The Stripe Invoice object.
+ */
+async function handleInvoicePaymentSucceeded(invoice: any) {
+    const invoiceId = invoice.id;
+    const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoiceId);
+    const userInvoiceRef = doc(firestore, `vendors/${invoice.metadata?.vendorId}/userInvoices`, invoiceId);
+
+    // Try to update both, one will likely succeed.
+    try {
+        await updateDoc(vendorInvoiceRef, { status: 'Paid' });
+        console.log(`Vendor invoice ${invoiceId} marked as paid.`);
+    } catch (e) {
+        // console.log(`Vendor invoice ${invoiceId} not found, checking user invoices.`);
+        try {
+            await updateDoc(userInvoiceRef, { status: 'Paid' });
+            console.log(`User invoice ${invoiceId} marked as paid.`);
+        } catch (e2) {
+            // console.log(`No matching invoice found for ID ${invoiceId}`);
+        }
+    }
+}
+
+/**
+ * Handles the `invoice.payment_failed` event.
+ * @param invoice The Stripe Invoice object.
+ */
+async function handleInvoicePaymentFailed(invoice: any) {
+    const customerId = invoice.customer;
+    const vendorId = invoice.metadata?.vendorId || await getVendorIdFromCustomerId(customerId);
+
+    if (vendorId) {
+        const vendorRef = doc(firestore, 'vendors', vendorId);
+        await updateDoc(vendorRef, {
+            paymentStatus: 'failed',
+            failedAt: new Date(),
+            nextAction: 'retry_payment'
+        });
+        
+        const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+        const userInvoiceRef = doc(firestore, `vendors/${vendorId}/userInvoices`, invoice.id);
+
+        try {
+            await updateDoc(vendorInvoiceRef, { status: 'Overdue' });
+            console.log(`Vendor invoice ${invoice.id} marked as Overdue due to failed payment.`);
+        } catch (e) {
+            try {
+                await updateDoc(userInvoiceRef, { status: 'Overdue' });
+                console.log(`User invoice ${invoice.id} marked as Overdue due to failed payment.`);
+            } catch (e2) {
+                // No matching invoice, but the vendor status is updated.
+            }
+        }
+        
+        // In a real app with the Stripe SDK:
+        // await stripe.invoices.finalizeInvoice(invoice.id);
+        // await stripe.invoices.sendInvoice(invoice.id);
+        console.log(`Simulating re-sending of failed invoice ${invoice.id} to vendor ${vendorId}.`);
+    } else {
+        console.log(`Could not find vendor for failed invoice ${invoice.id}`);
+    }
+}
+
 
 /**
  * Handles a successful charge. This is used for all payments.
