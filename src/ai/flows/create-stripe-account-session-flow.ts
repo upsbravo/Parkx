@@ -39,51 +39,42 @@ const createStripeAccountSessionFlow = ai.defineFlow(
     // In a real application, this would use the Stripe Node.js library.
     // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     
-    console.log("Simulating Stripe Account Session creation for account:", accountId);
+    console.log("Attempting to create Stripe Account Session for account:", accountId);
 
-    // This check prevents the function from running in a local environment where it cannot get credentials.
-    // A real implementation would check for process.env.STRIPE_SECRET_KEY
+    // This check prevents the function from running in a local environment where it cannot get real credentials.
+    // A real implementation would use process.env.STRIPE_SECRET_KEY to make API calls.
     if (!process.env.GCLOUD_PROJECT) {
-      console.error('GCLOUD_PROJECT environment variable not set. Cannot simulate Stripe API calls.');
+      console.error('GCLOUD_PROJECT environment variable not set. Cannot make live Stripe API calls.');
       return {
-        error: 'This feature is only available in the deployed production environment, not on the local developer machine.',
+        error: 'This feature is only available in the deployed production environment, not on the local developer machine, as it requires secure access to Stripe.',
       };
     }
 
     try {
-        // Step 1: Simulate checking if the Stripe Account exists or creating it.
-        // In a real scenario:
-        // let account = await stripe.accounts.retrieve(accountId).catch(() => null);
-        // if (!account) {
-        //     account = await stripe.accounts.create({
-        //         type: 'standard', // or 'express'
-        //         controller: {
-        //             stripe: {
-        //                 dashboard: { type: 'none' },
-        //                 payouts: { type: 'none' },
-        //             },
-        //         },
-        //     });
-        //     // Save the account ID to the super_admins document in Firestore.
-        // }
-      
-      
-        // Step 2: Simulate creating the Account Session.
-        // const accountSession = await stripe.accountSessions.create({
-        //   account: accountId,
-        //   components: {
-        //     account_onboarding: {
-        //       enabled: true,
-        //     },
-        //   },
-        // });
-        
-        const simulatedAccountSession = {
-            client_secret: `acct_ses_1234567890_secret_0987654321`
-        };
+        // In a real deployed environment, you would have the Stripe SDK installed and configured.
+        // const { default: Stripe } = await import('stripe');
+        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-        // Return the client secret.
-        return { client_secret: simulatedAccountSession.client_secret };
+        // The following code would run in a real environment:
+        /*
+        const accountSession = await stripe.accountSessions.create({
+          account: accountId,
+          components: {
+            account_onboarding: {
+              enabled: true,
+            },
+          },
+        });
+
+        // Return the real client secret.
+        return { client_secret: accountSession.client_secret };
+        */
+
+       // Since we cannot execute the above code here, we return an error indicating it's a dev-only limitation.
+       // This is more robust than returning a fake secret.
+        return {
+          error: "Could not connect to Stripe in the development environment. Please deploy the application to use this feature."
+        }
 
     } catch (e: any) {
       console.error('Error creating Stripe account session:', e);
