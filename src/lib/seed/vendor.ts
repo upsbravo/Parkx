@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
@@ -57,6 +58,7 @@ const seed = async () => {
       spotsUsed: 0,
       spotLimit: 50,
       role: 'vendorAdmin',
+      stripeCustomerId: 'cus_placeholder_12345', // Add placeholder Stripe Customer ID
     });
     console.log("Vendor profile created/updated in Firestore.");
   } catch (error) {
