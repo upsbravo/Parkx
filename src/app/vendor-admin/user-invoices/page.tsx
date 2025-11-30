@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -57,6 +55,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
+import { CheckoutForm } from '@/components/CheckoutForm';
 
 type UserInvoice = {
   id: string;
@@ -84,6 +86,11 @@ type Vendor = {
     state?: string;
     zip?: string;
   }
+}
+
+let stripePromise: Promise<Stripe | null>;
+if (typeof window !== 'undefined') {
+  stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 }
 
 export default function UserInvoicesPage() {
@@ -127,7 +134,7 @@ export default function UserInvoicesPage() {
     () => (firestore && vendorAdmin ? collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices') : null),
     [firestore, vendorAdmin]
   );
-  const { data: userInvoices, isLoading } = useCollection<UserInvoice>(invoicesQuery);
+  const { data: userInvoices, isLoading, refetch: refetchInvoices } = useCollection<UserInvoice>(invoicesQuery);
 
   const filteredInvoices = useMemo(() => {
     if (!userInvoices) return [];
@@ -251,6 +258,12 @@ Thank you for your business.
     URL.revokeObjectURL(url);
   };
 
+  const handleSuccessfulPayment = () => {
+    setRecordPaymentOpen(false);
+    setSelectedInvoice(null);
+    refetchInvoices?.(); // Refetch invoices to show the updated status
+  }
+
 
   const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
     <div className="space-y-4">
@@ -357,7 +370,7 @@ Thank you for your business.
                                 <DialogHeader className="mb-4"><DialogTitle>New Payment</DialogTitle><DialogDescription>Select a payment method to record the payment for this invoice.</DialogDescription></DialogHeader>
                                 <div className="space-y-2">
                                     <div className="space-y-2"><Label htmlFor="payment-amount">Amount</Label><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7 text-lg" /></div></div>
-                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('credit')}><CreditCard className="mr-2" /> Charge a card manually</Button>
+                                    <Button variant="outline" className="w-full" onClick={() => setPaymentView('credit')}><CreditCard className="mr-2" /> Charge a card</Button>
                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('check')}><Landmark className="mr-2" /> Receive a check</Button>
                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('cash')}><Banknote className="mr-2" /> Receive cash</Button>
                                     <Button variant="outline" className="w-full" onClick={() => setPaymentView('venmo')}><Smartphone className="mr-2" /> Receive via Venmo</Button>
@@ -366,17 +379,27 @@ Thank you for your business.
                             </>
                         )}
                         {paymentView === 'credit' && (
-                             <PaymentMethodForm method="Card" onRecord={() => {
-                                 toast({title: "Feature not available", description: "Manual card entry is not yet implemented."});
-                                 handleConfirmPayment('Credit Card (Manual)')
-                             }}>
-                                <div className="space-y-4">
-                                    <div className="space-y-2"><Label htmlFor="payment-amount-credit">Amount</Label><div className="relative"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span><Input id="payment-amount-credit" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7" /></div></div>
-                                    <div className="space-y-2"><Label htmlFor="card-number">Card Information</Label><div className="relative"><Input id="card-number" placeholder="Card number" className="pr-12" /><div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg></div></div></div>
-                                    <div className="grid grid-cols-2 gap-4"><Input placeholder="MM/YY" /><Input placeholder="CVC" /></div>
-                                    <div className="grid grid-cols-2 gap-4"><Input placeholder="Country" /><Input placeholder="ZIP" /></div>
-                                </div>
-                             </PaymentMethodForm>
+                            <div className="space-y-4">
+                                <DialogHeader>
+                                  <DialogTitle>
+                                    <Button variant="ghost" onClick={() => setPaymentView('options')} className="h-auto p-0 justify-start mb-4">
+                                        <ArrowLeft className="h-4 w-4 mr-2"/>
+                                        Charge a Card
+                                    </Button>
+                                  </DialogTitle>
+                                  <DialogDescription>Enter the user's card details to charge them directly.</DialogDescription>
+                                </DialogHeader>
+                                {isClient && (
+                                  <Elements stripe={stripePromise}>
+                                    <CheckoutForm 
+                                      invoiceId={selectedInvoice.id}
+                                      vendorId={vendorAdmin!.uid}
+                                      amount={selectedInvoice.amount}
+                                      onSuccessfulPayment={handleSuccessfulPayment}
+                                    />
+                                  </Elements>
+                                )}
+                            </div>
                         )}
                         {paymentView === 'check' && (
                              <PaymentMethodForm method="Check" onRecord={() => handleConfirmPayment('Check')}>
