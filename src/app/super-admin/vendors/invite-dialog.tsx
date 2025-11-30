@@ -63,6 +63,17 @@ export function InviteVendorDialog({
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 30);
 
+      // Create a document in the `customers` collection.
+      // This will trigger the Stripe extension to create a Stripe Customer object.
+      // The extension will then automatically add the `stripeId` to this document,
+      // and a separate function (or trigger) would typically sync it back to the /vendors collection.
+      // For now, we are ensuring the customer record is created.
+      const customerRef = doc(firestore, 'customers', newUser.uid);
+      await setDoc(customerRef, {
+        email: email,
+        name: name,
+      });
+
       // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
       // This part of the code runs under the authority of the currently logged-in Super Admin
       await setDoc(doc(firestore, "vendors", newUser.uid), {
@@ -75,6 +86,9 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         id: newUser.uid,
         role: "vendorAdmin",
+        // The Stripe extension will automatically create a customer and could be configured
+        // to back-populate this field. For now, we ensure the /customers record exists.
+        stripeCustomerId: null
       });
 
       toast({
