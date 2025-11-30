@@ -62,6 +62,10 @@ import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
+import { CheckoutForm } from '@/components/CheckoutForm';
 
 
 type VendorInvoice = {
@@ -93,6 +97,11 @@ type PaymentDetails = {
     note: string;
     checkNumber: string;
     venmoId: string;
+}
+
+let stripePromise: Promise<Stripe | null>;
+if (typeof window !== 'undefined') {
+  stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 }
 
 export default function VendorInvoicesPage() {
@@ -145,13 +154,13 @@ export default function VendorInvoicesPage() {
   const firestore = useFirestore();
 
   const vendorRef = useMemoFirebase(() => (firestore && vendorId ? doc(firestore, 'vendors', vendorId) : null), [firestore, vendorId]);
-  const { data: vendor, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
+  const { data: vendor, isLoading: isVendorLoading, refetch: refetchVendor } = useDoc<Vendor>(vendorRef);
 
   const invoicesQuery = useMemoFirebase(
     () => (firestore && vendorId ? query(collection(firestore, 'vendorInvoices'), where('vendorId', '==', vendorId)) : null),
     [firestore, vendorId]
   );
-  const { data: vendorInvoices, isLoading: isInvoicesLoading } = useCollection<VendorInvoice>(invoicesQuery);
+  const { data: vendorInvoices, isLoading: isInvoicesLoading, refetch: refetchInvoices } = useCollection<VendorInvoice>(invoicesQuery);
 
   const statusVariant = {
     Paid: 'default',
@@ -354,6 +363,19 @@ export default function VendorInvoicesPage() {
     }
     return `Due in ${-days} days`;
   };
+
+    const handleSuccessfulPayment = () => {
+        setRecordPaymentOpen(false);
+        setSelectedInvoice(null);
+        refetchInvoices?.(); // Refetch invoices to show the updated status
+        refetchVendor?.(); // Also refetch vendor data if needed
+    }
+
+    const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
+        mode: 'payment',
+        amount: Math.round(selectedInvoice.amount * 100),
+        currency: 'usd',
+    } : undefined;
   
   const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
     <div className="space-y-4">
@@ -611,37 +633,27 @@ export default function VendorInvoicesPage() {
                         )}
 
                         {paymentView === 'credit' && (
-                             <PaymentMethodForm method="Card" onRecord={() => {
-                                 toast({title: "Feature not available", description: "Manual card entry is not yet implemented."});
-                                 handleConfirmPayment('Credit Card (Manual)')
-                             }}>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="payment-amount-credit">Amount</Label>
-                                        <div className="relative">
-                                            <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
-                                            <Input id="payment-amount-credit" type="number" value={paymentDetails.amount} onChange={(e) => handlePaymentDetailChange('amount', e.target.value)} className="pl-7" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="card-number">Card Information</Label>
-                                        <div className="relative">
-                                            <Input id="card-number" placeholder="Card number" className="pr-12" />
-                                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-1">
-                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
-                                            </div>
-                                        </div>
-                                    </div>
-                                     <div className="grid grid-cols-2 gap-4">
-                                        <Input placeholder="MM/YY" />
-                                        <Input placeholder="CVC" />
-                                    </div>
-                                     <div className="grid grid-cols-2 gap-4">
-                                        <Input placeholder="Country" />
-                                        <Input placeholder="ZIP" />
-                                    </div>
-                                </div>
-                             </PaymentMethodForm>
+                             <div className="space-y-4">
+                                <DialogHeader>
+                                <DialogTitle>
+                                    <Button variant="ghost" onClick={() => setPaymentView('options')} className="h-auto p-0 justify-start mb-4">
+                                        <ArrowLeft className="h-4 w-4 mr-2"/>
+                                        Charge a Card
+                                    </Button>
+                                </DialogTitle>
+                                <DialogDescription>Enter the vendor's card details to charge them directly.</DialogDescription>
+                                </DialogHeader>
+                                {isClient && stripeOptions && (
+                                <Elements stripe={stripePromise} options={stripeOptions}>
+                                    <CheckoutForm 
+                                    invoiceId={selectedInvoice.id}
+                                    vendorId={vendorId}
+                                    amount={selectedInvoice.amount}
+                                    onSuccessfulPayment={handleSuccessfulPayment}
+                                    />
+                                </Elements>
+                                )}
+                            </div>
                         )}
 
                         {paymentView === 'check' && (
