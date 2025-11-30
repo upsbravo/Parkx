@@ -58,7 +58,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
@@ -340,6 +340,20 @@ export default function VendorInvoicesPage() {
   };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
+
+  const getAgingStatus = (invoice: VendorInvoice) => {
+    if (invoice.status === 'Paid' || !invoice.dueDate) {
+      return null;
+    }
+    const days = differenceInDays(new Date(), new Date(invoice.dueDate));
+    if (days > 0) {
+      return <span className="text-destructive">{days} days overdue</span>;
+    }
+    if (days === 0) {
+      return 'Due today';
+    }
+    return `Due in ${-days} days`;
+  };
   
   const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
     <div className="space-y-4">
@@ -411,6 +425,7 @@ export default function VendorInvoicesPage() {
                 <TableRow>
                   <TableHead>Invoice ID</TableHead>
                   <TableHead>Due Date</TableHead>
+                  <TableHead>Aging</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Notes</TableHead>
@@ -425,6 +440,7 @@ export default function VendorInvoicesPage() {
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-48" /></TableCell>
@@ -436,6 +452,7 @@ export default function VendorInvoicesPage() {
                     <TableRow key={invoice.id}>
                       <TableCell className="font-medium truncate max-w-[100px] text-xs font-mono">{invoice.id}</TableCell>
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                      <TableCell className="text-sm">{getAgingStatus(invoice)}</TableCell>
                       <TableCell>{formatCurrency(invoice.amount)}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant[invoice.status]}>
@@ -487,7 +504,7 @@ export default function VendorInvoicesPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No invoices found for this vendor.
