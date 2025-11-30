@@ -79,7 +79,7 @@ const createStripeAccountSessionFlow = ai.defineFlow(
         // });
         
         const simulatedAccountSession = {
-            client_secret: `acct_ses_${Math.random().toString(36).substring(2)}_secret_${Math.random().toString(36).substring(2)}`
+            client_secret: `acct_ses_1234567890_secret_0987654321`
         };
 
         // Return the client secret.
