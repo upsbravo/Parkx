@@ -60,14 +60,8 @@ export function InviteVendorDialog({
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       newUser = userCredential.user;
 
-      const trialEndDate = new Date();
-      trialEndDate.setDate(trialEndDate.getDate() + 30);
-
       // Create a document in the `customers` collection.
       // This will trigger the Stripe extension to create a Stripe Customer object.
-      // The extension will then automatically add the `stripeId` to this document,
-      // and a separate function (or trigger) would typically sync it back to the /vendors collection.
-      // For now, we are ensuring the customer record is created.
       const customerRef = doc(firestore, 'customers', newUser.uid);
       await setDoc(customerRef, {
         email: email,
@@ -75,25 +69,22 @@ export function InviteVendorDialog({
       });
 
       // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
-      // This part of the code runs under the authority of the currently logged-in Super Admin
       await setDoc(doc(firestore, "vendors", newUser.uid), {
         name: name,
         email: email,
-        status: "Trial", // Set initial status to Trial
+        status: "Pending Agreement", // Set initial status to require agreement
         joinDate: new Date().toISOString(),
-        trialEnds: trialEndDate.toISOString(),
+        trialEnds: null, // Trial starts after agreement
         spotsUsed: 0,
         spotLimit: spotLimit,
         id: newUser.uid,
         role: "vendorAdmin",
-        // The Stripe extension will automatically create a customer and could be configured
-        // to back-populate this field. For now, we ensure the /customers record exists.
         stripeCustomerId: null
       });
 
       toast({
         title: "Vendor Created!",
-        description: `${name} has been created and their 30-day trial has started.`,
+        description: `${name} has been created. They must sign the agreement on first login.`,
       });
       
       // Reset form and close dialog
@@ -126,7 +117,7 @@ export function InviteVendorDialog({
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
-            Create a new vendor account. A 30-day trial will be started automatically.
+            Create a new vendor account. They will be required to sign the master agreement on first login.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

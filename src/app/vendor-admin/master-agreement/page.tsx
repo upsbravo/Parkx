@@ -14,11 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 
 type Vendor = {
   id: string;
   name: string;
   spotLimit: number;
+  stripeCustomerId?: string;
 };
 
 const getAgreementText = (vendor: Vendor | null) => {
@@ -102,6 +105,7 @@ export default function MasterAgreementPage() {
     }
     setIsSubmitting(true);
     
+    // Save the agreement text first
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const signedAgreementText = `
 ${getAgreementText(vendorData)}
@@ -116,40 +120,57 @@ Electronic Signature: /s/ ${signerName} (Captured on click)
 
 ParkX Technologies LLC – Auto-signed
     `;
+    
+    const docsRef = collection(firestore, 'vendors', user.uid, 'vendorDocuments');
+    addDocumentNonBlocking(docsRef, {
+        vendorId: user.uid,
+        name: `Signed Master Services Agreement - ${today}`,
+        content: signedAgreementText,
+        createdAt: new Date().toISOString(),
+    });
+    
+    // Start trial and update status
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 30);
+    const vendorRef = doc(firestore, 'vendors', user.uid);
+    updateDocumentNonBlocking(vendorRef, {
+        status: 'Trial',
+        agreementSignedDate: new Date().toISOString(),
+        trialEnds: trialEndDate.toISOString(),
+    });
 
+    toast({
+        title: 'Agreement Signed!',
+        description: "Redirecting to payment to activate your account...",
+    });
+
+    // Now, create the Stripe Checkout Session
     try {
-        const vendorRef = doc(firestore, 'vendors', user.uid);
-        const docsRef = collection(firestore, 'vendors', user.uid, 'vendorDocuments');
-
-        // Update vendor status to 'Active'
-        updateDocumentNonBlocking(vendorRef, {
-            status: 'Active',
-            agreementSignedDate: new Date().toISOString()
+        const result = await createStripeCheckout({
+            mode: 'subscription',
+            uid: user.uid,
+            customer: vendorData.stripeCustomerId,
+            line_items: [{
+                // In a real app, this price ID would come from your Stripe product catalog
+                price: 'price_1P6c4RFOrzQHr7JwaL8jX5gY', 
+                quantity: 1,
+            }],
+            // Redirect back to dashboard on success/cancel
+            successUrl: `${window.location.origin}/vendor-admin/dashboard`,
+            cancelUrl: `${window.location.origin}/vendor-admin/master-agreement`,
         });
 
-        // Add the signed agreement as a document
-        addDocumentNonBlocking(docsRef, {
-            vendorId: user.uid,
-            name: `Signed Master Services Agreement - ${today}`,
-            content: signedAgreementText,
-            createdAt: new Date().toISOString()
-        });
-      
-        // Placeholder for Stripe and PDF logic
-        // await createStripeSubscription(user.uid, totalMonthlyFee);
-        // await generateAndSavePdf(signedAgreementText);
-
+        if (result.url) {
+            window.location.href = result.url; // Redirect to Stripe
+        } else {
+            throw new Error(result.error || "Failed to get checkout URL.");
+        }
+    } catch (e: any) {
+        console.error("Failed to create Stripe checkout:", e);
         toast({
-            title: 'Agreement Signed & Account Activated!',
-            description: 'You will now be redirected to your dashboard.',
-        });
-        router.push('/vendor-admin/dashboard');
-    } catch (error) {
-        console.error("Failed to save agreement:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Submission Failed',
-            description: 'Could not save your agreement. Please try again.'
+            variant: "destructive",
+            title: "Payment Setup Failed",
+            description: "Could not redirect to payment page. Please contact support.",
         });
         setIsSubmitting(false);
     }
@@ -184,12 +205,13 @@ ParkX Technologies LLC – Auto-signed
         </CardContent>
         <CardFooter className="flex flex-col gap-6 items-start">
             <div className="w-full space-y-4 rounded-lg border p-4">
-                <h3 className="font-semibold">Your Current Plan</h3>
+                <h3 className="font-semibold">Your Subscription Plan</h3>
                 <Separator />
                 <div className="flex justify-between text-sm"><p>Base Fee (20 spaces included)</p> <p>$249.00 / month</p></div>
                 <div className="flex justify-between text-sm"><p>{extraSpaces} Additional Spaces × $10.00</p> <p>${extraSpacesCost.toFixed(2)} / month</p></div>
                 <Separator />
                 <div className="flex justify-between font-bold"><p>Total Monthly Fee</p> <p>${totalMonthlyFee.toFixed(2)}</p></div>
+                 <p className="text-xs text-muted-foreground pt-2">Your 30-day free trial will begin after you complete the payment setup. You will not be charged until your trial ends.</p>
             </div>
 
             <div className="w-full grid md:grid-cols-2 gap-4">
@@ -212,12 +234,12 @@ ParkX Technologies LLC – Auto-signed
                 <div className="flex items-start space-x-3">
                     <Checkbox id="charge" checked={agreedToCharge} onCheckedChange={(checked) => setAgreedToCharge(Boolean(checked))} disabled={isLoading} className="mt-1"/>
                     <Label htmlFor="charge" className="text-sm font-normal leading-snug">
-                    I authorize ParkX to charge my card ${totalMonthlyFee.toFixed(2)} today and monthly thereafter for the services described.
+                    I authorize ParkX to save my payment method and charge me monthly after my 30-day free trial ends.
                     </Label>
                 </div>
             </div>
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="lg">
-            {isSubmitting ? 'Activating Account...' : `I Accept & Pay First Month ($${totalMonthlyFee.toFixed(2)})`}
+            {isSubmitting ? 'Finalizing...' : `I Accept & Set Up Payment`}
           </Button>
         </CardFooter>
       </Card>
