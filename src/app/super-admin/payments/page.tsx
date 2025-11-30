@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, ChangeEvent } from 'react';
 import {
   Card,
   CardContent,
@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CreditCard, Banknote, DollarSign, Search } from "lucide-react";
+import { CreditCard, DollarSign, Search } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -27,6 +26,8 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
+
 
 type Transaction = {
   id: string;
@@ -198,58 +199,15 @@ export default function PlatformPaymentsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
-                <CardTitle>Stripe Integration</CardTitle>
+                <CardTitle>Stripe Account Management</CardTitle>
               </div>
               <CardDescription>
-                Manage your global Stripe API keys. These keys are used to process all vendor subscriptions.
+                Connect and manage your platform's Stripe account to receive payouts,
+                set subscription pricing, and manage business details.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="stripe-secret">Stripe Secret Key</Label>
-                <Input
-                  id="stripe-secret"
-                  type="password"
-                  defaultValue="sk_test_************************"
-                />
-              </div>
-               <p className="text-sm text-muted-foreground">
-                  Products and prices for vendor subscriptions are managed directly in your Stripe Dashboard.
-                </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Banknote className="h-5 w-5" />
-                <CardTitle>Platform Payout Account</CardTitle>
-              </div>
-              <CardDescription>
-                This is the bank account where your platform earnings from all
-                vendor subscriptions will be sent.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="holder-name">Account Holder Name</Label>
-                  <Input id="holder-name" defaultValue="ParkX Inc." />
-                </div>
-                 <div className="space-y-2">
-                  <Label htmlFor="routing-number">Routing Number</Label>
-                  <Input id="routing-number" defaultValue="123456789" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="account-number">Account Number</Label>
-                <Input
-                  id="account-number"
-                  type="password"
-                  defaultValue="************1234"
-                />
-              </div>
-              <Button>Save Payout Account</Button>
+            <CardContent>
+              <StripeConnectOnboarding />
             </CardContent>
           </Card>
         </TabsContent>
