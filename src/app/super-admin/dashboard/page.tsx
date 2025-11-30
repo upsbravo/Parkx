@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 import { format, subMonths, differenceInDays } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 
 type Vendor = {
@@ -36,6 +37,8 @@ type Vendor = {
   email: string;
   joinDate: string;
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
+  paymentStatus?: 'failed';
+  lastFailedAmount?: number;
 };
 
 type User = {
@@ -80,6 +83,11 @@ export default function SuperAdminDashboard() {
           invoice.status === 'Overdue' || differenceInDays(new Date(), new Date(invoice.dueDate)) > 0
       );
   }, [pendingInvoices]);
+
+  const failedPaymentVendors = useMemo(() => {
+    if (!vendors) return [];
+    return vendors.filter(v => v.paymentStatus === 'failed');
+  }, [vendors]);
 
 
   const isLoading = isAuthLoading || vendorsLoading || usersLoading || invoicesLoading;
@@ -160,6 +168,21 @@ export default function SuperAdminDashboard() {
           Global overview of the ParkX platform.
         </p>
       </div>
+
+       {isLoading ? <Skeleton className="h-24 w-full" /> : failedPaymentVendors.length > 0 && (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{failedPaymentVendors.length} Vendor(s) Have Failed Payments</AlertTitle>
+                <AlertDescription className="flex justify-between items-center">
+                    <div>
+                        {failedPaymentVendors.map(v => v.name).join(', ')}
+                    </div>
+                    <Button size="sm" asChild>
+                        <Link href="/super-admin/invoices">Fix Now</Link>
+                    </Button>
+                </AlertDescription>
+            </Alert>
+        )}
 
        {isLoading ? <Skeleton className="h-24 w-full" /> : overdueInvoices.length > 0 && (
             <Card className="border-destructive/50">
@@ -323,3 +346,5 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
+
+    

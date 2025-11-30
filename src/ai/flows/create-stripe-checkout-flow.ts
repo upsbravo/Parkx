@@ -17,12 +17,27 @@ const LineItemSchema = z.object({
   quantity: z.number().int().min(1).describe("The quantity of the price object."),
 });
 
+const PriceDataSchema = z.object({
+    currency: z.string().default('usd'),
+    product_data: z.object({
+        name: z.string(),
+    }),
+    unit_amount: z.number().int().min(1), // amount in cents
+});
+
+const LineItemWithPriceDataSchema = z.object({
+    price_data: PriceDataSchema,
+    quantity: z.number().int().min(1),
+});
+
 const CreateStripeCheckoutInputSchema = z.object({
-  line_items: z.array(LineItemSchema).min(1).describe("An array of line items, each with a price and quantity."),
+  line_items: z.array(z.union([LineItemSchema, LineItemWithPriceDataSchema])).min(1).describe("An array of line items."),
   successUrl: z.string().url().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
   promoCode: z.string().optional().describe('An optional promotion code.'),
   uid: z.string().describe("The UID of the authenticated user."),
+  mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
+  customer: z.string().optional().describe("The Stripe customer ID to use for this session.")
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
@@ -79,7 +94,8 @@ const createStripeCheckoutFlow = ai.defineFlow(
         cancel_url: input.cancelUrl,
         allow_promotion_codes: !!input.promoCode,
         uid: input.uid,
-        mode: 'subscription', // Important for recurring payments
+        mode: input.mode, // Use the mode from input
+        customer: input.customer,
       };
 
       const response = await client.request({
@@ -107,3 +123,5 @@ const createStripeCheckoutFlow = ai.defineFlow(
     }
   }
 );
+
+    

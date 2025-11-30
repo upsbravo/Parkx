@@ -52,14 +52,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -86,6 +79,7 @@ type Vendor = {
     name: string;
     spotLimit: number;
     status: string;
+    stripeCustomerId?: string;
 };
 
 type InvoiceLineItem = {
@@ -104,6 +98,7 @@ type PaymentDetails = {
 export default function VendorInvoicesPage() {
   const params = useParams();
   const vendorId = params.vendorId as string;
+  const { user: superAdmin } = useUser();
 
   const [isClient, setIsClient] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -111,11 +106,10 @@ export default function VendorInvoicesPage() {
   const [isRecordPaymentOpen, setRecordPaymentOpen] = useState(false);
   const [paymentView, setPaymentView] = useState('options');
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
-  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
-  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
       amount: '',
@@ -140,7 +134,6 @@ export default function VendorInvoicesPage() {
             venmoId: '',
         });
     }
-  // This should only run when the selected invoice changes, not every time the dialog opens.
   }, [selectedInvoice, isRecordPaymentOpen]);
 
 
@@ -243,37 +236,56 @@ export default function VendorInvoicesPage() {
     setSelectedInvoice(null);
   };
 
-  const handleCreateInvoice = () => {
-    if (!vendor) return;
+  const handleCreateInvoice = async () => {
+    if (!vendor || !superAdmin) return;
 
     const totalAmount = lineItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
     if (totalAmount <= 0) {
         toast({ variant: "destructive", title: "Error", description: "Invoice total must be greater than zero." });
         return;
     }
-    if (!dueDate) {
-        toast({ variant: "destructive", title: "Error", description: "Please select a due date." });
-        return;
+
+    setIsSubmitting(true);
+    try {
+        const checkoutInput = {
+            mode: 'payment' as const,
+            uid: superAdmin.uid, // The action is performed by the super admin
+            customer: vendor.stripeCustomerId, // We charge the vendor
+            line_items: lineItems.map(item => ({
+                price_data: {
+                    currency: 'usd',
+                    product_data: { name: item.description },
+                    unit_amount: Math.round(Number(item.amount) * 100),
+                },
+                quantity: 1,
+            })),
+            successUrl: window.location.href,
+            cancelUrl: window.location.href,
+        };
+
+        const result = await createStripeCheckout(checkoutInput);
+
+        if (result.url) {
+            toast({
+                title: "Payment Link Generated",
+                description: "A one-time payment link has been created. Send this to the vendor.",
+                action: <Button onClick={() => window.open(result.url, '_blank')}>Open Link</Button>
+            });
+             setCreateInvoiceOpen(false);
+             setLineItems([{ description: '', amount: '' }]);
+        } else {
+            throw new Error(result.error || "Failed to get checkout URL.");
+        }
+
+    } catch (e: any) {
+        toast({
+            variant: "destructive",
+            title: "Failed to Create Payment Link",
+            description: e.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setIsSubmitting(false);
     }
-
-    const notes = lineItems.map(item => `${item.description} ($${item.amount})`).join('; ');
-
-    const invoicesRef = collection(firestore, 'vendorInvoices');
-    addDocumentNonBlocking(invoicesRef, {
-      vendorId: vendor.id,
-      vendorName: vendor.name,
-      amount: totalAmount,
-      dueDate: dueDate.toISOString(),
-      status: 'Pending',
-      notes: notes,
-    });
-    toast({
-      title: 'Invoice Created',
-      description: `A new invoice for ${formatCurrency(totalAmount)} has been created for ${vendor.name}.`,
-    });
-    setCreateInvoiceOpen(false);
-    setLineItems([{ description: '', amount: '' }]);
-    setDueDate(new Date());
   }
 
   const handleLineItemChange = (index: number, field: keyof InvoiceLineItem, value: string | number) => {
@@ -319,8 +331,6 @@ export default function VendorInvoicesPage() {
         return;
     }
     
-    // In a real app, this would call a cloud function to get a Stripe Customer Portal link.
-    // For now, we will simulate this by showing a toast.
     toast({
       title: 'Redirecting to Stripe Customer Portal...',
       description: 'This would securely redirect the user to manage their subscription.',
@@ -374,8 +384,8 @@ export default function VendorInvoicesPage() {
             </CardDescription>
             </CardHeader>
             <CardContent>
-            <Button onClick={handleManageBilling} disabled={isSubscribing || isLoading}>
-                {isSubscribing ? 'Redirecting...' : 'Manage Billing via Stripe'}
+            <Button onClick={handleManageBilling} disabled={isSubmitting || isLoading}>
+                {isSubmitting ? 'Redirecting...' : 'Manage Billing via Stripe'}
                 <ExternalLink className="ml-2 h-4 w-4" />
                 </Button>
             </CardContent>
@@ -392,7 +402,7 @@ export default function VendorInvoicesPage() {
             </div>
             <Button onClick={() => setCreateInvoiceOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Create Manual Invoice
+                Create Manual Payment
             </Button>
           </CardHeader>
           <CardContent>
@@ -494,9 +504,9 @@ export default function VendorInvoicesPage() {
         <Dialog open={isCreateInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle>Create Manual Invoice for {vendor?.name}</DialogTitle>
+                    <DialogTitle>Create One-Time Payment for {vendor?.name}</DialogTitle>
                     <DialogDescription>
-                        Add line items for one-time charges, fees, or credits.
+                        This will generate a secure Stripe payment link for a one-time charge.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
@@ -505,7 +515,7 @@ export default function VendorInvoicesPage() {
                         {lineItems.map((item, index) => (
                             <div key={index} className="flex items-center gap-2">
                                 <Input
-                                    placeholder="Description (e.g., Monthly Subscription)"
+                                    placeholder="Description (e.g., One-time fee)"
                                     value={item.description}
                                     onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
                                     className="flex-grow"
@@ -531,43 +541,18 @@ export default function VendorInvoicesPage() {
                     </div>
                     
                     <div className="flex justify-between items-end gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="due-date">Due Date</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-[240px] justify-start text-left font-normal",
-                                    !dueDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    mode="single"
-                                    selected={dueDate}
-                                    onSelect={setDueDate}
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div className="text-right">
+                        <div className="text-right flex-grow">
                             <Label className="text-muted-foreground">Total Amount</Label>
                             <p className="text-2xl font-bold">{formatCurrency(invoiceTotal)}</p>
                         </div>
                     </div>
                 </div>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setCreateInvoiceOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => setCreateInvoiceOpen(false)} disabled={isSubmitting}>
                         Cancel
                     </Button>
-                    <Button type="submit" onClick={handleCreateInvoice}>
-                        Create Invoice
+                    <Button type="submit" onClick={handleCreateInvoice} disabled={isSubmitting}>
+                        {isSubmitting ? 'Generating Link...' : 'Generate Payment Link'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -760,5 +745,7 @@ export default function VendorInvoicesPage() {
     </>
   );
 }
+
+    
 
     
