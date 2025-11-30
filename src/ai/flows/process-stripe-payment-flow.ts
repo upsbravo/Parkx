@@ -13,8 +13,6 @@ import { z } from 'genkit';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
-const { firestore } = initializeFirebase();
-
 const ProcessStripePaymentInputSchema = z.object({
   paymentMethodId: z.string().describe("The ID of the Stripe PaymentMethod created by Stripe.js on the client."),
   invoiceId: z.string().describe("The ID of the internal invoice document in Firestore."),
@@ -47,6 +45,7 @@ const processStripePaymentFlow = ai.defineFlow(
     outputSchema: ProcessStripePaymentOutputSchema,
   },
   async (input) => {
+    const { firestore } = initializeFirebase();
     
     // In a real app, you would initialize Stripe with your SECRET key.
     // As we can't access environment variables here, we will simulate the Stripe SDK calls.
