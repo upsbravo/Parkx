@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -10,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { StripePaymentElementOptions } from '@stripe/stripe-js';
-import { processStripePayment } from '@/ai/flows/process-stripe-payment-flow';
 import { useToast } from '@/hooks/use-toast';
 
 type CheckoutFormProps = {
@@ -40,42 +40,26 @@ export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, on
     setIsLoading(true);
     setErrorMessage(null);
 
-    // This creates a PaymentMethod and confirms the PaymentIntent in one go.
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
-        elements,
+    // This confirms the PaymentIntent that was created when the Elements group was initialized.
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        // Make sure to change this to your payment completion page
+        return_url: `${window.location.origin}/vendor-admin/user-invoices?payment_success=true&invoice_id=${invoiceId}`,
+      },
+      // We are redirecting to a new page, so we don't need to handle the result here.
+      // If you want to handle the result on the same page, you can use `redirect: 'if_required'`
     });
 
-    if (error) {
-        setErrorMessage(error.message || 'An unexpected error occurred.');
-        setIsLoading(false);
-        return;
+    if (error.type === "card_error" || error.type === "validation_error") {
+      setErrorMessage(error.message || 'An unexpected error occurred.');
+    } else {
+       toast({
+          variant: "destructive",
+          title: 'Payment Error',
+          description: error.message || 'An unexpected error occurred.',
+      });
     }
-    
-    if (paymentMethod) {
-        try {
-            const result = await processStripePayment({
-                paymentMethodId: paymentMethod.id,
-                invoiceId: invoiceId,
-                vendorId: vendorId,
-                amount: Math.round(amount * 100), // convert to cents
-                currency: 'usd',
-                customer: stripeCustomerId,
-            });
-
-            if (result.success) {
-                toast({
-                    title: 'Payment Successful!',
-                    description: 'The invoice has been marked as paid.',
-                });
-                onSuccessfulPayment();
-            } else {
-                 setErrorMessage(result.message || 'Payment failed. Please try again.');
-            }
-        } catch (e: any) {
-            setErrorMessage(e.message || 'A server error occurred.');
-        }
-    }
-
 
     setIsLoading(false);
   };

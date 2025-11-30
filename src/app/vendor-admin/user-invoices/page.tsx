@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -56,7 +57,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Elements } from '@stripe/react-stripe-js';
-import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { CheckoutForm } from '@/components/CheckoutForm';
 
@@ -68,6 +69,7 @@ type UserInvoice = {
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
+  clientSecret?: string;
 };
 
 type PaymentDetails = {
@@ -263,6 +265,13 @@ Thank you for your business.
     setSelectedInvoice(null);
     refetchInvoices?.(); // Refetch invoices to show the updated status
   }
+  
+  const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
+    mode: 'payment',
+    amount: Math.round(selectedInvoice.amount * 100),
+    currency: 'usd',
+    // You could also pass a clientSecret here if you created the PaymentIntent on your server beforehand.
+  } : undefined;
 
 
   const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
@@ -389,8 +398,8 @@ Thank you for your business.
                                   </DialogTitle>
                                   <DialogDescription>Enter the user's card details to charge them directly.</DialogDescription>
                                 </DialogHeader>
-                                {isClient && (
-                                  <Elements stripe={stripePromise}>
+                                {isClient && stripeOptions && (
+                                  <Elements stripe={stripePromise} options={stripeOptions}>
                                     <CheckoutForm 
                                       invoiceId={selectedInvoice.id}
                                       vendorId={vendorAdmin!.uid}
