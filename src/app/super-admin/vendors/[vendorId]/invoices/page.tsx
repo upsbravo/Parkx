@@ -62,6 +62,7 @@ import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
@@ -381,21 +382,48 @@ export default function VendorInvoicesPage() {
   };
 
   const handleManageBilling = async () => {
-    if (!vendorId || !vendor) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Vendor not found.' });
-      return;
-    }
-    if (vendor.status === 'Trial') {
-        toast({ variant: 'destructive', title: 'Action Not Available', description: 'Cannot manage billing for a vendor on trial. End the trial first.' });
+    if (isSubmitting || !vendor || !vendor.stripeCustomerId) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: vendor?.stripeCustomerId ? 'An operation is already in progress.' : 'This vendor does not have a Stripe Customer ID.'
+        });
         return;
     }
-    
-    toast({
-      title: 'Redirecting to Stripe Customer Portal...',
-      description: 'This would securely redirect the user to manage their subscription.',
-    });
-    console.log("createBillingPortalSession would be called for vendor:", vendorId);
 
+    if (vendor.status === 'Trial') {
+        toast({
+            variant: 'destructive',
+            title: 'Action Not Available',
+            description: 'Cannot manage billing for a vendor on trial. End the trial first.'
+        });
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast({ title: 'Generating Portal Link...' });
+
+    try {
+        const result = await createStripePortalSession({
+            customerId: vendor.stripeCustomerId,
+            returnUrl: window.location.href,
+        });
+
+        if (result.url) {
+            window.location.href = result.url;
+        } else {
+            throw new Error(result.error || 'Failed to get customer portal URL.');
+        }
+    } catch (e: any) {
+        console.error("Error creating portal session:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Failed to Open Billing Portal',
+            description: e.message || 'An unexpected error occurred.',
+        });
+        setIsSubmitting(false);
+    }
+    // No need to set isSubmitting to false if redirect is successful
   };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
@@ -823,3 +851,4 @@ export default function VendorInvoicesPage() {
     
 
     
+
