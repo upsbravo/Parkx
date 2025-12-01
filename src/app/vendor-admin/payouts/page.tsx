@@ -11,32 +11,25 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { CreditCard, DollarSign, Search } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  DollarSign,
-  CreditCard,
-  Landmark,
-  ExternalLink,
-  Smartphone,
-  BookUser,
-  Star,
-  FileDown,
-  ListFilter,
-  SlidersHorizontal,
-  ArrowUpDown,
-  RefreshCw,
-  X,
-  CalendarIcon,
-} from 'lucide-react';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableFooter,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
+import { Landmark, ExternalLink, Smartphone, BookUser, Star, FileDown, ListFilter, SlidersHorizontal, ArrowUpDown, RefreshCw, X, CalendarIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -46,7 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
-
+import { Separator } from '@/components/ui/separator';
 
 type Transaction = {
   id: string;
@@ -82,7 +75,7 @@ type VisibleColumns = {
   estimatedArrivalDate: boolean;
   description: boolean;
   method: boolean;
-  initiatedBy: boolean;
+  initiatedBy: boolean; // Hidden by default as in screenshot
   total: boolean;
   status: boolean;
 }
@@ -115,15 +108,23 @@ export default function VendorPaymentsPage() {
   const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
 
   const transactionsQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin) return null;
-
+    // Wait until we have all necessary data to build the query correctly.
+    if (!firestore || !vendorAdmin || isVendorDataLoading) {
+      return null;
+    }
+  
+    // For privileged vendors, show all transactions across the platform.
+    if (vendorData?.isPrivileged) {
+      return query(collection(firestore, 'transactions'), orderBy('created', 'desc'));
+    }
+  
     // For regular vendors, it is REQUIRED to filter by their vendorId to comply with security rules.
     return query(
-        collection(firestore, 'transactions'), 
-        where('vendorId', '==', vendorAdmin.uid), 
-        orderBy('created', 'desc')
+      collection(firestore, 'transactions'),
+      where('vendorId', '==', vendorAdmin.uid),
+      orderBy('created', 'desc')
     );
-  }, [firestore, vendorAdmin]);
+  }, [firestore, vendorAdmin, vendorData, isVendorDataLoading]);
 
 
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
@@ -548,3 +549,5 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
+
+    
