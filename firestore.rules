@@ -147,7 +147,7 @@ service cloud.firestore {
     // Stripe Transactions
     match /transactions/{transactionId} {
         allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-        allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+        allow list: if isSuperAdmin() || isPrivilegedVendor() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
     }
