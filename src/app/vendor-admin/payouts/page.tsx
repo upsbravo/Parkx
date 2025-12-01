@@ -116,11 +116,13 @@ export default function VendorPaymentsPage() {
 
   const transactionsQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin) return null;
+    
     // For privileged vendors, show all transactions.
     if (vendorData?.isPrivileged) {
         return query(collection(firestore, 'transactions'), orderBy('created', 'desc'));
     }
-    // For regular vendors, only show their own.
+
+    // For regular vendors, it is REQUIRED to filter by their vendorId to comply with security rules.
     return query(
         collection(firestore, 'transactions'), 
         where('vendorId', '==', vendorAdmin.uid), 
@@ -550,4 +552,3 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
-
