@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -147,6 +146,7 @@ ParkX Technologies LLC – Auto-signed
     try {
         const checkoutResult = await createStripeCheckout({
             uid: user.uid, // Pass the vendor's UID
+            customer: vendorData.stripeCustomerId, // Pass the stripe customer ID
             mode: 'subscription',
             line_items: lineItems,
             subscription_data: {
@@ -260,3 +260,5 @@ ParkX Technologies LLC – Auto-signed
     </div>
   );
 }
+
+    

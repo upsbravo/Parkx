@@ -67,9 +67,12 @@ const createStripeCheckoutFlow = ai.defineFlow(
   },
   async (input) => {
     
-    // Ensure we are in a server environment
-    if (typeof window !== 'undefined') {
-        return { error: "This function can only be run on the server." };
+    // This server-side logic is now correctly placed inside the Genkit flow.
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY environment variable not set.');
+      return {
+        error: 'The application is not configured for payments. Please contact support.',
+      };
     }
 
     try {
@@ -80,16 +83,20 @@ const createStripeCheckoutFlow = ai.defineFlow(
         let stripeCustomerId = input.customer;
 
         // If a Stripe Customer ID isn't provided, look it up in the `customers` collection using the UID.
-        if (!stripeCustomerId) {
+        if (!stripeCustomerId && input.uid) {
             const customerDocRef = doc(firestore, 'customers', input.uid);
             const customerSnap = await getDoc(customerDocRef);
             if (customerSnap.exists() && customerSnap.data().stripeId) {
                 stripeCustomerId = customerSnap.data().stripeId;
             } else {
                  // If still no customer ID, we can create one on the fly for them
+                 // This assumes we can get user info from a /users or /vendors collection
+                const userDocRef = doc(firestore, 'vendors', input.uid);
+                const userSnap = await getDoc(userDocRef);
+
                 const customer = await stripe.customers.create({
-                    email: customerSnap.data()?.email, // Assuming email is stored in the customer doc
-                    name: customerSnap.data()?.name, // Assuming name is stored
+                    email: userSnap.data()?.email, // Assuming email is stored in the vendor doc
+                    name: userSnap.data()?.name, // Assuming name is stored
                     metadata: {
                         firebaseUID: input.uid,
                     }
@@ -127,3 +134,5 @@ const createStripeCheckoutFlow = ai.defineFlow(
     }
   }
 );
+
+    
