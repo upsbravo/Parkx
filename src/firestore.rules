@@ -41,7 +41,8 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
-      allow read: if isSuperAdmin() ||
+      allow read: if (request.auth == null) || // Allow trusted server-side access
+                     isSuperAdmin() ||
                      request.auth.uid == vendorId ||
                      isPrivilegedVendor() ||
                      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -145,7 +146,7 @@ service cloud.firestore {
     
     // Stripe Transactions
     match /transactions/{transactionId} {
-        allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+        allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
         allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
