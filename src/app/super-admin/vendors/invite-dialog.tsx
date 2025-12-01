@@ -13,13 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useAuth } from "@/firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
-import { Checkbox } from "@/components/ui/checkbox";
 import { initializeApp, deleteApp } from "firebase/app";
 import { firebaseConfig } from "@/firebase/config";
+import { createStripeCustomer } from "@/ai/flows/create-stripe-customer-flow";
 
 
 export function InviteVendorDialog({
@@ -31,7 +31,6 @@ export function InviteVendorDialog({
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();
-  const mainAuth = useAuth(); // Use the main auth instance
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -53,39 +52,45 @@ export function InviteVendorDialog({
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let newUser;
-
+    let stripeCustomerId;
 
     try {
-      // Create user in the temporary auth instance
+      // Step 1: Create the Stripe Customer via the secure server-side flow
+      const stripeCustomerResult = await createStripeCustomer({ email, name });
+      if (stripeCustomerResult.error || !stripeCustomerResult.customerId) {
+        throw new Error(stripeCustomerResult.error || "Failed to create Stripe customer.");
+      }
+      stripeCustomerId = stripeCustomerResult.customerId;
+
+      // Step 2: Create user in the temporary auth instance
       const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
       newUser = userCredential.user;
+      
+      // Step 3: Now create the vendor document in Firestore with all necessary IDs
+      await setDoc(doc(firestore, "vendors", newUser.uid), {
+        id: newUser.uid,
+        name: name,
+        email: email,
+        status: "Pending Agreement",
+        joinDate: new Date().toISOString(),
+        trialEnds: null,
+        spotsUsed: 0,
+        spotLimit: spotLimit,
+        role: "vendorAdmin",
+        stripeCustomerId: stripeCustomerId, // Include the Stripe Customer ID immediately
+      });
 
-      // Create a document in the `customers` collection.
-      // This will trigger the Stripe extension to create a Stripe Customer object.
-      // The customer ID will be synced back to the vendor document by the extension.
+      // Step 4: Create the customer document for the extension (optional, but good practice)
       const customerRef = doc(firestore, 'customers', newUser.uid);
       await setDoc(customerRef, {
         email: email,
         name: name,
-      });
-
-      // Now create the vendor document in Firestore with the new user's UID using the main firestore instance
-      await setDoc(doc(firestore, "vendors", newUser.uid), {
-        name: name,
-        email: email,
-        status: "Pending Agreement", // Set initial status to require agreement
-        joinDate: new Date().toISOString(),
-        trialEnds: null, // Trial starts after agreement
-        spotsUsed: 0,
-        spotLimit: spotLimit,
-        id: newUser.uid,
-        role: "vendorAdmin",
-        // stripeCustomerId is intentionally omitted; the extension will add it.
+        stripeId: stripeCustomerId,
       });
 
       toast({
         title: "Vendor Created!",
-        description: `${name} has been created. They must sign the agreement on first login.`,
+        description: `${name} has been created. They must sign the master agreement on first login.`,
       });
       
       // Reset form and close dialog
@@ -96,7 +101,7 @@ export function InviteVendorDialog({
       setSpotLimit(20);
     } catch (error: any) {
       console.error("Error creating vendor: ", error);
-      // If user was created in Auth but Firestore failed, we should clean up.
+      // If user was created in Auth but something else failed, clean up the auth user.
       if (newUser) {
         await deleteUser(newUser);
       }
