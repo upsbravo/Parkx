@@ -24,9 +24,20 @@ service cloud.firestore {
     // Stripe Customers Collection
     // The Stripe extension needs to be able to create and manage customer objects.
     match /customers/{uid} {
-      allow read: if request.auth.uid == uid || request.auth == null; // Allow server-side reads
-      allow write: if request.auth.uid == uid;
+      allow read, write: if true; // Allows the extension to write customer data
     }
+    
+    // SUPER ADMINS
+    match /superAdmins/{superAdminId} {
+      // Super admins can read and write their own profile
+      allow read, write: if isSuperAdmin() && request.auth.uid == superAdminId;
+      
+      // Super admins can manage their own notifications
+      match /notifications/{notificationId} {
+        allow read, write, list: if isSuperAdmin() && request.auth.uid == superAdminId;
+      }
+    }
+
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
@@ -118,18 +129,24 @@ service cloud.firestore {
         // A user can read, write, and list their own notifications.
         allow read, write, list: if request.auth.uid == userId;
       }
+       
+      // CHECKOUT SESSIONS
+      // Allow user to create and read their own checkout sessions
+      match /checkout_sessions/{sessionId} {
+        allow read, write: if request.auth.uid == userId;
+      }
     }
     
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
-      allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+      allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
       allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
       allow write: if isSuperAdmin();
     }
     
     // Stripe Transactions
     match /transactions/{transactionId} {
-        allow read: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+        allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
         allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
         // Only allow creation via backend functions (Stripe Extension)
         allow create, update, delete: if false;
