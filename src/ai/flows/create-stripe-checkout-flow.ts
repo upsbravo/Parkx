@@ -12,15 +12,22 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const LineItemSchema = z.object({
-  price: z.string().describe("The ID of the Stripe Price object."),
+  price: z.string().optional().describe("The ID of the Stripe Price object."),
   quantity: z.number().int().min(1).describe("The quantity of the price object."),
+  price_data: z.object({
+      currency: z.string(),
+      product_data: z.object({
+          name: z.string(),
+      }),
+      unit_amount: z.number().int(),
+  }).optional(),
 });
 
 const CreateStripeCheckoutInputSchema = z.object({
-  line_items: z.array(LineItemSchema).min(1).describe("An array of line items with pre-defined Price IDs."),
-  successUrl: z.string().describe('The URL to redirect to on success.'),
-  cancelUrl: z.string().describe('The URL to redirect to on cancellation.'),
-  customer: z.string().describe("The Stripe customer ID. This is required."),
+  line_items: z.array(LineItemSchema).min(1).describe("An array of line items with pre-defined Price IDs or inline price data."),
+  successUrl: z.string().url().describe('The URL to redirect to on success.'),
+  cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
+  customer: z.string().optional().describe("The Stripe customer ID. Can be optional if you collect it with the session."),
   mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
   subscription_data: z.object({
     trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
@@ -66,7 +73,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
             payment_method_types: ['card'],
             billing_address_collection: 'required',
             customer: input.customer,
-            line_items: input.line_items,
+            line_items: input.line_items as any, // Cast to any to handle Stripe's complex line_items type
             mode: input.mode,
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,

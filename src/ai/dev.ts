@@ -10,3 +10,6 @@ import '@/ai/flows/process-stripe-payment-flow.ts';
 import '@/ai/flows/create-stripe-account-session-flow.ts';
 import '@/ai/flows/create-stripe-customer-flow.ts';
 import '@/ai/flows/cancel-stripe-subscription-flow.ts';
+import '@/ai/flows/update-stripe-subscription-flow.ts';
+import '@/ai/flows/create-stripe-checkout-flow.ts';
+
