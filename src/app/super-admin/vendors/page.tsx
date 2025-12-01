@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star, FileText } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -309,6 +309,12 @@ export default function VendorsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                                <Link href={`/super-admin/vendors/${vendor.id}/edit`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    <span>Edit Vendor Profile</span>
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Impersonate</DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleAdjustClick(vendor)}
