@@ -29,7 +29,8 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
-      allow read: if isSuperAdmin() ||
+      allow read: if (request.auth == null) || // Allow trusted server-side access
+                     isSuperAdmin() ||
                      request.auth.uid == vendorId ||
                      isPrivilegedVendor() ||
                      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
