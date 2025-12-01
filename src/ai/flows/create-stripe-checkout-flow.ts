@@ -11,7 +11,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
 
 const LineItemSchema = z.object({
   price: z.string().describe("The ID of the Stripe Price object."),
@@ -20,8 +19,8 @@ const LineItemSchema = z.object({
 
 const CreateStripeCheckoutInputSchema = z.object({
   line_items: z.array(LineItemSchema).min(1).describe("An array of line items with pre-defined Price IDs."),
-  successUrl: z.string().url().describe('The URL to redirect to on success.'),
-  cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
+  successUrl: z.string().describe('The URL to redirect to on success.'),
+  cancelUrl: z.string().describe('The URL to redirect to on cancellation.'),
   uid: z.string().describe("The UID of the user for whom the session is created."),
   mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
   subscription_data: z.object({
@@ -64,6 +63,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
     try {
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+        const { initializeFirebase } = await import('@/firebase');
         const { firestore } = initializeFirebase();
 
         let stripeCustomerId = input.customer;
@@ -80,6 +80,10 @@ const createStripeCheckoutFlow = ai.defineFlow(
                 const userDocRef = doc(firestore, 'vendors', input.uid);
                 const userSnap = await getDoc(userDocRef);
 
+                if (!userSnap.exists()) {
+                    throw new Error(`Vendor with UID ${input.uid} not found in Firestore.`);
+                }
+
                 const customer = await stripe.customers.create({
                     email: userSnap.data()?.email, // Assuming email is stored in the vendor doc
                     name: userSnap.data()?.name, // Assuming name is stored
@@ -88,6 +92,9 @@ const createStripeCheckoutFlow = ai.defineFlow(
                     }
                 });
                 stripeCustomerId = customer.id;
+
+                // IMPORTANT: Save the new customer ID back to the vendor document
+                await setDoc(userDocRef, { stripeCustomerId: stripeCustomerId }, { merge: true });
             }
         }
         
