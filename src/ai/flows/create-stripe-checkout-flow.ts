@@ -10,7 +10,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 const LineItemSchema = z.object({
   price: z.string().describe("The ID of the Stripe Price object."),
@@ -63,8 +65,10 @@ const createStripeCheckoutFlow = ai.defineFlow(
     try {
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-        const { initializeFirebase } = await import('@/firebase');
-        const { firestore } = initializeFirebase();
+        
+        // SERVER-SIDE FIREBASE INITIALIZATION
+        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+        const firestore = getFirestore(app);
 
         let stripeCustomerId = input.customer;
 
@@ -83,18 +87,24 @@ const createStripeCheckoutFlow = ai.defineFlow(
                 if (!userSnap.exists()) {
                     throw new Error(`Vendor with UID ${input.uid} not found in Firestore.`);
                 }
+                const userData = userSnap.data();
 
                 const customer = await stripe.customers.create({
-                    email: userSnap.data()?.email, // Assuming email is stored in the vendor doc
-                    name: userSnap.data()?.name, // Assuming name is stored
+                    email: userData?.email, // Assuming email is stored in the vendor doc
+                    name: userData?.name, // Assuming name is stored
                     metadata: {
                         firebaseUID: input.uid,
                     }
                 });
                 stripeCustomerId = customer.id;
 
-                // IMPORTANT: Save the new customer ID back to the vendor document
-                await setDoc(userDocRef, { stripeCustomerId: stripeCustomerId }, { merge: true });
+                // IMPORTANT: Save the new customer ID back to the customer document
+                const customerData = {
+                  email: userData?.email,
+                  name: userData?.name,
+                  stripeId: stripeCustomerId,
+                };
+                await setDoc(customerDocRef, customerData, { merge: true });
             }
         }
         
