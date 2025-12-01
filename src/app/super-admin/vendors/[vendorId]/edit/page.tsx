@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
+import { updateStripeCustomer } from '@/ai/flows/update-stripe-customer-flow';
 
 type Vendor = {
   name: string;
@@ -37,6 +38,7 @@ type Vendor = {
     country?: string;
   };
   timeZone?: string;
+  stripeCustomerId?: string;
 };
 
 export default function EditVendorPage() {
@@ -70,7 +72,7 @@ export default function EditVendorPage() {
   }
 
   const handleSaveChanges = async () => {
-    if (!vendorRef) return;
+    if (!vendorRef || !vendorData?.stripeCustomerId) return;
     setIsSaving(true);
     
     // We don't update the email as it's the login identifier and requires re-authentication.
@@ -82,6 +84,27 @@ export default function EditVendorPage() {
         title: 'Vendor Updated',
         description: `${formData.name}'s profile has been successfully saved.`,
       });
+
+      // Now, sync with Stripe
+      const stripeUpdateResult = await updateStripeCustomer({
+          customerId: vendorData.stripeCustomerId,
+          name: formData.name,
+          email: formData.email, // Email can be updated on Stripe even if not in our Auth
+      });
+
+      if (stripeUpdateResult.success) {
+          toast({
+              title: 'Stripe Updated',
+              description: "Vendor details have been synced with Stripe.",
+          });
+      } else {
+           toast({
+              variant: 'destructive',
+              title: 'Stripe Sync Failed',
+              description: stripeUpdateResult.error || "Could not sync data to Stripe.",
+          });
+      }
+
       router.push('/super-admin/vendors');
     } catch (error: any) {
       console.error('Failed to save vendor profile:', error);
@@ -134,7 +157,7 @@ export default function EditVendorPage() {
                 </div>
                  <div className="space-y-2">
                     <Label htmlFor="email">Login Email *</Label>
-                    <Input id="email" value={formData.email || ''} readOnly disabled title="The vendor's login email cannot be changed from this screen."/>
+                    <Input id="email" value={formData.email || ''} onChange={e => handleInputChange('email', e.target.value)} disabled={isActionDisabled}/>
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <div className="space-y-2">
