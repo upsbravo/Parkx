@@ -1,16 +1,17 @@
 'use server';
 /**
  * @fileOverview A server-side flow to securely create a Stripe Checkout session.
- * This acts as a wrapper around the Firebase Stripe extension's Cloud Function,
- * allowing it to be called from the client without exposing the function publicly.
+ * This flow uses the Stripe Node.js SDK directly to create sessions for subscriptions or one-time payments.
  *
- * - createStripeCheckout - A function that calls the Stripe extension's function.
+ * - createStripeCheckout - A function that creates and returns a Stripe Checkout session URL.
  * - CreateStripeCheckoutInput - The input type for the function.
  * - CreateStripeCheckoutOutput - The return type for the function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
 const LineItemSchema = z.object({
   price: z.string().describe("The ID of the Stripe Price object."),
@@ -34,13 +35,13 @@ const CreateStripeCheckoutInputSchema = z.object({
   line_items: z.array(z.union([LineItemSchema, LineItemWithPriceDataSchema])).min(1).describe("An array of line items."),
   successUrl: z.string().url().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
-  promoCode: z.string().optional().describe('An optional promotion code.'),
-  uid: z.string().describe("The UID of the authenticated user."),
+  uid: z.string().describe("The UID of the user for whom the session is created."),
   mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
-  customer: z.string().optional().describe("The Stripe customer ID to use for this session."),
   subscription_data: z.object({
     trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
-  }).optional().describe("Data specific to a subscription.")
+  }).optional().describe("Data specific to a subscription."),
+  // The customer ID is now optional; we'll look it up if not provided.
+  customer: z.string().optional().describe("The Stripe customer ID. If not provided, it will be looked up using the UID."),
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
@@ -65,67 +66,64 @@ const createStripeCheckoutFlow = ai.defineFlow(
     outputSchema: CreateStripeCheckoutOutputSchema,
   },
   async (input) => {
-    // This server-side logic is now correctly placed inside the Genkit flow.
-    const { getAuth } = await import('google-auth-library');
-
-    // This check prevents the function from running in a local environment where it cannot get credentials.
-    if (!process.env.GCLOUD_PROJECT) {
-      console.error('GCLOUD_PROJECT environment variable not set. This function must be run in a Google Cloud environment.');
-      return {
-        error: 'This feature is only available in the deployed production environment, not on the local developer machine.',
-      };
+    
+    // Ensure we are in a server environment
+    if (typeof window !== 'undefined') {
+        return { error: "This function can only be run on the server." };
     }
-    if (!input.uid) {
-      throw new Error('User must be authenticated to create a checkout session.');
-    }
-
-    // These should match your Firebase project details and function names.
-    const projectId = process.env.GCLOUD_PROJECT;
-    const location = 'us-central1'; // Or your function's region
-    const functionName = 'ext-firestore-stripe-payments-createCheckoutSession';
-    const functionUrl = `https://${location}-${projectId}.cloudfunctions.net/${functionName}`;
 
     try {
-      // Get an authenticated client that can invoke the private Cloud Function.
-      const auth = getAuth();
-      const client = await auth.getIdTokenClient(functionUrl);
+        const { default: Stripe } = await import('stripe');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+        const { firestore } = initializeFirebase();
 
-      // The body of the request must match what the Stripe extension function expects.
-      const body = {
-        line_items: input.line_items,
-        success_url: input.successUrl,
-        cancel_url: input.cancelUrl,
-        allow_promotion_codes: !!input.promoCode,
-        uid: input.uid,
-        mode: input.mode, // Use the mode from input
-        customer: input.customer,
-        subscription_data: input.subscription_data, // Pass subscription data
-      };
+        let stripeCustomerId = input.customer;
 
-      const response = await client.request({
-        url: functionUrl,
-        method: 'POST',
-        data: body,
-      });
+        // If a Stripe Customer ID isn't provided, look it up in the `customers` collection using the UID.
+        if (!stripeCustomerId) {
+            const customerDocRef = doc(firestore, 'customers', input.uid);
+            const customerSnap = await getDoc(customerDocRef);
+            if (customerSnap.exists() && customerSnap.data().stripeId) {
+                stripeCustomerId = customerSnap.data().stripeId;
+            } else {
+                 // If still no customer ID, we can create one on the fly for them
+                const customer = await stripe.customers.create({
+                    email: customerSnap.data()?.email, // Assuming email is stored in the customer doc
+                    name: customerSnap.data()?.name, // Assuming name is stored
+                    metadata: {
+                        firebaseUID: input.uid,
+                    }
+                });
+                stripeCustomerId = customer.id;
+            }
+        }
+        
+        if (!stripeCustomerId) {
+            throw new Error("Could not find or create a Stripe customer for the given user.");
+        }
+        
+        const session = await stripe.checkout.sessions.create({
+            payment_method_types: ['card'],
+            billing_address_collection: 'required',
+            customer: stripeCustomerId,
+            line_items: input.line_items as any, // Cast as any to handle union type
+            mode: input.mode,
+            success_url: input.successUrl,
+            cancel_url: input.cancelUrl,
+            subscription_data: input.subscription_data,
+        });
+
+        if (!session.url) {
+            throw new Error("Stripe did not return a session URL.");
+        }
       
-      const responseData = response.data as any;
-
-      if (responseData.error) {
-        return { error: responseData.error.message };
-      }
-      if (!responseData.url) {
-        throw new Error('Invalid response from checkout session function.');
-      }
-      
-      return { url: responseData.url };
+      return { url: session.url };
 
     } catch (e: any) {
-      console.error('Error invoking createCheckoutSession function:', e.response?.data || e.message);
+      console.error('Error creating Stripe checkout session:', e);
       return {
-        error: e.response?.data?.error?.message || 'Failed to create checkout session. Check server logs.',
+        error: e.message || 'An unexpected error occurred while creating the checkout session.',
       };
     }
   }
 );
-
-    

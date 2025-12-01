@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection, addDoc, onSnapshot } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 
 type Vendor = {
   id: string;
@@ -105,6 +105,7 @@ export default function MasterAgreementPage() {
     }
     setIsSubmitting(true);
     
+    // Save the signed agreement text first
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const signedAgreementText = `
 ${getAgreementText(vendorData)}
@@ -130,9 +131,10 @@ ParkX Technologies LLC – Auto-signed
     
     toast({
         title: 'Agreement Signed!',
-        description: "Generating your secure payment link...",
+        description: "Finalizing your subscription setup...",
     });
 
+    // Prepare line items for Stripe Checkout
     const lineItems = [
         { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 }, // Base price
     ];
@@ -141,53 +143,46 @@ ParkX Technologies LLC – Auto-signed
         lineItems.push({ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }); // Add-on price
     }
     
-    const checkoutSessionCollection = collection(firestore, `customers/${user.uid}/checkout_sessions`);
+    // Call the secure backend flow to create the checkout session
     try {
-        const docRef = await addDoc(checkoutSessionCollection, {
+        const checkoutResult = await createStripeCheckout({
+            uid: user.uid, // Pass the vendor's UID
             mode: 'subscription',
             line_items: lineItems,
             subscription_data: {
               trial_period_days: 30,
             },
-            success_url: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: window.location.origin + pathname,
-            allow_promotion_codes: true,
+            successUrl: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: window.location.origin + pathname,
         });
 
-        // Listen for the checkout session to be created by the Stripe extension
-        const unsubscribe = onSnapshot(docRef, (snap) => {
-            const { error, url } = snap.data() || {};
-            if (error) {
-                console.error(`Stripe Checkout Session Error:`, error);
-                toast({
-                    variant: "destructive",
-                    title: "Payment Setup Failed",
-                    description: error.message || "Could not redirect to payment page. Please contact support.",
-                });
-                setIsSubmitting(false);
-                unsubscribe();
-            }
-            if (url) {
-                // We have a Stripe Checkout URL, redirect to it
-                const trialEndDate = new Date();
-                trialEndDate.setDate(trialEndDate.getDate() + 30);
-                const vendorRef = doc(firestore, 'vendors', user.uid);
-                updateDocumentNonBlocking(vendorRef, {
-                    status: 'Trial',
-                    agreementSignedDate: new Date().toISOString(),
-                    trialEnds: trialEndDate.toISOString(),
-                });
-                
-                unsubscribe();
-                window.location.assign(url);
-            }
-        });
+        if (checkoutResult.error) {
+            throw new Error(checkoutResult.error);
+        }
+
+        if (checkoutResult.url) {
+            // Update vendor status to Trial before redirecting
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 30);
+            const vendorRef = doc(firestore, 'vendors', user.uid);
+            await updateDocumentNonBlocking(vendorRef, {
+                status: 'Trial',
+                agreementSignedDate: new Date().toISOString(),
+                trialEnds: trialEndDate.toISOString(),
+            });
+            
+            // Redirect to Stripe
+            window.location.assign(checkoutResult.url);
+        } else {
+            throw new Error("Did not receive a checkout URL from the server.");
+        }
+
     } catch(e: any) {
-         console.error("Error creating checkout session document:", e);
+        console.error("Error creating checkout session:", e);
         toast({
             variant: "destructive",
-            title: "Setup Failed",
-            description: "Could not initiate payment setup. Please contact support.",
+            title: "Payment Setup Failed",
+            description: e.message || "Could not redirect to payment page. Please contact support.",
         });
         setIsSubmitting(false);
     }
