@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -21,13 +22,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Trash2 } from 'lucide-react';
-import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Vendor = {
   spotLimit: number;
+  spotLimitIncreaseRequested?: boolean;
 };
 
 type EndUser = {
@@ -70,7 +73,8 @@ export default function ParkingLotPage() {
   const isLoading = isUserLoading || isVendorLoading || areSpotsLoading || areUsersLoading;
 
   const totalSpots = vendorData?.spotLimit ?? 0;
-  const usedSpots = parkingSpots?.length ? parkingSpots.filter((spot) => !spot.isAvailable).length : 0;
+  const createdSpotsCount = parkingSpots?.length ?? 0;
+  const usedSpots = parkingSpots?.filter((spot) => !spot.isAvailable).length ?? 0;
 
   const getUserName = (userId: string | null) => {
     if (!userId || !endUsers) return 'Unassigned';
@@ -85,8 +89,8 @@ export default function ParkingLotPage() {
     }
     if (!user || !spotsCollectionRef) return;
     
-    if (parkingSpots && parkingSpots.length >= totalSpots) {
-        toast({ variant: 'destructive', title: 'Spot Limit Reached', description: 'You have reached your spot limit. Contact the super admin to increase it.' });
+    if (createdSpotsCount >= totalSpots) {
+        toast({ variant: 'destructive', title: 'Spot Limit Reached', description: 'You have reached your spot limit. Use the button below to request more.' });
         return;
     }
 
@@ -111,7 +115,20 @@ export default function ParkingLotPage() {
     deleteDocumentNonBlocking(spotRef);
     toast({ variant: 'destructive', title: 'Spot Deleted', description: 'The parking spot has been removed.' });
   };
+  
+  const handleRequestMoreSpots = () => {
+    if (!vendorRef) return;
 
+    updateDocumentNonBlocking(vendorRef, {
+      spotLimitIncreaseRequested: true,
+      spotLimitRequestDate: new Date().toISOString(),
+    });
+
+    toast({
+      title: 'Request Sent',
+      description: 'The platform administrator has been notified of your request for more spots.',
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -140,11 +157,11 @@ export default function ParkingLotPage() {
                   <Skeleton className="h-5 w-20" />
               ) : (
                 <span>
-                    {usedSpots} / {totalSpots}
+                    {createdSpotsCount} / {totalSpots}
                 </span>
               )}
             </div>
-            <Progress value={isLoading || totalSpots === 0 ? 0 : (usedSpots / totalSpots) * 100} />
+            <Progress value={isLoading || totalSpots === 0 ? 0 : (createdSpotsCount / totalSpots) * 100} />
           </div>
 
           <div className="flex w-full max-w-sm items-center space-x-2">
@@ -157,6 +174,25 @@ export default function ParkingLotPage() {
             />
             <Button type="button" onClick={handleAddSpot} disabled={isLoading}>Add Spot</Button>
           </div>
+
+          {createdSpotsCount >= totalSpots && !vendorData?.spotLimitIncreaseRequested && (
+            <Alert>
+              <AlertTitle className="font-semibold">You've Reached Your Spot Limit!</AlertTitle>
+              <AlertDescription className="flex items-center justify-between">
+                To add more spots to your lot, please request an increase from the administrator.
+                <Button onClick={handleRequestMoreSpots}>Request More Spots</Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {vendorData?.spotLimitIncreaseRequested && (
+            <Alert variant="default" className="bg-blue-50 border-blue-200 text-blue-800">
+               <AlertTitle className="font-semibold">Request Pending</AlertTitle>
+               <AlertDescription>
+                 Your request for more spots is currently pending approval from the platform administrator.
+               </AlertDescription>
+            </Alert>
+          )}
 
           <div className="rounded-md border">
             <Table>
@@ -205,3 +241,5 @@ export default function ParkingLotPage() {
     </div>
   );
 }
+
+    

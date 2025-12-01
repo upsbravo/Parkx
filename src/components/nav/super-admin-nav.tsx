@@ -17,11 +17,13 @@ import {
   CreditCard,
   ShieldCheck,
   Settings,
+  BadgeCheck,
 } from "lucide-react";
 
 const navItems = [
   { href: "/super-admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
   { href: "/super-admin/vendors", icon: <Building />, label: "Vendor Management" },
+  { href: "/super-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
   { href: "/super-admin/invoices", icon: <FileText />, label: "All Invoices" },
   { href: "/super-admin/payments", icon: <CreditCard />, label: "Platform Payments" },
   { href: "/super-admin/messages", icon: <MessageSquare />, label: "Vendor Tickets" },
@@ -53,3 +55,5 @@ export default function SuperAdminNav() {
     </SidebarContent>
   );
 }
+
+    
