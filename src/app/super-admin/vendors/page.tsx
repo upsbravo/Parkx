@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { differenceInDays } from "date-fns";
 import Link from 'next/link';
+import { cancelStripeSubscription } from "@/ai/flows/cancel-stripe-subscription-flow";
 
 
 type Vendor = {
@@ -61,6 +62,7 @@ type Vendor = {
   spotsUsed: number;
   spotLimit: number;
   isPrivileged?: boolean; // New field for privileged status
+  stripeSubscriptionId?: string;
 };
 
 
@@ -68,6 +70,7 @@ export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [isCancelAlertOpen, setCancelAlertOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
@@ -135,6 +138,47 @@ export default function VendorsPage() {
     });
     setDeleteAlertOpen(false);
     setSelectedVendor(null);
+  };
+  
+  const handleCancelClick = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setCancelAlertOpen(true);
+  };
+
+  const handleCancelSubscriptionConfirm = async () => {
+    if (!selectedVendor || !selectedVendor.stripeSubscriptionId) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No active subscription found for this vendor.",
+        });
+        return;
+    }
+
+    const { stripeSubscriptionId } = selectedVendor;
+
+    try {
+        const result = await cancelStripeSubscription({ subscriptionId: stripeSubscriptionId });
+        if (result.success) {
+            const vendorRef = doc(firestore, "vendors", selectedVendor.id);
+            updateDocumentNonBlocking(vendorRef, { status: 'Inactive', stripeSubscriptionId: null });
+            toast({
+                title: 'Subscription Cancelled',
+                description: `${selectedVendor.name}'s subscription has been cancelled.`,
+            });
+        } else {
+            throw new Error(result.error || "Failed to cancel subscription.");
+        }
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Cancellation Failed',
+            description: e.message || "An unexpected error occurred.",
+        });
+    } finally {
+        setCancelAlertOpen(false);
+        setSelectedVendor(null);
+    }
   };
 
   const handleReactivate = (vendor: Vendor) => {
@@ -342,6 +386,14 @@ export default function VendorsPage() {
                               <DropdownMenuItem onClick={() => handleStartTrial(vendor)}>Start Trial</DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
+                            {vendor.status === 'Active' && vendor.stripeSubscriptionId && (
+                                <DropdownMenuItem
+                                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                                    onClick={() => handleCancelClick(vendor)}
+                                >
+                                    Cancel Subscription
+                                </DropdownMenuItem>
+                            )}
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
                                 onClick={() => handleReactivate(vendor)}
@@ -408,6 +460,22 @@ export default function VendorsPage() {
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isCancelAlertOpen} onOpenChange={setCancelAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will cancel the vendor's Stripe subscription at the end of the current billing period. They will not be billed again. This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Back</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelSubscriptionConfirm} className="bg-destructive hover:bg-destructive/90">
+                    Yes, Cancel Subscription
+                </AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>

@@ -59,6 +59,10 @@
           "type": "string",
           "description": "The ID of the customer object in Stripe."
         },
+        "stripeSubscriptionId": {
+          "type": "string",
+          "description": "The ID of the active Stripe subscription."
+        },
         "parkingSpotLimit": {
           "type": "number",
           "description": "Maximum number of parking spots allowed for the vendor."
