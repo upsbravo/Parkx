@@ -64,6 +64,14 @@ type PlatformNotification = {
     isRead: boolean;
 }
 
+const formatDate = (timestamp: any) => {
+    if (!timestamp) return '...';
+    if (timestamp.toDate) {
+      return format(timestamp.toDate(), 'PPp');
+    }
+    return format(new Date(timestamp), 'PPp');
+};
+
 
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
@@ -345,7 +353,7 @@ export default function SuperAdminDashboard() {
                         <p className="text-sm text-muted-foreground">{activity.message}</p>
                     </div>
                     <div className="ml-auto font-medium text-sm text-muted-foreground">
-                        {format(new Date(activity.createdAt.toDate()), 'PPp')}
+                        {formatDate(activity.createdAt)}
                     </div>
                     </div>
                 ))}

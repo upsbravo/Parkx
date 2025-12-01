@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -32,6 +33,15 @@ type Notification = {
   isRead: boolean;
   createdAt: any; // Firestore timestamp
 };
+
+const formatDate = (timestamp: any) => {
+    if (!timestamp) return '...';
+    if (timestamp.toDate) {
+      return format(timestamp.toDate(), 'PPp');
+    }
+    return format(new Date(timestamp), 'PPp');
+};
+
 
 export default function NotificationsPage() {
   const [isClient, setIsClient] = useState(false);
@@ -97,7 +107,7 @@ export default function NotificationsPage() {
               ) : notifications && notifications.length > 0 ? (
                 notifications.map((notif) => (
                   <TableRow key={notif.id} className={!notif.isRead ? 'bg-muted/50' : ''}>
-                    <TableCell className="font-mono text-xs">{notif.createdAt ? format(notif.createdAt.toDate(), 'PPp') : '...'}</TableCell>
+                    <TableCell className="font-mono text-xs">{formatDate(notif.createdAt)}</TableCell>
                     <TableCell className="font-medium">{notif.title}</TableCell>
                     <TableCell className="max-w-[300px] truncate">{notif.message}</TableCell>
                     <TableCell>

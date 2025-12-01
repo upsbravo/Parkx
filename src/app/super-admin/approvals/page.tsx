@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, X, Building, AlertTriangle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { collection, query, where, doc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AdjustSpotLimitDialog } from '../vendors/adjust-spot-limit-dialog';
 
@@ -61,7 +61,7 @@ export default function SuperAdminApprovalsPage() {
       message,
       type,
       isRead: false,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     })
   }
 

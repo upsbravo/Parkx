@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays } from 'date-fns';
@@ -98,7 +98,7 @@ export default function AllInvoicesPage() {
       message,
       type,
       isRead: false,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     })
   }
   
