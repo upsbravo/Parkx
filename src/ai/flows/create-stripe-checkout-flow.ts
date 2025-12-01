@@ -37,7 +37,10 @@ const CreateStripeCheckoutInputSchema = z.object({
   promoCode: z.string().optional().describe('An optional promotion code.'),
   uid: z.string().describe("The UID of the authenticated user."),
   mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
-  customer: z.string().optional().describe("The Stripe customer ID to use for this session.")
+  customer: z.string().optional().describe("The Stripe customer ID to use for this session."),
+  subscription_data: z.object({
+    trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
+  }).optional().describe("Data specific to a subscription.")
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
@@ -96,6 +99,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
         uid: input.uid,
         mode: input.mode, // Use the mode from input
         customer: input.customer,
+        subscription_data: input.subscription_data, // Pass subscription data
       };
 
       const response = await client.request({

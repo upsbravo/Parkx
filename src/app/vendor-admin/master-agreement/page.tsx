@@ -154,10 +154,11 @@ ParkX Technologies LLC – Auto-signed
         const result = await createStripeCheckout({
             mode: 'subscription',
             uid: user.uid,
-            // The Stripe customer object should have been created by the extension when the vendor was created.
-            // We pass it here to link the subscription to the customer.
             customer: vendorData.stripeCustomerId, 
             line_items: lineItems,
+            subscription_data: {
+              trial_period_days: 30,
+            },
             // Redirect back to dashboard on success/cancel
             successUrl: `${window.location.origin}/vendor-admin/dashboard`,
             cancelUrl: `${window.location.origin}/vendor-admin/master-agreement`,
