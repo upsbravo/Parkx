@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,6 +102,11 @@ export default function MasterAgreementPage() {
       toast({ variant: 'destructive', title: 'Missing Information', description: 'Please enter your name and title.' });
       return;
     }
+     if (!vendorData.stripeCustomerId) {
+      toast({ variant: 'destructive', title: 'Stripe Account Error', description: 'Your Stripe customer account is not yet set up. Please contact support.' });
+      return;
+    }
+
     setIsSubmitting(true);
     
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -134,7 +139,6 @@ ParkX Technologies LLC – Auto-signed
 
     try {
         const result = await createStripeCheckout({
-            uid: user.uid,
             customer: vendorData.stripeCustomerId,
             line_items: [
                 { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 },

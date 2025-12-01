@@ -10,9 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
 
 const LineItemSchema = z.object({
   price: z.string().describe("The ID of the Stripe Price object."),
@@ -23,12 +20,11 @@ const CreateStripeCheckoutInputSchema = z.object({
   line_items: z.array(LineItemSchema).min(1).describe("An array of line items with pre-defined Price IDs."),
   successUrl: z.string().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().describe('The URL to redirect to on cancellation.'),
-  uid: z.string().describe("The UID of the user for whom the session is created."),
+  customer: z.string().describe("The Stripe customer ID. This is required."),
   mode: z.enum(['subscription', 'payment']).describe("The mode of the checkout session."),
   subscription_data: z.object({
     trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
   }).optional().describe("Data specific to a subscription."),
-  customer: z.string().optional().describe("The Stripe customer ID. If not provided, it will be looked up using the UID."),
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
@@ -66,56 +62,10 @@ const createStripeCheckoutFlow = ai.defineFlow(
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
         
-        // SERVER-SIDE FIREBASE INITIALIZATION
-        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-        const firestore = getFirestore(app);
-
-        let stripeCustomerId = input.customer;
-
-        // If a Stripe Customer ID isn't provided, look it up in the `customers` collection using the UID.
-        if (!stripeCustomerId && input.uid) {
-            const customerDocRef = doc(firestore, 'customers', input.uid);
-            const customerSnap = await getDoc(customerDocRef);
-            if (customerSnap.exists() && customerSnap.data().stripeId) {
-                stripeCustomerId = customerSnap.data().stripeId;
-            } else {
-                 // If still no customer ID, we can create one on the fly for them
-                 // This assumes we can get user info from a /users or /vendors collection
-                const userDocRef = doc(firestore, 'vendors', input.uid);
-                const userSnap = await getDoc(userDocRef);
-
-                if (!userSnap.exists()) {
-                    throw new Error(`Vendor with UID ${input.uid} not found in Firestore.`);
-                }
-                const userData = userSnap.data();
-
-                const customer = await stripe.customers.create({
-                    email: userData?.email, // Assuming email is stored in the vendor doc
-                    name: userData?.name, // Assuming name is stored
-                    metadata: {
-                        firebaseUID: input.uid,
-                    }
-                });
-                stripeCustomerId = customer.id;
-
-                // IMPORTANT: Save the new customer ID back to the customer document
-                const customerData = {
-                  email: userData?.email,
-                  name: userData?.name,
-                  stripeId: stripeCustomerId,
-                };
-                await setDoc(customerDocRef, customerData, { merge: true });
-            }
-        }
-        
-        if (!stripeCustomerId) {
-            throw new Error("Could not find or create a Stripe customer for the given user.");
-        }
-        
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             billing_address_collection: 'required',
-            customer: stripeCustomerId,
+            customer: input.customer,
             line_items: input.line_items,
             mode: input.mode,
             success_url: input.successUrl,
