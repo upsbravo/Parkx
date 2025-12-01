@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, addDoc, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 
 type Vendor = {
@@ -74,6 +73,7 @@ By clicking “I Accept & Begin Trial” you provide a legally binding signature
 
 export default function MasterAgreementPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -95,7 +95,7 @@ export default function MasterAgreementPage() {
   const totalMonthlyFee = 249 + extraSpacesCost;
 
   const handleSubmit = async () => {
-    if (!user || !vendorData) {
+    if (!user || !vendorData || !firestore) {
       toast({ variant: 'destructive', title: 'Error', description: 'Vendor data not found.' });
       return;
     }
@@ -105,7 +105,6 @@ export default function MasterAgreementPage() {
     }
     setIsSubmitting(true);
     
-    // Save the agreement text first
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const signedAgreementText = `
 ${getAgreementText(vendorData)}
@@ -131,60 +130,64 @@ ParkX Technologies LLC – Auto-signed
     
     toast({
         title: 'Agreement Signed!',
-        description: "Redirecting to payment setup to begin your trial...",
+        description: "Generating your secure payment link...",
     });
 
-    // Now, create the Stripe Checkout Session for subscription with trial
+    const lineItems = [
+        { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 }, // Base price
+    ];
+
+    if (extraSpaces > 0) {
+        lineItems.push({ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }); // Add-on price
+    }
+    
+    const checkoutSessionCollection = collection(firestore, `customers/${user.uid}/checkout_sessions`);
     try {
-        const lineItems = [
-            {
-                price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', // $249 base price ID
-                quantity: 1,
-            }
-        ];
-
-        if (extraSpaces > 0) {
-            lineItems.push({
-                price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', // $10 add-on price ID
-                quantity: extraSpaces,
-            });
-        }
-
-
-        const result = await createStripeCheckout({
+        const docRef = await addDoc(checkoutSessionCollection, {
             mode: 'subscription',
-            uid: user.uid,
-            customer: vendorData.stripeCustomerId, 
             line_items: lineItems,
             subscription_data: {
               trial_period_days: 30,
             },
-            // Redirect back to dashboard on success/cancel
-            successUrl: `${window.location.origin}/vendor-admin/dashboard`,
-            cancelUrl: `${window.location.origin}/vendor-admin/master-agreement`,
+            success_url: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: window.location.origin + pathname,
+            allow_promotion_codes: true,
         });
 
-        if (result.url) {
-            // Update vendor status to Trial before redirecting
-            const trialEndDate = new Date();
-            trialEndDate.setDate(trialEndDate.getDate() + 30);
-            const vendorRef = doc(firestore, 'vendors', user.uid);
-            await updateDocumentNonBlocking(vendorRef, {
-                status: 'Trial',
-                agreementSignedDate: new Date().toISOString(),
-                trialEnds: trialEndDate.toISOString(),
-            });
-            
-            window.location.href = result.url; // Redirect to Stripe
-        } else {
-            throw new Error(result.error || "Failed to get checkout URL.");
-        }
-    } catch (e: any) {
-        console.error("Failed to create Stripe checkout:", e);
+        // Listen for the checkout session to be created by the Stripe extension
+        const unsubscribe = onSnapshot(docRef, (snap) => {
+            const { error, url } = snap.data() || {};
+            if (error) {
+                console.error(`Stripe Checkout Session Error:`, error);
+                toast({
+                    variant: "destructive",
+                    title: "Payment Setup Failed",
+                    description: error.message || "Could not redirect to payment page. Please contact support.",
+                });
+                setIsSubmitting(false);
+                unsubscribe();
+            }
+            if (url) {
+                // We have a Stripe Checkout URL, redirect to it
+                const trialEndDate = new Date();
+                trialEndDate.setDate(trialEndDate.getDate() + 30);
+                const vendorRef = doc(firestore, 'vendors', user.uid);
+                updateDocumentNonBlocking(vendorRef, {
+                    status: 'Trial',
+                    agreementSignedDate: new Date().toISOString(),
+                    trialEnds: trialEndDate.toISOString(),
+                });
+                
+                unsubscribe();
+                window.location.assign(url);
+            }
+        });
+    } catch(e: any) {
+         console.error("Error creating checkout session document:", e);
         toast({
             variant: "destructive",
-            title: "Payment Setup Failed",
-            description: "Could not redirect to payment page. Please contact support.",
+            title: "Setup Failed",
+            description: "Could not initiate payment setup. Please contact support.",
         });
         setIsSubmitting(false);
     }
