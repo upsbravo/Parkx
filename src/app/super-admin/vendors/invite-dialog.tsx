@@ -77,7 +77,9 @@ export function InviteVendorDialog({
         spotsUsed: 0,
         spotLimit: spotLimit,
         role: "vendorAdmin",
-        stripeCustomerId: stripeCustomerId, // Include the Stripe Customer ID immediately
+        stripeCustomerId: stripeCustomerId,
+        profileComplete: false, // Start with incomplete profile
+        agreementSigned: false, // Start with unsigned agreement
       });
 
       // Step 4: Create the customer document for the extension (optional, but good practice)
@@ -90,7 +92,7 @@ export function InviteVendorDialog({
 
       toast({
         title: "Vendor Created!",
-        description: `${name} has been created. They must sign the master agreement on first login.`,
+        description: `${name} has been created. They must complete their profile and sign the master agreement on first login.`,
       });
       
       // Reset form and close dialog
@@ -123,7 +125,7 @@ export function InviteVendorDialog({
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
-            Create a new vendor account. They will be required to sign the master agreement on first login.
+            Create a new vendor account. They will be required to complete their profile and sign the master agreement on first login.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

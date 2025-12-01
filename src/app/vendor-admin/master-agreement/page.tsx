@@ -20,17 +20,26 @@ type Vendor = {
   name: string;
   spotLimit: number;
   stripeCustomerId?: string;
+  address?: {
+    street1?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
 };
 
 const getAgreementText = (vendor: Vendor | null) => {
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const vendorName = vendor?.name || '[Vendor Legal Business Name]';
+    const vendorAddress = vendor?.address ? `${vendor.address.street1}, ${vendor.address.city}, ${vendor.address.state} ${vendor.address.zip}` : '[Vendor Address]';
+
 
     return `
 PARKX VENDOR MASTER SERVICES AGREEMENT
 Effective Date: ${today}
 
 This is a legally binding agreement between ParkX Technologies LLC ("ParkX", "we") and ${vendorName} ("Vendor", "you").
+Your address on file is: ${vendorAddress}
 
 By clicking "I Accept & Begin Trial" you agree to all terms below:
 
@@ -157,6 +166,7 @@ ParkX Technologies LLC – Auto-signed
              trialEndDate.setDate(trialEndDate.getDate() + 30);
              await updateDocumentNonBlocking(vendorDocRef!, {
                 status: 'Trial',
+                agreementSigned: true, // New flag
                 agreementSignedDate: new Date().toISOString(),
                 trialEnds: trialEndDate.toISOString(),
             });
