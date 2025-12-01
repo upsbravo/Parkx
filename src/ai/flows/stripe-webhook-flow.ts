@@ -10,7 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, updateDoc, setDoc, collection, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, setDoc, collection, getDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
 // This is not a public-facing Zod schema. It's for internal validation of the webhook payload.
@@ -58,6 +58,9 @@ const stripeWebhookFlow = ai.defineFlow(
     const event = payload; // In this simulated environment, we trust the payload.
 
     switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutSessionCompleted(event.data.object);
+        break;
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object);
         break;
@@ -94,6 +97,50 @@ async function getVendorIdFromCustomerId(customerId: string): Promise<string | n
     // A better query would be query(collection(firestore, 'vendors'), where('stripeCustomerId', '==', customerId))
     // but for now, we'll assume the customer ID *might* be the vendor UID if no metadata is present.
     return vendorSnap.exists() ? customerId : null;
+}
+
+/**
+ * Handles the `checkout.session.completed` event, which occurs when a Checkout Session is successful.
+ * This is crucial for linking a one-time payment to our internal invoice record.
+ * @param session The Stripe Checkout Session object.
+ */
+async function handleCheckoutSessionCompleted(session: any) {
+  // Retrieve the invoice ID we stored in metadata
+  const userInvoiceId = session.metadata?.userInvoiceId;
+  const vendorId = session.metadata?.vendorId;
+  const chargeId = session.payment_intent ? session.payment_intent : (typeof session.setup_intent === 'string' ? session.setup_intent : session.setup_intent?.id);
+
+  if (chargeId && session.mode === 'payment') {
+      try {
+        const { default: Stripe } = await import('stripe');
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+        const charge = await stripe.charges.retrieve(chargeId);
+        
+        if (charge && userInvoiceId && vendorId) {
+            const invoiceRef = doc(firestore, 'vendors', vendorId, 'userInvoices', userInvoiceId);
+            await updateDoc(invoiceRef, {
+                status: 'Paid',
+                stripeReceiptUrl: charge.receipt_url,
+            });
+            console.log(`User invoice ${userInvoiceId} marked as paid with receipt URL.`);
+        }
+      } catch (e: any) {
+          console.error(`Failed to retrieve charge or update invoice: ${e.message}`);
+      }
+  }
+
+  // Handle subscription creation
+  if (session.mode === 'subscription' && session.subscription) {
+    const vendorId = session.metadata?.uid; // Assuming UID is stored in metadata
+    if (vendorId) {
+      const vendorRef = doc(firestore, 'vendors', vendorId);
+      await updateDoc(vendorRef, {
+        stripeSubscriptionId: session.subscription,
+        status: 'Active', // Or 'Trial' if applicable
+      });
+      console.log(`Subscription ID ${session.subscription} saved for vendor ${vendorId}.`);
+    }
+  }
 }
 
 /**
@@ -145,6 +192,14 @@ async function handleInvoicePaid(invoice: any) {
             lastPaidAt: new Date(invoice.status_transitions.paid_at * 1000)
         });
         console.log(`Vendor ${vendorId} payment status set to active.`);
+
+        const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+         await updateDoc(vendorInvoiceRef, {
+          status: 'Paid',
+          stripeInvoicePdfUrl: invoice.invoice_pdf,
+        });
+        console.log(`Vendor invoice ${invoice.id} marked as Paid with PDF URL.`);
+
     }
 }
 
@@ -159,8 +214,11 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
 
     // Try to update both, one will likely succeed.
     try {
-        await updateDoc(vendorInvoiceRef, { status: 'Paid' });
-        console.log(`Vendor invoice ${invoiceId} marked as paid.`);
+        await updateDoc(vendorInvoiceRef, { 
+            status: 'Paid',
+            stripeInvoicePdfUrl: invoice.invoice_pdf,
+        });
+        console.log(`Vendor invoice ${invoiceId} marked as paid with PDF URL.`);
     } catch (e) {
         // console.log(`Vendor invoice ${invoiceId} not found, checking user invoices.`);
         try {

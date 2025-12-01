@@ -32,11 +32,13 @@ const CreateStripeCheckoutInputSchema = z.object({
   subscription_data: z.object({
     trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
   }).optional().describe("Data specific to a subscription."),
+  metadata: z.record(z.string()).optional().describe("A set of key-value pairs that you can attach to an object. This can be useful for storing additional information about the object in a structured format."),
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
 
 const CreateStripeCheckoutOutputSchema = z.object({
   url: z.string().url().optional().describe('The URL for the Stripe Checkout session.'),
+  id: z.string().optional().describe('The ID of the Stripe Checkout session.'),
   error: z.string().optional().describe('An error message if the session creation failed.'),
 });
 export type CreateStripeCheckoutOutput = z.infer<typeof CreateStripeCheckoutOutputSchema>;
@@ -78,13 +80,14 @@ const createStripeCheckoutFlow = ai.defineFlow(
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
             subscription_data: input.subscription_data,
+            metadata: input.metadata,
         });
 
         if (!session.url) {
             throw new Error("Stripe did not return a session URL.");
         }
       
-      return { url: session.url };
+      return { url: session.url, id: session.id };
 
     } catch (e: any) {
       console.error('Error creating Stripe checkout session:', e);

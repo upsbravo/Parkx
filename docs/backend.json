@@ -55,6 +55,23 @@
           "type": "boolean",
           "description": "Grants the vendor special, elevated permissions."
         },
+        "stripeCustomerId": {
+          "type": "string",
+          "description": "The ID of the customer object in Stripe."
+        },
+        "stripeSubscriptionId": {
+          "type": "string",
+          "description": "The ID of the active Stripe subscription."
+        },
+        "spotLimitIncreaseRequested": {
+            "type": "boolean",
+            "description": "Flag indicating if the vendor has requested an increase in their spot limit."
+        },
+        "spotLimitRequestDate": {
+            "type": ["string", "null"],
+            "description": "The date the vendor requested a spot limit increase.",
+            "format": "date-time"
+        },
         "parkingSpotLimit": {
           "type": "number",
           "description": "Maximum number of parking spots allowed for the vendor."
@@ -406,6 +423,11 @@
         "notes": {
           "type": "string",
           "description": "Additional notes or line items for the invoice."
+        },
+        "stripeInvoicePdfUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL for the downloadable PDF of the invoice from Stripe."
         }
       },
       "required": [
@@ -460,6 +482,15 @@
         "notes": {
           "type": "string",
           "description": "Additional notes or line items for the invoice."
+        },
+        "stripeCheckoutSessionId": {
+          "type": "string",
+          "description": "The ID of the Stripe Checkout Session used to pay this invoice."
+        },
+        "stripeReceiptUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL for the downloadable receipt from Stripe."
         }
       },
       "required": [
@@ -539,6 +570,36 @@
         "description": { "type": "string" }
       },
       "required": ["id", "amount", "currency", "arrival_date", "created", "status"]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification for an end-user.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["invoice", "message", "payment"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "PlatformNotification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlatformNotification",
+      "type": "object",
+      "description": "Represents a platform-level notification for a Super Admin.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["new_vendor", "support_ticket", "payment_failure"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
     }
   },
   "auth": {
@@ -571,6 +632,18 @@
           ]
         }
       },
+       {
+        "path": "/superAdmins/{superAdminId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "PlatformNotification",
+          "schema": { "$ref": "#/backend/entities/PlatformNotification" },
+          "description": "Stores platform-level notifications for a Super Admin.",
+          "params": [
+            { "name": "superAdminId", "description": "The unique ID for the SuperAdmin." },
+            { "name": "notificationId", "description": "The unique ID for the notification." }
+          ]
+        }
+      },
       {
         "path": "/vendors/{vendorId}",
         "definition": {
@@ -583,6 +656,22 @@
             {
               "name": "vendorId",
               "description": "The unique identifier for the Vendor document."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Vendor",
+          "schema": {
+            "$ref": "#/backend/entities/Vendor"
+          },
+          "description": "Stores mapping of Firebase UID to Stripe Customer ID. Created by the Stripe extension.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the Customer, matches the Firebase UID."
             }
           ]
         }
@@ -647,6 +736,26 @@
             {
               "name": "messageId",
               "description": "The unique identifier for the Message document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for an end user, such as new messages or invoices.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the EndUser document."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier for the Notification document."
             }
           ]
         }
@@ -757,5 +866,3 @@
     "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA. A top-level `transactions` collection is added to log all payments from Stripe."
   }
 }
-
-    

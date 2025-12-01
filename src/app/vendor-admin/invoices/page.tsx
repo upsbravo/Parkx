@@ -1,4 +1,3 @@
-
 // src/app/vendor-admin/invoices/page.tsx
 
 'use client';
@@ -25,10 +24,11 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Download, MoreHorizontal, Info, LifeBuoy } from 'lucide-react';
+import { Download, MoreHorizontal, Info, LifeBuoy, ExternalLink } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, format } from 'date-fns';
+import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
 
 
 type Vendor = {
@@ -36,6 +36,7 @@ type Vendor = {
     name: string;
     status: string;
     trialEnds: string | null;
+    stripeCustomerId?: string;
 }
 
 type VendorInvoice = {
@@ -45,12 +46,15 @@ type VendorInvoice = {
   dueDate: string; // ISO string
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
+  stripeInvoicePdfUrl?: string;
 }
 
 export default function VendorInvoicesPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -88,42 +92,51 @@ export default function VendorInvoicesPage() {
     }).format(amount);
   };
   
-  const generateInvoiceContent = (invoice: VendorInvoice): string => {
-    return `
-INVOICE FROM PARKX
----------------------
-Invoice ID: ${invoice.id}
-Date Due: ${formatDate(invoice.dueDate)}
-Status: ${invoice.status}
-
-BILLED TO:
-${user?.displayName || 'Your Company'}
-
----------------------
-DESCRIPTION
-${invoice.notes || 'Subscription Fee'}
-
-AMOUNT
-${formatCurrency(invoice.amount)}
----------------------
-
-Total Due: ${formatCurrency(invoice.amount)}
-
-Thank you for your business.
-    `.trim();
+  const handleDownloadInvoice = (invoice: VendorInvoice) => {
+    if (invoice.stripeInvoicePdfUrl) {
+        window.open(invoice.stripeInvoicePdfUrl, '_blank');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'No PDF Available',
+            description: 'A PDF is not yet available for this invoice. It will be generated upon payment.',
+        });
+    }
   };
 
-  const handleDownloadInvoice = (invoice: VendorInvoice) => {
-    const textContent = generateInvoiceContent(invoice);
-    const blob = new Blob([textContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice_ParkX_${invoice.id.substring(0, 6)}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleManageBilling = async () => {
+    if (isSubmitting || !vendorData || !vendorData.stripeCustomerId) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: vendorData?.stripeCustomerId ? 'An operation is already in progress.' : 'Your Stripe customer account is not set up.'
+        });
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast({ title: 'Generating Portal Link...' });
+
+    try {
+        const result = await createStripePortalSession({
+            customerId: vendorData.stripeCustomerId,
+            returnUrl: window.location.href,
+        });
+
+        if (result.url) {
+            window.location.href = result.url;
+        } else {
+            throw new Error(result.error || 'Failed to get customer portal URL.');
+        }
+    } catch (e: any) {
+        console.error("Error creating portal session:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Failed to Open Billing Portal',
+            description: e.message || 'An unexpected error occurred.',
+        });
+        setIsSubmitting(false);
+    }
   };
 
 
@@ -156,8 +169,11 @@ Thank you for your business.
             <Alert variant="default">
                 <LifeBuoy className="h-4 w-4" />
                 <AlertTitle>Subscription Management</AlertTitle>
-                <AlertDescription>
-                    To manage your payment methods, please use the Stripe Customer Portal. To cancel your subscription, you must contact ParkX support directly.
+                <AlertDescription className="flex justify-between items-center">
+                    <span>To manage your payment methods, please use the Stripe Customer Portal. To cancel your subscription, you must contact ParkX support directly.</span>
+                    <Button onClick={handleManageBilling} disabled={isSubmitting || isLoading} size="sm">
+                        Manage Billing <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
                 </AlertDescription>
             </Alert>
         )}
@@ -227,9 +243,9 @@ Thank you for your business.
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)}>
+                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} disabled={!invoice.stripeInvoicePdfUrl}>
                                         <Download className="mr-2 h-4 w-4" />
-                                        <span>Download</span>
+                                        <span>Download PDF</span>
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
