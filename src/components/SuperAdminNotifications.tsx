@@ -27,7 +27,7 @@ type PlatformNotification = {
   message: string;
   type: 'new_vendor' | 'support_ticket' | 'payment_failure';
   isRead: boolean;
-  createdAt: any; // Firestore timestamp
+  createdAt: any; // Firestore timestamp or string
 };
 
 const typeIcons: Record<PlatformNotification['type'], React.ReactNode> = {
@@ -76,6 +76,16 @@ export function SuperAdminNotifications() {
       }
     });
   }
+  
+  const getFormattedDate = (timestamp: any) => {
+    if (!timestamp) return '...';
+    // Check if it's a Firestore Timestamp and convert
+    if (timestamp.toDate) {
+      return formatDistanceToNow(timestamp.toDate(), { addSuffix: true });
+    }
+    // Otherwise, assume it's a string or a Date object
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+  }
 
   return (
     <Popover>
@@ -116,7 +126,7 @@ export function SuperAdminNotifications() {
                             <p className="text-sm font-medium">{notif.title}</p>
                             <p className="text-sm text-muted-foreground">{notif.message}</p>
                             <p className="text-xs text-muted-foreground">
-                                {notif.createdAt ? formatDistanceToNow(notif.createdAt.toDate(), { addSuffix: true }) : '...'}
+                                {getFormattedDate(notif.createdAt)}
                             </p>
                         </div>
                         {!notif.isRead && (

@@ -98,7 +98,7 @@ export default function AllInvoicesPage() {
       message,
       type,
       isRead: false,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(),
     })
   }
   
