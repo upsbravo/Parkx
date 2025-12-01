@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -9,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Building, DollarSign, Users, AreaChart, AlertTriangle } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, limit, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Bar,
@@ -54,6 +55,15 @@ type VendorInvoice = {
     status: 'Pending' | 'Overdue' | 'Paid';
 };
 
+type PlatformNotification = {
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+    createdAt: any;
+    isRead: boolean;
+}
+
 
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
@@ -77,6 +87,17 @@ export default function SuperAdminDashboard() {
   }, [firestore]);
   const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<VendorInvoice>(invoicesQuery);
   
+  const notificationsQuery = useMemoFirebase(() => {
+      if(!user) return null;
+      return query(
+          collection(firestore, 'superAdmins', user.uid, 'notifications'),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+      )
+  }, [user, firestore])
+  const {data: recentActivities, isLoading: areActivitiesLoading} = useCollection<PlatformNotification>(notificationsQuery);
+
+
   const overdueInvoices = useMemo(() => {
       if (!pendingInvoices) return [];
       return pendingInvoices.filter(invoice => 
@@ -90,7 +111,7 @@ export default function SuperAdminDashboard() {
   }, [vendors]);
 
 
-  const isLoading = isAuthLoading || vendorsLoading || usersLoading || invoicesLoading;
+  const isLoading = isAuthLoading || vendorsLoading || usersLoading || invoicesLoading || areActivitiesLoading;
 
   const totalVendors = vendors?.length ?? 0;
   const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
@@ -142,14 +163,7 @@ export default function SuperAdminDashboard() {
     return data;
 }, [vendors]);
 
- const recentVendors = useMemo(() => {
-    if (!vendors) return [];
-    return [...vendors]
-      .sort((a, b) => new Date(b.joinDate).getTime() - new Date(a.joinDate).getTime())
-      .slice(0, 5);
-  }, [vendors]);
-
-  const chartConfig = {
+ const chartConfig = {
       newVendors: { label: 'New Vendors', color: 'hsl(var(--chart-1))' },
       Active: { label: 'Active', color: 'hsl(var(--chart-2))' },
       Trial: { label: 'Trial', color: 'hsl(var(--chart-4))' },
@@ -311,7 +325,7 @@ export default function SuperAdminDashboard() {
        <Card>
           <CardHeader>
             <CardTitle>Recent Platform Activity</CardTitle>
-            <CardDescription>Newest vendors to join ParkX.</CardDescription>
+            <CardDescription>An overview of the latest administrative actions.</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -319,19 +333,19 @@ export default function SuperAdminDashboard() {
                     <Skeleton className="h-12 w-full"/>
                     <Skeleton className="h-12 w-full"/>
                 </div>
-            ) : recentVendors.length > 0 ? (
+            ) : recentActivities && recentActivities.length > 0 ? (
                 <div className="space-y-4">
-                {recentVendors.map((vendor) => (
-                    <div key={vendor.id} className="flex items-center">
+                {recentActivities.map((activity) => (
+                    <div key={activity.id} className="flex items-center">
                     <Avatar className="h-9 w-9">
                         <AvatarFallback><Building className="h-4 w-4"/></AvatarFallback>
                     </Avatar>
                     <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">{vendor.name}</p>
-                        <p className="text-sm text-muted-foreground">{vendor.email}</p>
+                        <p className="text-sm font-medium leading-none">{activity.title}</p>
+                        <p className="text-sm text-muted-foreground">{activity.message}</p>
                     </div>
                     <div className="ml-auto font-medium text-sm text-muted-foreground">
-                        Joined {format(new Date(vendor.joinDate), 'PPP')}
+                        {format(new Date(activity.createdAt.toDate()), 'PPp')}
                     </div>
                     </div>
                 ))}
@@ -346,5 +360,3 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
-
-    

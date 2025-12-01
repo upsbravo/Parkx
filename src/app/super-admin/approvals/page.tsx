@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Check, X, Building, AlertTriangle } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { AdjustSpotLimitDialog } from '../vendors/adjust-spot-limit-dialog';
@@ -52,6 +52,18 @@ export default function SuperAdminApprovalsPage() {
   }, [firestore, superAdmin]);
 
   const { data: spotLimitRequests, isLoading } = useCollection<Vendor>(requestsQuery);
+  
+  const createNotification = (title: string, message: string, type: 'payment_failure' | 'new_vendor' | 'support_ticket' = 'new_vendor') => {
+    if (!superAdmin) return;
+    const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
+    addDocumentNonBlocking(notifRef, {
+      title,
+      message,
+      type,
+      isRead: false,
+      createdAt: new Date(),
+    })
+  }
 
   const handleApprove = (vendor: Vendor) => {
     setSelectedVendor(vendor);
@@ -68,6 +80,7 @@ export default function SuperAdminApprovalsPage() {
             spotLimitIncreaseRequested: false,
             spotLimitRequestDate: null,
         });
+        createNotification('Spot Limit Approved', `Approved request for ${selectedVendor.name}.`, 'new_vendor');
       }
       setSelectedVendor(null);
     }
@@ -85,6 +98,7 @@ export default function SuperAdminApprovalsPage() {
         title: 'Request Denied',
         description: `${vendor.name}'s request for more spots has been denied.`,
       });
+    createNotification('Spot Limit Denied', `Denied request for ${vendor.name}.`, 'new_vendor');
   };
 
   return (
@@ -187,5 +201,3 @@ export default function SuperAdminApprovalsPage() {
     </>
   );
 }
-
-    
