@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection, onSnapshot } from 'firebase/firestore';
+import { doc, collection, onSnapshot, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 
 type Vendor = {
   id: string;
@@ -128,52 +129,38 @@ ParkX Technologies LLC – Auto-signed
     
     toast({
         title: 'Agreement Signed!',
-        description: "Finalizing your subscription setup...",
+        description: "Redirecting to subscription setup...",
     });
 
-    const lineItems = [{ price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 }];
-    if (extraSpaces > 0) {
-        lineItems.push({ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces });
-    }
-    
-    const checkoutSessionsRef = collection(firestore, 'users', user.uid, 'checkout_sessions');
-    const newSessionDoc = doc(checkoutSessionsRef);
-
     try {
-      await setDoc(newSessionDoc, {
-          mode: 'subscription',
-          price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', // Base plan
-          line_items: lineItems,
-          success_url: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: window.location.origin + pathname,
-          trial_period_days: 30,
-          allow_promotion_codes: true,
-      });
+        const result = await createStripeCheckout({
+            uid: user.uid,
+            customer: vendorData.stripeCustomerId,
+            line_items: [
+                { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 },
+                ...(extraSpaces > 0 ? [{ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }] : [])
+            ],
+            mode: 'subscription',
+            successUrl: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl: window.location.origin + pathname,
+            subscription_data: {
+                trial_period_days: 30,
+            }
+        });
 
-      const unsubscribe = onSnapshot(newSessionDoc, async (snap) => {
-        const { error, url } = snap.data() as { error?: { message: string }; url?: string };
-        if (error) {
-          console.error(`Stripe Checkout Session Error: ${error.message}`);
-          toast({
-              variant: "destructive",
-              title: "Payment Setup Failed",
-              description: error.message || "Could not create payment session. Please contact support.",
-          });
-          setIsSubmitting(false);
-          unsubscribe();
-        }
-        if (url) {
-            const trialEndDate = new Date();
-            trialEndDate.setDate(trialEndDate.getDate() + 30);
-            await updateDocumentNonBlocking(vendorDocRef!, {
+        if (result.url) {
+             const trialEndDate = new Date();
+             trialEndDate.setDate(trialEndDate.getDate() + 30);
+             await updateDocumentNonBlocking(vendorDocRef!, {
                 status: 'Trial',
                 agreementSignedDate: new Date().toISOString(),
                 trialEnds: trialEndDate.toISOString(),
             });
-            unsubscribe();
-            window.location.assign(url);
+            window.location.assign(result.url);
+        } else {
+            throw new Error(result.error || "Failed to get checkout URL from backend.");
         }
-      });
+
     } catch (e: any) {
         console.error("Error creating checkout session document:", e);
         toast({
