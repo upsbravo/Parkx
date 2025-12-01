@@ -24,7 +24,8 @@ service cloud.firestore {
     // Stripe Customers Collection
     // The Stripe extension needs to be able to create and manage customer objects.
     match /customers/{uid} {
-      allow read, write: if request.auth.uid == uid;
+      allow read: if request.auth.uid == uid || request.auth == null; // Allow server-side reads
+      allow write: if request.auth.uid == uid;
     }
 
     // VENDORS – self access + privileged read all + end-user read access
