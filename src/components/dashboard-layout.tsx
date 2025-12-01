@@ -25,6 +25,7 @@ import { Button } from "./ui/button";
 import Link from "next/link";
 import { LogOut, Settings, ShieldCheck } from "lucide-react";
 import { Notifications } from "./notifications";
+import { SuperAdminNotifications } from "./SuperAdminNotifications";
 
 export default function DashboardLayout({
   children,
@@ -79,6 +80,7 @@ export default function DashboardLayout({
             </div>
             <div className="flex items-center gap-2">
               {role === 'End User' && <Notifications />}
+              {role === 'Super Admin' && <SuperAdminNotifications />}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

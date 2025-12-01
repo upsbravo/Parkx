@@ -558,6 +558,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "PlatformNotification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlatformNotification",
+      "type": "object",
+      "description": "Represents a platform-level notification for a Super Admin.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["new_vendor", "support_ticket", "payment_failure"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
     }
   },
   "auth": {
@@ -587,6 +602,18 @@
               "name": "superAdminId",
               "description": "The unique identifier for the SuperAdmin document."
             }
+          ]
+        }
+      },
+       {
+        "path": "/superAdmins/{superAdminId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "PlatformNotification",
+          "schema": { "$ref": "#/backend/entities/PlatformNotification" },
+          "description": "Stores platform-level notifications for a Super Admin.",
+          "params": [
+            { "name": "superAdminId", "description": "The unique ID for the SuperAdmin." },
+            { "name": "notificationId", "description": "The unique ID for the notification." }
           ]
         }
       },

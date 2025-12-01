@@ -26,6 +26,18 @@ service cloud.firestore {
     match /customers/{uid} {
       allow read, write: if true; // Allows the extension to write customer data
     }
+    
+    // SUPER ADMINS
+    match /superAdmins/{superAdminId} {
+      // Super admins can read and write their own profile
+      allow read, write: if isSuperAdmin() && request.auth.uid == superAdminId;
+      
+      // Super admins can manage their own notifications
+      match /notifications/{notificationId} {
+        allow read, write, list: if isSuperAdmin() && request.auth.uid == superAdminId;
+      }
+    }
+
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
