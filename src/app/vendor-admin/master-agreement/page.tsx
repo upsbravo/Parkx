@@ -90,7 +90,7 @@ export default function MasterAgreementPage() {
   );
   const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorDocRef);
 
-  const extraSpaces = Math.max(0, (vendorData?.spotLimit || 20) - 20);
+  const extraSpaces = Math.max(0, (vendorData?.spotLimit || 0) - 20);
   const extraSpacesCost = extraSpaces * 10;
   const totalMonthlyFee = 249 + extraSpacesCost;
 
@@ -136,17 +136,28 @@ ParkX Technologies LLC – Auto-signed
 
     // Now, create the Stripe Checkout Session for subscription with trial
     try {
+        const lineItems = [
+            {
+                price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', // $249 base price ID
+                quantity: 1,
+            }
+        ];
+
+        if (extraSpaces > 0) {
+            lineItems.push({
+                price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', // $10 add-on price ID
+                quantity: extraSpaces,
+            });
+        }
+
+
         const result = await createStripeCheckout({
             mode: 'subscription',
             uid: user.uid,
             // The Stripe customer object should have been created by the extension when the vendor was created.
             // We pass it here to link the subscription to the customer.
             customer: vendorData.stripeCustomerId, 
-            line_items: [{
-                // In a real app, this price ID would come from your Stripe product catalog for your monthly plan
-                price: 'price_1P6c4RFOrzQHr7JwaL8jX5gY', 
-                quantity: 1,
-            }],
+            line_items: lineItems,
             // Redirect back to dashboard on success/cancel
             successUrl: `${window.location.origin}/vendor-admin/dashboard`,
             cancelUrl: `${window.location.origin}/vendor-admin/master-agreement`,
@@ -209,8 +220,10 @@ ParkX Technologies LLC – Auto-signed
             <div className="w-full space-y-4 rounded-lg border p-4">
                 <h3 className="font-semibold">Your Subscription Plan</h3>
                 <Separator />
-                <div className="flex justify-between text-sm"><p>Base Fee (20 spaces included)</p> <p>$249.00 / month</p></div>
-                <div className="flex justify-between text-sm"><p>{extraSpaces} Additional Spaces × $10.00</p> <p>${extraSpacesCost.toFixed(2)} / month</p></div>
+                <div className="flex justify-between text-sm"><p>Base Fee (up to 20 spaces)</p> <p>$249.00 / month</p></div>
+                {extraSpaces > 0 && (
+                    <div className="flex justify-between text-sm"><p>{extraSpaces} Additional Spaces × $10.00</p> <p>${extraSpacesCost.toFixed(2)} / month</p></div>
+                )}
                 <Separator />
                 <div className="flex justify-between font-bold"><p>Total Monthly Fee</p> <p>${totalMonthlyFee.toFixed(2)}</p></div>
                  <p className="text-xs text-muted-foreground pt-2">Your 30-day free trial will begin after you complete the payment setup. You will not be charged until your trial ends.</p>
@@ -241,7 +254,7 @@ ParkX Technologies LLC – Auto-signed
                 </div>
             </div>
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="lg">
-            {isSubmitting ? 'Finalizing...' : `I Accept & Set Up Payment`}
+            {isSubmitting ? 'Finalizing...' : `I Accept & Begin Trial`}
           </Button>
         </CardFooter>
       </Card>
