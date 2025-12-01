@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, onSnapshot } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 
 type Vendor = {
   id: string;
@@ -60,7 +59,7 @@ Tenant rent is collected via Stripe Connect. ParkX deducts the monthly platform 
 Either party can end this with 30 days notice. ParkX can suspend or terminate immediately for non-payment or breach.
 
 7. Indemnification & Limitation of Liability
-You indemnify and defend ParkX from all claims. ParkX’s total liability is capped at the last 3 months of fees you paid. No consequential damages.
+You indemnify and defend ParkX from all claims. ParkX’s total liability is capped at the last 3 months of fees you paid.
 
 8. Governing Law
 Texas law. Arbitration in Houston, Texas.
@@ -104,7 +103,6 @@ export default function MasterAgreementPage() {
     }
     setIsSubmitting(true);
     
-    // Save the signed agreement text first
     const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const signedAgreementText = `
 ${getAgreementText(vendorData)}
@@ -133,52 +131,51 @@ ParkX Technologies LLC – Auto-signed
         description: "Finalizing your subscription setup...",
     });
 
-    // Prepare line items for Stripe Checkout
-    const lineItems = [
-        { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 }, // Base price
-    ];
-
+    const lineItems = [{ price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 }];
     if (extraSpaces > 0) {
-        lineItems.push({ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }); // Add-on price
+        lineItems.push({ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces });
     }
     
-    // Call the secure backend flow to create the checkout session
+    const checkoutSessionsRef = collection(firestore, 'users', user.uid, 'checkout_sessions');
+    const newSessionDoc = doc(checkoutSessionsRef);
+
     try {
-        const checkoutResult = await createStripeCheckout({
-            uid: user.uid, // Pass the vendor's UID
-            customer: vendorData.stripeCustomerId, // Pass the stripe customer ID
-            mode: 'subscription',
-            line_items: lineItems,
-            subscription_data: {
-              trial_period_days: 30,
-            },
-            successUrl: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: window.location.origin + pathname,
-        });
+      await setDoc(newSessionDoc, {
+          mode: 'subscription',
+          price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', // Base plan
+          line_items: lineItems,
+          success_url: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: window.location.origin + pathname,
+          trial_period_days: 30,
+          allow_promotion_codes: true,
+      });
 
-        if (checkoutResult.error) {
-            throw new Error(checkoutResult.error);
+      const unsubscribe = onSnapshot(newSessionDoc, async (snap) => {
+        const { error, url } = snap.data() as { error?: { message: string }; url?: string };
+        if (error) {
+          console.error(`Stripe Checkout Session Error: ${error.message}`);
+          toast({
+              variant: "destructive",
+              title: "Payment Setup Failed",
+              description: error.message || "Could not create payment session. Please contact support.",
+          });
+          setIsSubmitting(false);
+          unsubscribe();
         }
-
-        if (checkoutResult.url) {
-            // Update vendor status to Trial before redirecting
+        if (url) {
             const trialEndDate = new Date();
             trialEndDate.setDate(trialEndDate.getDate() + 30);
-            const vendorRef = doc(firestore, 'vendors', user.uid);
-            await updateDocumentNonBlocking(vendorRef, {
+            await updateDocumentNonBlocking(vendorDocRef!, {
                 status: 'Trial',
                 agreementSignedDate: new Date().toISOString(),
                 trialEnds: trialEndDate.toISOString(),
             });
-            
-            // Redirect to Stripe
-            window.location.assign(checkoutResult.url);
-        } else {
-            throw new Error("Did not receive a checkout URL from the server.");
+            unsubscribe();
+            window.location.assign(url);
         }
-
-    } catch(e: any) {
-        console.error("Error creating checkout session:", e);
+      });
+    } catch (e: any) {
+        console.error("Error creating checkout session document:", e);
         toast({
             variant: "destructive",
             title: "Payment Setup Failed",
@@ -260,5 +257,3 @@ ParkX Technologies LLC – Auto-signed
     </div>
   );
 }
-
-    

@@ -18,21 +18,8 @@ const LineItemSchema = z.object({
   quantity: z.number().int().min(1).describe("The quantity of the price object."),
 });
 
-const PriceDataSchema = z.object({
-    currency: z.string().default('usd'),
-    product_data: z.object({
-        name: z.string(),
-    }),
-    unit_amount: z.number().int().min(1), // amount in cents
-});
-
-const LineItemWithPriceDataSchema = z.object({
-    price_data: PriceDataSchema,
-    quantity: z.number().int().min(1),
-});
-
 const CreateStripeCheckoutInputSchema = z.object({
-  line_items: z.array(z.union([LineItemSchema, LineItemWithPriceDataSchema])).min(1).describe("An array of line items."),
+  line_items: z.array(LineItemSchema).min(1).describe("An array of line items with pre-defined Price IDs."),
   successUrl: z.string().url().describe('The URL to redirect to on success.'),
   cancelUrl: z.string().url().describe('The URL to redirect to on cancellation.'),
   uid: z.string().describe("The UID of the user for whom the session is created."),
@@ -40,7 +27,6 @@ const CreateStripeCheckoutInputSchema = z.object({
   subscription_data: z.object({
     trial_period_days: z.number().int().optional().describe("Number of days for the trial period.")
   }).optional().describe("Data specific to a subscription."),
-  // The customer ID is now optional; we'll look it up if not provided.
   customer: z.string().optional().describe("The Stripe customer ID. If not provided, it will be looked up using the UID."),
 });
 export type CreateStripeCheckoutInput = z.infer<typeof CreateStripeCheckoutInputSchema>;
@@ -113,7 +99,7 @@ const createStripeCheckoutFlow = ai.defineFlow(
             payment_method_types: ['card'],
             billing_address_collection: 'required',
             customer: stripeCustomerId,
-            line_items: input.line_items as any, // Cast as any to handle union type
+            line_items: input.line_items,
             mode: input.mode,
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
@@ -134,5 +120,3 @@ const createStripeCheckoutFlow = ai.defineFlow(
     }
   }
 );
-
-    
