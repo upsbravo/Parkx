@@ -391,15 +391,6 @@ export default function VendorInvoicesPage() {
         return;
     }
 
-    if (vendor.status === 'Trial') {
-        toast({
-            variant: 'destructive',
-            title: 'Action Not Available',
-            description: 'Cannot manage billing for a vendor on trial. End the trial first.'
-        });
-        return;
-    }
-
     setIsSubmitting(true);
     toast({ title: 'Generating Portal Link...' });
 
@@ -851,4 +842,5 @@ export default function VendorInvoicesPage() {
     
 
     
+
 
