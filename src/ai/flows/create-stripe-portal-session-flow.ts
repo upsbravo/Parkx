@@ -35,56 +35,34 @@ const createStripePortalSessionFlow = ai.defineFlow(
     inputSchema: CreateStripePortalSessionInputSchema,
     outputSchema: CreateStripePortalSessionOutputSchema,
   },
-  async (input) => {
+  async ({ customerId, returnUrl }) => {
     // This server-side logic is now correctly placed inside the Genkit flow.
-    const { getAuth } = await import('google-auth-library');
-
-    // This check prevents the function from running in a local environment where it cannot get credentials.
-    if (!process.env.GCLOUD_PROJECT) {
-      console.error('GCLOUD_PROJECT environment variable not set. This function must be run in a Google Cloud environment.');
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY environment variable not set.');
       return {
-        error: 'This feature is only available in the deployed production environment, not on the local developer machine.',
+        error: 'The application is not configured for payments. Please contact support.',
       };
     }
     
-    // These should match your Firebase project details and function names.
-    const projectId = process.env.GCLOUD_PROJECT;
-    const location = 'us-central1'; // Or your function's region
-    const functionName = 'ext-firestore-stripe-payments-createPortalLink';
-    const functionUrl = `https://${location}-${projectId}.cloudfunctions.net/${functionName}`;
-
     try {
-      // Get an authenticated client that can invoke the private Cloud Function.
-      const auth = getAuth();
-      const client = await auth.getIdTokenClient(functionUrl);
-
-      // The body of the request must match what the Stripe extension function expects.
-      const body = {
-        customer: input.customerId,
-        return_url: input.returnUrl,
-      };
-
-      const response = await client.request({
-        url: functionUrl,
-        method: 'POST',
-        data: body,
+      const { default: Stripe } = await import('stripe');
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: returnUrl,
       });
-      
-      const responseData = response.data as any;
 
-      if (responseData.error) {
-        return { error: responseData.error.message };
-      }
-      if (!responseData.url) {
-        throw new Error('Invalid response from create portal link function.');
+      if (!portalSession.url) {
+        throw new Error('Stripe did not return a portal session URL.');
       }
       
-      return { url: responseData.url };
+      return { url: portalSession.url };
 
     } catch (e: any) {
-      console.error('Error invoking createPortalLink function:', e.response?.data || e.message);
+      console.error('Error creating Stripe billing portal session:', e);
       return {
-        error: e.response?.data?.error?.message || 'Failed to create customer portal session. Check server logs.',
+        error: e.message || 'Failed to create customer portal session. Check server logs.',
       };
     }
   }
