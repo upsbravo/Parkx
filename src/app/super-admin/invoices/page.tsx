@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +49,7 @@ import { Input } from '@/components/ui/input';
 type VendorInvoice = {
   id: string;
   vendorName: string;
+  vendorId: string;
   dueDate: string;
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
@@ -61,6 +62,7 @@ export default function AllInvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const { user: superAdmin } = useUser();
 
   useEffect(() => {
     setIsClient(true);
@@ -88,6 +90,18 @@ export default function AllInvoicesPage() {
     Overdue: 'destructive',
   } as const;
   
+  const createNotification = (title: string, message: string, type: 'payment_failure' | 'new_vendor' | 'support_ticket' = 'payment_failure') => {
+    if (!superAdmin) return;
+    const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
+    addDocumentNonBlocking(notifRef, {
+      title,
+      message,
+      type,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    })
+  }
+  
   const handleMarkAsPaid = (invoice: VendorInvoice) => {
     if (invoice.status === 'Paid') return;
     const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
@@ -96,6 +110,7 @@ export default function AllInvoicesPage() {
       title: 'Invoice Updated',
       description: `Invoice for ${invoice.vendorName} marked as Paid.`,
     });
+    createNotification('Payment Recorded', `Successfully marked invoice for ${invoice.vendorName} as paid.`);
   };
   
   const handleVoidClick = (invoice: VendorInvoice) => {
@@ -112,6 +127,7 @@ export default function AllInvoicesPage() {
       title: 'Invoice Voided',
       description: `Invoice for ${selectedInvoice.vendorName} has been deleted.`,
     });
+    createNotification('Invoice Voided', `Invoice #${selectedInvoice.id.substring(0,6)} for ${selectedInvoice.vendorName} was voided.`);
     setIsAlertOpen(false);
     setSelectedInvoice(null);
   };
@@ -174,6 +190,7 @@ Thank you for your business.
       title: 'Invoice Sent',
       description: `An email reminder has been sent for invoice to ${invoice.vendorName}.`,
     });
+    createNotification('Invoice Reminder Sent', `A reminder for invoice #${invoice.id.substring(0,6)} was sent to ${invoice.vendorName}.`);
   };
 
   const getAgingStatus = (invoice: VendorInvoice) => {
