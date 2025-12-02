@@ -35,7 +35,7 @@ const navItems = [
     icon: <BookCopy />,
     subItems: [
       { href: "/super-admin/invoices", label: "Vendor Invoices" },
-      { href: "/super-admin/accounting/sales-tax", label: "Sales Tax Report" },
+      { href: "/super-admin/accounting/financial-summary", label: "Financial Summary" },
       { href: "/super-admin/accounting/tax-documents", label: "Tax Documents" },
     ]
   },
