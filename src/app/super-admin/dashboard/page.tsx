@@ -40,6 +40,7 @@ type Vendor = {
   status: 'Pending' | 'Active' | 'Trial' | 'Inactive';
   paymentStatus?: 'failed';
   lastFailedAmount?: number;
+  spotLimit: number;
 };
 
 type User = {
@@ -118,13 +119,27 @@ export default function SuperAdminDashboard() {
     return vendors.filter(v => v.paymentStatus === 'failed');
   }, [vendors]);
 
+  const activeVendors = useMemo(() => {
+    if (!vendors) return [];
+    return vendors.filter(v => v.status === 'Active' || v.status === 'Trial');
+  }, [vendors]);
 
   const isLoading = isAuthLoading || vendorsLoading || usersLoading || invoicesLoading || areActivitiesLoading;
 
   const totalVendors = vendors?.length ?? 0;
-  const activeSubscriptions = vendors?.filter(v => v.status === 'Active' || v.status === 'Trial').length ?? 0;
+  const activeSubscriptions = activeVendors.length;
   const totalEndUsers = users?.length ?? 0;
-  const monthlyRecurringRevenue = activeSubscriptions * 250;
+  
+  const monthlyRecurringRevenue = useMemo(() => {
+    if (!activeVendors) return 0;
+    return activeVendors.reduce((total, vendor) => {
+        const baseFee = 249;
+        const additionalSpots = Math.max(0, vendor.spotLimit - 20);
+        const additionalFee = additionalSpots * 10;
+        return total + baseFee + additionalFee;
+    }, 0);
+  }, [activeVendors]);
+
 
   const stats = [
     { title: 'Total Vendors', value: totalVendors.toString(), description: 'Across the platform', icon: <Building className="h-4 w-4 text-muted-foreground" /> },
