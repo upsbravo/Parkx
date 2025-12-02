@@ -16,12 +16,12 @@ import {
   LayoutDashboard,
   Users,
   ParkingSquare,
-  Banknote,
   BadgeCheck,
   Settings,
   MessageCircle,
   LifeBuoy,
   BookCopy,
+  Palette,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
