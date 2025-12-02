@@ -92,10 +92,12 @@ export default function UserManagementPage() {
   
   const isLoading = isVendorLoading || areUsersLoading || areSpotsLoading;
 
-  const getSpotName = (spotId: string | null): string => {
-    if (!spotId) return 'N/A';
-    const spot = parkingSpots?.find(s => s.id === spotId);
-    return spot?.name ?? spotId;
+  const getSpotNames = (assignedSpotIds?: string[]): string => {
+    if (!assignedSpotIds || assignedSpotIds.length === 0) return 'N/A';
+    return assignedSpotIds.map(id => {
+      const spot = parkingSpots?.find(s => s.id === id);
+      return spot?.name ?? id;
+    }).join(', ');
   }
   
   const getSpotCount = (assignedSpotIds?: string[]): string => {
@@ -196,7 +198,8 @@ export default function UserManagementPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Agreement</TableHead>
-                  <TableHead>Parking Lot</TableHead>
+                  <TableHead>Spots Count</TableHead>
+                  <TableHead>Parking Spots</TableHead>
                   <TableHead>Truck Parks</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
@@ -214,6 +217,7 @@ export default function UserManagementPage() {
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
@@ -253,6 +257,7 @@ export default function UserManagementPage() {
                         )}
                       </TableCell>
                       <TableCell>{getSpotCount(user.assignedSpotIds)}</TableCell>
+                      <TableCell className="max-w-[150px] truncate">{getSpotNames(user.assignedSpotIds)}</TableCell>
                       <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -297,7 +302,7 @@ export default function UserManagementPage() {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="h-24 text-center text-muted-foreground"
                     >
                       No users found. Create one to get started.
@@ -347,5 +352,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    
