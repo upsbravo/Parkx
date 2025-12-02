@@ -13,11 +13,12 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, doc, updateDoc, setDoc, collection, getDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
+import type Stripe from 'stripe';
 
 // This is not a public-facing Zod schema. It's for internal validation of the webhook payload.
 const StripeWebhookInputSchema = z.object({
-  payload: z.any(),
-  signature: z.string(),
+  payload: z.string(), // The raw request body from Stripe
+  signature: z.string(), // The stripe-signature header
 });
 
 // Initialize outside the flow to reuse the connection
@@ -27,13 +28,13 @@ const { firestore } = initializeFirebase();
  * Handles incoming Stripe webhook events.
  * This function should be called by your API endpoint that receives the webhook.
  */
-export async function handleStripeWebhook(payload: any, signature: string): Promise<{ received: boolean; message?: string }> {
+export async function handleStripeWebhook(payload: string, signature: string): Promise<{ received: boolean; error?: string }> {
   try {
-    await stripeWebhookFlow({ payload, signature });
+    const result = await stripeWebhookFlow({ payload, signature });
     return { received: true };
   } catch (error: any) {
     console.error('Webhook handling failed:', error);
-    return { received: false, message: error.message };
+    return { received: false, error: error.message };
   }
 }
 
@@ -45,18 +46,28 @@ const stripeWebhookFlow = ai.defineFlow(
   {
     name: 'stripeWebhookFlow',
     inputSchema: StripeWebhookInputSchema,
-    outputSchema: z.void(),
+    outputSchema: z.object({ success: z.boolean() }),
   },
   async ({ payload, signature }) => {
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      throw new Error('STRIPE_WEBHOOK_SECRET is not set in environment variables.');
+    }
+
+    const { default: Stripe } = await import('stripe');
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     
-    // We would normally use the stripe library and the webhook secret to verify the signature.
-    // As we can't add new npm packages or access environment variables directly in this context,
-    // we'll simulate the event parsing for now. This verification is CRITICAL in a real app.
-    // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-    // const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-    // const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    let event: Stripe.Event;
+
+    try {
+      event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    } catch (err: any) {
+      console.error(`Webhook signature verification failed: ${err.message}`);
+      throw new Error(`Webhook signature verification failed: ${err.message}`);
+    }
     
-    const event = payload; // In this simulated environment, we trust the payload.
+    // Log the received event type
+    console.log(`Received Stripe event: ${event.type}`);
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -89,6 +100,8 @@ const stripeWebhookFlow = ai.defineFlow(
       default:
         console.log(`Unhandled event type ${event.type}`);
     }
+    
+    return { success: true };
   }
 );
 
@@ -393,3 +406,5 @@ async function handlePayoutPaid(payout: any) {
     };
     await setDoc(doc(payoutsRef, payout.id), payoutDoc);
 }
+
+    
