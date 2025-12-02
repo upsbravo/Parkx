@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search, ExternalLink } from "lucide-react";
+import { CreditCard, DollarSign, Search, ExternalLink, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -34,13 +34,14 @@ type Transaction = {
   created: number; // Unix timestamp
   amount: number; // in cents
   currency: string;
-  status: 'succeeded' | 'pending' | 'failed';
+  status: 'succeeded' | 'pending' | 'failed' | 'refunded';
   customerEmail: string;
   vendorName: string;
   receiptUrl?: string;
   type: 'subscription' | 'payment';
   fee?: number;
   net?: number;
+  amountRefunded?: number;
 };
 
 export default function PlatformPaymentsPage() {
@@ -75,6 +76,7 @@ export default function PlatformPaymentsPage() {
     succeeded: 'default',
     pending: 'secondary',
     failed: 'destructive',
+    refunded: 'outline',
   } as const;
   
   const typeIcon = {
@@ -151,12 +153,19 @@ export default function PlatformPaymentsPage() {
                       ) : filteredTransactions.length > 0 ? (
                         filteredTransactions.map((tx) => (
                           <TableRow key={tx.id}>
-                            <TableCell className="font-medium text-xs">
+                            <TableCell className="font-mono text-xs">
                               {format(new Date(tx.created * 1000), 'PPp')}
                             </TableCell>
                             <TableCell>{tx.vendorName}</TableCell>
                             <TableCell>{tx.customerEmail}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                            <TableCell className="text-right">
+                                {tx.status === 'refunded' && (
+                                    <span className="text-destructive line-through">
+                                        {formatCurrency(tx.amount, tx.currency)}
+                                    </span>
+                                )}
+                                {tx.status !== 'refunded' && formatCurrency(tx.amount, tx.currency)}
+                            </TableCell>
                             <TableCell className="text-right text-destructive">- {formatCurrency(tx.fee, tx.currency)}</TableCell>
                             <TableCell className="text-right font-semibold">{formatCurrency(tx.net, tx.currency)}</TableCell>
                             <TableCell>

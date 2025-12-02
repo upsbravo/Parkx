@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search } from "lucide-react";
+import { CreditCard, DollarSign, Search, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -35,12 +35,13 @@ type Transaction = {
   created: number; // Unix timestamp
   amount: number; // in cents
   currency: string;
-  status: 'succeeded' | 'pending' | 'failed';
+  status: 'succeeded' | 'pending' | 'failed' | 'refunded';
   customerEmail: string;
   vendorId: string;
   receiptUrl?: string;
   fee?: number;
   net?: number;
+  amountRefunded?: number;
 };
 
 type Vendor = {
@@ -87,7 +88,7 @@ export default function VendorPaymentsPage() {
     );
   }, [transactions, searchTerm]);
 
-  const formatCurrency = (amountInCents: number, currency: string) => {
+  const formatCurrency = (amountInCents: number | undefined, currency: string = 'usd') => {
     if (typeof amountInCents !== 'number') return '-';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -99,6 +100,7 @@ export default function VendorPaymentsPage() {
     succeeded: 'default',
     pending: 'secondary',
     failed: 'destructive',
+    refunded: 'outline',
   } as const;
   
   const isLoading = isUserLoading || areTransactionsLoading || isVendorDataLoading;
@@ -188,13 +190,20 @@ export default function VendorPaymentsPage() {
                   ) : filteredTransactions.length > 0 ? (
                     filteredTransactions.map((tx) => (
                       <TableRow key={tx.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-mono text-xs">
                           {format(new Date(tx.created * 1000), 'PPp')}
                         </TableCell>
                         <TableCell>{tx.customerEmail}</TableCell>
-                        <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
-                        <TableCell>{formatCurrency(tx.fee || 0, tx.currency)}</TableCell>
-                        <TableCell>{formatCurrency(tx.net || 0, tx.currency)}</TableCell>
+                        <TableCell>
+                             {tx.status === 'refunded' && (
+                                <span className="text-destructive line-through">
+                                    {formatCurrency(tx.amount, tx.currency)}
+                                </span>
+                            )}
+                            {tx.status !== 'refunded' && formatCurrency(tx.amount, tx.currency)}
+                        </TableCell>
+                        <TableCell className="text-destructive">- {formatCurrency(tx.fee, tx.currency)}</TableCell>
+                        <TableCell className="font-semibold">{formatCurrency(tx.net, tx.currency)}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[tx.status]}>{tx.status}</Badge>
                         </TableCell>

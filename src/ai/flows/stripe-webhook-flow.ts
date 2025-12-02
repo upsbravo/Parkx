@@ -80,6 +80,9 @@ const stripeWebhookFlow = ai.defineFlow(
       case 'charge.succeeded':
         await handleChargeSucceeded(event.data.object);
         break;
+      case 'charge.refunded':
+        await handleChargeRefunded(event.data.object);
+        break;
       case 'payout.paid':
         await handlePayoutPaid(event.data.object);
         break;
@@ -337,6 +340,27 @@ async function handleChargeSucceeded(charge: any) {
     console.log(`Recording successful charge ${charge.id} for vendor ${vendorId}.`);
     const transactionRef = doc(firestore, 'transactions', charge.id);
     await setDoc(transactionRef, transactionData);
+}
+
+/**
+ * Handles a refunded charge.
+ * @param charge The Stripe Charge object from the 'charge.refunded' event.
+ */
+async function handleChargeRefunded(charge: any) {
+  console.log(`Processing refund for charge: ${charge.id}`);
+  
+  const transactionRef = doc(firestore, 'transactions', charge.id);
+  
+  try {
+    await updateDoc(transactionRef, {
+      status: 'refunded',
+      amountRefunded: charge.amount_refunded,
+      refundedAt: charge.refunds.data[0]?.created || Math.floor(Date.now() / 1000), // Use refund creation time or now
+    });
+    console.log(`Transaction ${charge.id} successfully marked as refunded in Firestore.`);
+  } catch (error) {
+    console.error(`Failed to update transaction ${charge.id} for refund:`, error);
+  }
 }
 
 
