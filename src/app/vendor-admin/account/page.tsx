@@ -13,13 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, FileText, Download } from 'lucide-react';
-import { useAuth, useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useAuth, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { useState, useEffect } from 'react';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+type Vendor = {
+  name: string;
+};
 
 type VendorDocument = {
     id: string;
@@ -33,11 +37,17 @@ export default function VendorAdminAccountPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const vendorRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'vendors', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
 
   const documentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -47,26 +57,28 @@ export default function VendorAdminAccountPage() {
   const { data: vendorDocuments, isLoading: areDocumentsLoading } = useCollection<VendorDocument>(documentsQuery);
 
   useEffect(() => {
+    if (vendorData) {
+      setCompanyName(vendorData.name || '');
+    } else if (user) {
+      setCompanyName(user.displayName || '');
+    }
     if (user) {
-      setFullName(user.displayName || '');
       setEmail(user.email || '');
     }
-  }, [user]);
+  }, [user, vendorData]);
 
   const handleProfileSave = async () => {
-    if (!user) return;
+    if (!user || !vendorRef) return;
   
     try {
       // Update displayName in Firebase Auth if it changed
-      if (fullName !== user.displayName) {
-        await updateProfile(user, { displayName: fullName });
+      if (companyName !== user.displayName) {
+        await updateProfile(user, { displayName: companyName });
       }
   
       // Update profile in Firestore
-      const userRef = doc(firestore, 'vendors', user.uid);
-      await updateDoc(userRef, {
-        name: fullName,
-        // email is not updated
+      await updateDoc(vendorRef, {
+        name: companyName,
       });
   
       toast({
@@ -125,7 +137,7 @@ export default function VendorAdminAccountPage() {
     URL.revokeObjectURL(url);
   };
   
-  const isLoading = isUserLoading || areDocumentsLoading;
+  const isLoading = isUserLoading || areDocumentsLoading || isVendorLoading;
 
 
   return (
@@ -151,7 +163,7 @@ export default function VendorAdminAccountPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {isUserLoading ? (
+            {isLoading ? (
               <>
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-16" />
@@ -168,8 +180,8 @@ export default function VendorAdminAccountPage() {
                   <Label htmlFor="full-name">Company Name</Label>
                   <Input
                     id="full-name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
