@@ -1,9 +1,9 @@
 'use server';
 /**
  * @fileOverview A server-side flow to securely update a Stripe subscription,
- * specifically for changing the quantity of a subscription item.
+ * specifically for changing the quantity of a subscription item or ending a trial.
  *
- * - updateStripeSubscription - A function that updates an item's quantity in a Stripe subscription.
+ * - updateStripeSubscription - A function that updates an item's quantity or ends a trial in a Stripe subscription.
  * - UpdateStripeSubscriptionInput - The input type for the function.
  * - UpdateStripeSubscriptionOutput - The return type for the function.
  */
@@ -13,8 +13,9 @@ import { z } from 'genkit';
 
 const UpdateStripeSubscriptionInputSchema = z.object({
   subscriptionId: z.string().describe("The ID of the Stripe Subscription to update."),
-  priceId: z.string().describe("The ID of the Price object for the subscription item to update."),
-  quantity: z.number().int().min(0).describe("The new quantity for the subscription item."),
+  priceId: z.string().optional().describe("The ID of the Price object for the subscription item to update."),
+  quantity: z.number().int().min(0).optional().describe("The new quantity for the subscription item."),
+  endTrial: z.boolean().optional().describe("Set to true to end the subscription's trial immediately."),
 });
 export type UpdateStripeSubscriptionInput = z.infer<typeof UpdateStripeSubscriptionInputSchema>;
 
@@ -37,7 +38,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
     inputSchema: UpdateStripeSubscriptionInputSchema,
     outputSchema: UpdateStripeSubscriptionOutputSchema,
   },
-  async ({ subscriptionId, priceId, quantity }) => {
+  async ({ subscriptionId, priceId, quantity, endTrial }) => {
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error('STRIPE_SECRET_KEY environment variable not set.');
       return {
@@ -50,29 +51,31 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      // 1. Retrieve the subscription to find the relevant subscription item
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      
-      const itemToUpdate = subscription.items.data.find(item => item.price.id === priceId);
-
-      if (!itemToUpdate) {
-        // If the item doesn't exist, we might need to add it.
-        // For this use case (adjusting extra spots), we assume the item for extra spots is created
-        // with a quantity of 0 during initial subscription if the user has more than 20 spots.
-        // A more robust solution might create the item here if not found.
-        
-        // For now, let's try creating it if it doesn't exist
-         await stripe.subscriptionItems.create({
-            subscription: subscriptionId,
-            price: priceId,
-            quantity: quantity,
+      // If ending trial, update the subscription directly.
+      if (endTrial) {
+        await stripe.subscriptions.update(subscriptionId, {
+          trial_end: 'now',
         });
+      }
 
-      } else {
-        // 2. Update the quantity of that subscription item
-        await stripe.subscriptionItems.update(itemToUpdate.id, {
+      // If updating quantity, handle the subscription item logic.
+      if (typeof quantity === 'number' && priceId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const itemToUpdate = subscription.items.data.find(item => item.price.id === priceId);
+
+        if (!itemToUpdate) {
+          if (quantity > 0) {
+            await stripe.subscriptionItems.create({
+              subscription: subscriptionId,
+              price: priceId,
+              quantity: quantity,
+            });
+          }
+        } else {
+          await stripe.subscriptionItems.update(itemToUpdate.id, {
             quantity: quantity,
-        });
+          });
+        }
       }
 
       return { success: true };

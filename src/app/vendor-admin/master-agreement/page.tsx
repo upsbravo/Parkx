@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { Switch } from '@/components/ui/switch';
 
 type Vendor = {
   id: string;
@@ -91,6 +93,7 @@ export default function MasterAgreementPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToCharge, setAgreedToCharge] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [includeTrial, setIncludeTrial] = useState(true);
 
   const vendorDocRef = useMemoFirebase(
     () => (user ? doc(firestore, 'vendors', user.uid) : null),
@@ -147,7 +150,7 @@ ParkX Technologies LLC – Auto-signed
     });
 
     try {
-        const result = await createStripeCheckout({
+        const checkoutInput: any = {
             customer: vendorData.stripeCustomerId,
             line_items: [
                 { price: 'price_1SYZdJFOrzQHr7JwTcv4khnz', quantity: 1 },
@@ -156,19 +159,30 @@ ParkX Technologies LLC – Auto-signed
             mode: 'subscription',
             successUrl: `${window.location.origin}/vendor-admin/dashboard`,
             cancelUrl: window.location.origin + pathname,
-            subscription_data: {
-                trial_period_days: 30,
+            metadata: {
+                uid: user.uid, // Pass the vendor's UID for the webhook
             }
-        });
+        };
+
+        if (includeTrial) {
+            checkoutInput.subscription_data = {
+                trial_period_days: 30,
+            };
+        }
+
+        const result = await createStripeCheckout(checkoutInput);
 
         if (result.url) {
-             const trialEndDate = new Date();
-             trialEndDate.setDate(trialEndDate.getDate() + 30);
+             const trialEndDate = includeTrial ? new Date() : null;
+             if (trialEndDate) {
+                trialEndDate.setDate(trialEndDate.getDate() + 30);
+             }
+             
              await updateDocumentNonBlocking(vendorDocRef!, {
-                status: 'Trial',
-                agreementSigned: true, // New flag
+                status: includeTrial ? 'Trial' : 'Active', // Set status based on trial
+                agreementSigned: true,
                 agreementSignedDate: new Date().toISOString(),
-                trialEnds: trialEndDate.toISOString(),
+                trialEnds: trialEndDate ? trialEndDate.toISOString() : null,
             });
             window.location.assign(result.url);
         } else {
@@ -176,7 +190,7 @@ ParkX Technologies LLC – Auto-signed
         }
 
     } catch (e: any) {
-        console.error("Error creating checkout session document:", e);
+        console.error("Error creating checkout session:", e);
         toast({
             variant: "destructive",
             title: "Payment Setup Failed",
@@ -223,7 +237,16 @@ ParkX Technologies LLC – Auto-signed
                 )}
                 <Separator />
                 <div className="flex justify-between font-bold"><p>Total Monthly Fee</p> <p>${totalMonthlyFee.toFixed(2)}</p></div>
-                 <p className="text-xs text-muted-foreground pt-2">Your 30-day free trial will begin after you complete the payment setup. You will not be charged until your trial ends.</p>
+                 <div className="flex items-center justify-between pt-4">
+                    <Label htmlFor="trial-switch" className="text-sm font-medium">Include 30-Day Free Trial?</Label>
+                    <Switch
+                        id="trial-switch"
+                        checked={includeTrial}
+                        onCheckedChange={setIncludeTrial}
+                        disabled={isLoading}
+                    />
+                 </div>
+                 <p className="text-xs text-muted-foreground pt-2">{includeTrial ? "You will not be charged until your trial ends." : "Your first payment will be processed immediately."}</p>
             </div>
 
             <div className="w-full grid md:grid-cols-2 gap-4">
@@ -246,12 +269,12 @@ ParkX Technologies LLC – Auto-signed
                 <div className="flex items-start space-x-3">
                     <Checkbox id="charge" checked={agreedToCharge} onCheckedChange={(checked) => setAgreedToCharge(Boolean(checked))} disabled={isLoading} className="mt-1"/>
                     <Label htmlFor="charge" className="text-sm font-normal leading-snug">
-                    I authorize ParkX to save my payment method and charge me monthly after my 30-day free trial ends.
+                    I authorize ParkX to save my payment method and charge me monthly according to the terms above.
                     </Label>
                 </div>
             </div>
           <Button onClick={handleSubmit} disabled={!canSubmit} className="w-full" size="lg">
-            {isSubmitting ? 'Finalizing...' : `I Accept & Begin Trial`}
+            {isSubmitting ? 'Finalizing...' : `I Accept & Continue to Payment`}
           </Button>
         </CardFooter>
       </Card>
