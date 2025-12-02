@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -275,6 +275,12 @@ export default function UserManagementPage() {
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
+                            </DropdownMenuItem>
+                             <DropdownMenuItem asChild>
+                                <Link href={`/vendor-admin/users/${user.id}`}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    <span>View Documents</span>
+                                </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAssignSpot(user)} disabled={!user.waiverSigned}>Assign Parking Lot(s)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>

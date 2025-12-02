@@ -70,10 +70,9 @@ service cloud.firestore {
 
       // Vendor Admins can manage documents for their own users, and users can create their own.
       match /userDocuments/{docId} {
-        allow read, list: if request.auth.uid == vendorId;
+        allow read, list, update, delete: if isVendorAdmin() && request.auth.uid == vendorId;
         allow create: if (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid) ||
                          (isSignedIn() && request.resource.data.userId == request.auth.uid);
-        allow update, delete: if isVendorAdmin() && request.auth.uid == vendorId;
       }
       
       // VENDOR <> SUPER ADMIN MESSAGES

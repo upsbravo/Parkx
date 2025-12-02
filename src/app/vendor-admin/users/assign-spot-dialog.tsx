@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useCollection, useFirestore, useMemoFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc, query, where, writeBatch } from "firebase/firestore";
+import { collection, doc, query, writeBatch } from "firebase/firestore";
 import { useState, useMemo, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
@@ -90,8 +90,9 @@ export function AssignSpotDialog({
     const batch = writeBatch(firestore);
     const userRef = doc(firestore, "users", user.id);
 
-    const spotsToMakeAvailable = (user.assignedSpotIds || []).filter(id => !selectedSpotIds.includes(id));
-    const spotsToOccupy = selectedSpotIds.filter(id => !(user.assignedSpotIds || []).includes(id));
+    const originalSpots = user.assignedSpotIds || [];
+    const spotsToMakeAvailable = originalSpots.filter(id => !selectedSpotIds.includes(id));
+    const spotsToOccupy = selectedSpotIds.filter(id => !originalSpots.includes(id));
 
     // Release old spots
     spotsToMakeAvailable.forEach(spotId => {
@@ -108,12 +109,30 @@ export function AssignSpotDialog({
     // Update user's assigned spots
     batch.update(userRef, { assignedSpotIds: selectedSpotIds });
     
+    // Create the Spot Change Record document
+    const spotName = (id: string) => allSpots?.find(s => s.id === id)?.name || 'Unknown';
+    const content = `Parking spot assignment updated on ${new Date().toLocaleString()}.
+    
+- Spots Assigned: ${selectedSpotIds.map(spotName).join(', ') || 'None'}
+- Spots Removed: ${spotsToMakeAvailable.map(spotName).join(', ') || 'None'}
+    
+This is an automated record of changes made by the Vendor Administrator.`;
+
+    const docsRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userDocuments');
+    addDocumentNonBlocking(docsRef, {
+        userId: user.id,
+        vendorId: vendorAdmin.uid,
+        name: `Spot Change Record - ${new Date().toLocaleDateString()}`,
+        content: content,
+        createdAt: new Date().toISOString()
+    });
+
 
     try {
         await batch.commit();
         toast({
             title: "Parking Spots Updated",
-            description: `${user.firstName} ${user.lastName} now has ${selectedSpotIds.length} spot(s).`,
+            description: `${user.firstName} ${user.lastName} now has ${selectedSpotIds.length} spot(s). A record has been saved.`,
         });
         onOpenChange(false);
     } catch(e) {
