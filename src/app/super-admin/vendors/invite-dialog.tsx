@@ -20,6 +20,7 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/au
 import { initializeApp, deleteApp } from "firebase/app";
 import { firebaseConfig } from "@/firebase/config";
 import { createStripeCustomer } from "@/ai/flows/create-stripe-customer-flow";
+import { createStripeAccount } from "@/ai/flows/create-stripe-account-flow";
 import { Switch } from "@/components/ui/switch";
 
 
@@ -55,22 +56,32 @@ export function InviteVendorDialog({
     const tempAuth = getAuth(tempApp);
     let newUser;
     let stripeCustomerId;
+    let stripeAccountId;
 
     try {
-      // Step 1: Create the Stripe Customer via the secure server-side flow
+      // Step 1: Create user in the temporary auth instance
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
+      newUser = userCredential.user;
+
+      // Step 2: Create Stripe Customer (for billing the vendor)
       const stripeCustomerResult = await createStripeCustomer({ email, name });
       if (stripeCustomerResult.error || !stripeCustomerResult.customerId) {
         throw new Error(stripeCustomerResult.error || "Failed to create Stripe customer.");
       }
       stripeCustomerId = stripeCustomerResult.customerId;
-
-      // Step 2: Create user in the temporary auth instance
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, email, password);
-      newUser = userCredential.user;
       
-      // Step 3: Now create the vendor document in Firestore with all necessary IDs
+      // Step 3: Create Stripe Connected Account (for paying out the vendor)
+      // We explicitly pass the new Firebase UID to be the Stripe Account ID.
+      const stripeAccountResult = await createStripeAccount({ email, uid: newUser.uid });
+      if (stripeAccountResult.error || !stripeAccountResult.accountId) {
+          throw new Error(stripeAccountResult.error || "Failed to create Stripe Connected Account.");
+      }
+      stripeAccountId = stripeAccountResult.accountId;
+
+      // Step 4: Create the vendor document in Firestore with all necessary IDs
+      // The vendor's doc ID *is* their Firebase UID, which is also their Stripe Account ID.
       await setDoc(doc(firestore, "vendors", newUser.uid), {
-        id: newUser.uid,
+        id: newUser.uid, // This is also the Stripe Account ID
         name: name,
         email: email,
         status: "Pending Agreement",
@@ -80,12 +91,12 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         role: "vendorAdmin",
         stripeCustomerId: stripeCustomerId,
-        profileComplete: false, // Start with incomplete profile
-        agreementSigned: false, // Start with unsigned agreement
-        trialOffered: offerTrial, // Save trial eligibility
+        profileComplete: false,
+        agreementSigned: false,
+        trialOffered: offerTrial,
       });
 
-      // Step 4: Create the customer document for the extension (optional, but good practice)
+      // Step 5: Create the customer document for the Stripe extension
       const customerRef = doc(firestore, 'customers', newUser.uid);
       await setDoc(customerRef, {
         email: email,
@@ -98,7 +109,6 @@ export function InviteVendorDialog({
         description: `${name} has been created. They must complete their profile and sign the master agreement on first login.`,
       });
       
-      // Reset form and close dialog
       onOpenChange(false);
       setName("");
       setEmail("");
@@ -108,9 +118,8 @@ export function InviteVendorDialog({
 
     } catch (error: any) {
       console.error("Error creating vendor: ", error);
-      // If user was created in Auth but something else failed, clean up the auth user.
       if (newUser) {
-        await deleteUser(newUser);
+        await deleteUser(newUser).catch(e => console.error("Cleanup of auth user failed:", e));
       }
       toast({
         variant: "destructive",
@@ -118,8 +127,7 @@ export function InviteVendorDialog({
         description: error.message || "There was a problem creating the vendor account.",
       });
     } finally {
-      // Cleanup the temporary app
-      await deleteApp(tempApp);
+      await deleteApp(tempApp).catch(e => console.error("Cleanup of temp app failed:", e));
       setIsLoading(false);
     }
   };
@@ -203,5 +211,3 @@ export function InviteVendorDialog({
     </Dialog>
   );
 }
-
-    

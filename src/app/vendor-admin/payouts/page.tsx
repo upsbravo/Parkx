@@ -29,7 +29,7 @@ import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
-import { Landmark, ExternalLink, Smartphone, BookUser, Star, FileDown, ListFilter, SlidersHorizontal, ArrowUpDown, RefreshCw, X, CalendarIcon } from 'lucide-react';
+import { Landmark, Smartphone, BookUser, Star, FileDown, ListFilter, SlidersHorizontal, ArrowUpDown, RefreshCw, X, CalendarIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -38,8 +38,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
-import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
 
 type Transaction = {
   id: string;
@@ -89,8 +87,6 @@ export default function VendorPaymentsPage() {
   const { toast } = useToast();
 
   const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     initiatedDate: true,
@@ -110,7 +106,7 @@ export default function VendorPaymentsPage() {
   const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
 
   const transactionsQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin?.uid) return null; // Wait for vendorAdmin.uid
+    if (!firestore || !vendorAdmin?.uid) return null; 
 
     // For privileged vendors, show all transactions across the platform.
     if (vendorData?.isPrivileged) {
@@ -160,42 +156,6 @@ export default function VendorPaymentsPage() {
         description: 'Your changes will appear on customer statements within 24 hours.',
     });
   }
-
-  const handleManageBilling = async () => {
-    if (isSubmitting || !vendorData || !vendorData.stripeCustomerId) {
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: vendorData?.stripeCustomerId ? 'An operation is already in progress.' : 'Your Stripe customer account is not set up.'
-        });
-        return;
-    }
-
-    setIsSubmitting(true);
-    toast({ title: 'Generating Portal Link...' });
-
-    try {
-        const result = await createStripePortalSession({
-            customerId: vendorData.stripeCustomerId,
-            returnUrl: window.location.href,
-        });
-
-        if (result.url) {
-            window.location.href = result.url;
-        } else {
-            throw new Error(result.error || 'Failed to get customer portal URL.');
-        }
-    } catch (e: any) {
-        console.error("Error creating portal session:", e);
-        toast({
-            variant: 'destructive',
-            title: 'Failed to Open Billing Portal',
-            description: e.message || 'An unexpected error occurred.',
-        });
-        setIsSubmitting(false);
-    }
-  };
-
 
   const statusVariant = {
     succeeded: 'default',
@@ -543,5 +503,3 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
-
-    
