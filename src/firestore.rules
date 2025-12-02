@@ -68,9 +68,12 @@ service cloud.firestore {
                          (isSignedIn() && request.query.where.userId == request.auth.uid);
       }
 
-      // Vendor Admins can manage documents for their own users
+      // Vendor Admins can manage documents for their own users, and users can create their own.
       match /userDocuments/{docId} {
-        allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
+        allow read, list: if request.auth.uid == vendorId;
+        allow create: if (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid) ||
+                         (isSignedIn() && request.resource.data.userId == request.auth.uid);
+        allow update, delete: if isVendorAdmin() && request.auth.uid == vendorId;
       }
       
       // VENDOR <> SUPER ADMIN MESSAGES
@@ -140,16 +143,30 @@ service cloud.firestore {
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
       allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
       allow write: if isSuperAdmin();
     }
     
-    // Stripe Transactions
+    // Stripe Transactions - VENDORS CAN SEE ONLY THEIR OWN
     match /transactions/{transactionId} {
-        allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-        allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
-        // Only allow creation via backend functions (Stripe Extension)
-        allow create, update, delete: if false;
+      // Single document read
+      allow get: if isSuperAdmin() || 
+                    (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+
+      // LIST queries (this is what your useCollection uses!)
+      allow list: if isSuperAdmin() || 
+                     isPrivilegedVendor() ||
+                     (
+                       isVendorAdmin() && 
+                       request.query.orderBy != null &&
+                       request.query.where.size() == 1 &&
+                       request.query.where[0].field == 'vendorId' &&
+                       request.query.where[0].op == '==' &&
+                       request.query.where[0].value == request.auth.uid
+                     );
+
+      // Only backend (Stripe extension, Cloud Functions) can write
+      allow create, update, delete: if false;
     }
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
