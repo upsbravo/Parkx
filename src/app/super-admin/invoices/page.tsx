@@ -54,6 +54,8 @@ type VendorInvoice = {
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
+  stripeInvoicePdfUrl?: string;
+  stripeReceiptUrl?: string;
 };
 
 export default function AllInvoicesPage() {
@@ -171,6 +173,12 @@ Thank you for your business.
   };
   
   const handleDownloadInvoice = (invoice: VendorInvoice) => {
+    const downloadUrl = invoice.stripeInvoicePdfUrl || invoice.stripeReceiptUrl;
+    if (downloadUrl) {
+      window.open(downloadUrl, '_blank');
+      return;
+    }
+
     const textContent = generateInvoiceContent(invoice);
     const blob = new Blob([textContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
