@@ -11,7 +11,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, collection, doc, getDoc, writeBatch } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 const SyncStripeInvoicesInputSchema = z.object({
   stripeCustomerId: z.string().describe("The ID of the Stripe Customer whose invoices should be synced."),
@@ -32,6 +33,15 @@ export async function syncStripeInvoices(
   return syncStripeInvoicesFlow(input);
 }
 
+// Helper function to initialize Firebase on the server for this specific flow
+const getFlowFirestore = () => {
+    if (getApps().some(app => app.name === 'sync-stripe-invoices')) {
+        return getFirestore(getApp('sync-stripe-invoices'));
+    }
+    const app = initializeApp(firebaseConfig, 'sync-stripe-invoices');
+    return getFirestore(app);
+}
+
 const syncStripeInvoicesFlow = ai.defineFlow(
   {
     name: 'syncStripeInvoicesFlow',
@@ -48,7 +58,7 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       };
     }
 
-    const { firestore } = initializeFirebase();
+    const firestore = getFlowFirestore();
 
     try {
       const { default: Stripe } = await import('stripe');
