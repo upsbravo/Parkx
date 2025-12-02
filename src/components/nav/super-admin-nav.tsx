@@ -8,8 +8,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
@@ -55,7 +53,7 @@ export default function SuperAdminNav() {
         {navItems.map((item, index) => (
           item.subItems ? (
             <Collapsible key={index} asChild>
-              <>
+              <div className="w-full">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
@@ -82,7 +80,7 @@ export default function SuperAdminNav() {
                     ))}
                   </SidebarMenuSub>
                 </CollapsibleContent>
-              </>
+              </div>
             </Collapsible>
           ) : (
             <SidebarMenuItem key={item.href}>
