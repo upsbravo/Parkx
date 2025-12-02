@@ -1,3 +1,4 @@
+
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -44,7 +45,7 @@ const seed = async () => {
       lastName: lastName,
       email: email,
       status: 'Active',
-      assignedSpotId: null,
+      assignedSpotIds: [],
       cancellationRequested: false,
       role: 'endUser',
       waiverSigned: false, // Default to not signed
@@ -64,5 +65,7 @@ seed().then(() => {
     console.error(err);
     // process.exit(1);
 });
+
+    
 
     

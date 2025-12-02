@@ -31,7 +31,7 @@ type EndUser = {
   firstName: string;
   lastName: string;
   email: string;
-  assignedSpotIds?: string[];
+  assignedSpotId: string | null;
   cancellationRequested: boolean;
   cancellationRequestDate?: string; // ISO string
   vendorId: string;
@@ -61,33 +61,31 @@ export default function ApprovalsPage() {
   const { data: cancellationRequests, isLoading } = useCollection<EndUser>(requestsQuery);
 
   const handleApprove = async (request: EndUser) => {
-    if (!firestore || !vendorAdmin || !request.assignedSpotIds || request.assignedSpotIds.length === 0) return;
+    if (!firestore || !vendorAdmin || !request.assignedSpotId) return;
 
     const batch = writeBatch(firestore);
 
     // 1. Update the user in the /users collection
     const userRef = doc(firestore, 'users', request.id);
     batch.update(userRef, {
-      assignedSpotIds: [],
+      assignedSpotId: null,
       cancellationRequested: false,
       cancellationRequestDate: null,
       status: 'Inactive',
     });
 
-    // 2. Update all parking spots previously assigned to this user
-    request.assignedSpotIds.forEach(spotId => {
-      const spotRef = doc(firestore, 'vendors', vendorAdmin.uid, 'parkingSpots', spotId);
-      batch.update(spotRef, {
-          isAvailable: true,
-          userId: null,
-      });
+    // 2. Update the parking spot
+    const spotRef = doc(firestore, 'vendors', vendorAdmin.uid, 'parkingSpots', request.assignedSpotId);
+    batch.update(spotRef, {
+        isAvailable: true,
+        userId: null,
     });
     
     try {
         await batch.commit();
         toast({
             title: 'Cancellation Approved',
-            description: `${request.firstName} ${request.lastName}'s spots are now available.`,
+            description: `${request.firstName} ${request.lastName}'s spot is now available.`,
         });
     } catch(e) {
         console.error(e);
@@ -156,7 +154,7 @@ export default function ApprovalsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead>Spots to Vacate</TableHead>
+                <TableHead>Spot to Vacate</TableHead>
                 <TableHead>Request Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -191,7 +189,7 @@ export default function ApprovalsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{(request.assignedSpotIds || []).length} spot(s)</Badge>
+                      <Badge variant="outline">{request.assignedSpotId || 'N/A'}</Badge>
                     </TableCell>
                     <TableCell>
                       {request.cancellationRequestDate

@@ -54,7 +54,7 @@ type EndUser = {
   lastName: string;
   email: string;
   status: 'Active' | 'Pending' | 'Inactive';
-  assignedSpotId: string | null;
+  assignedSpotIds?: string[];
   truckParkingSpots?: number;
   isRecurringPayment?: boolean;
   vendorId: string;
@@ -96,6 +96,12 @@ export default function UserManagementPage() {
     if (!spotId) return 'N/A';
     const spot = parkingSpots?.find(s => s.id === spotId);
     return spot?.name ?? spotId;
+  }
+  
+  const getSpotCount = (assignedSpotIds?: string[]): string => {
+    if (!assignedSpotIds || assignedSpotIds.length === 0) return '0 Spots';
+    if (assignedSpotIds.length === 1) return '1 Spot';
+    return `${assignedSpotIds.length} Spots`;
   }
 
   const statusVariant = {
@@ -246,7 +252,7 @@ export default function UserManagementPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{getSpotName(user.assignedSpotId)}</TableCell>
+                      <TableCell>{getSpotCount(user.assignedSpotIds)}</TableCell>
                       <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -265,7 +271,7 @@ export default function UserManagementPage() {
                             <DropdownMenuItem asChild>
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignSpot(user)} disabled={!user.waiverSigned}>Assign Parking Lot</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)} disabled={!user.waiverSigned}>Assign Parking Lot(s)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (
@@ -341,3 +347,5 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    

@@ -11,30 +11,27 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc, addDocumentNonBlocking } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, query, where, writeBatch } from "firebase/firestore";
-import { useState, useMemo } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useState, useMemo, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type EndUser = {
   id: string;
   firstName: string;
   lastName: string;
-  assignedSpotId: string | null;
+  assignedSpotIds?: string[];
   waiverSigned?: boolean;
 };
 
 type ParkingSpot = {
   id: string;
   name: string;
+  userId: string | null;
+  isAvailable: boolean;
 };
 
 export function AssignSpotDialog({
@@ -49,31 +46,31 @@ export function AssignSpotDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: vendorAdmin } = useUser();
-  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(user.assignedSpotId);
+  const [selectedSpotIds, setSelectedSpotIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (user.assignedSpotIds) {
+      setSelectedSpotIds(user.assignedSpotIds);
+    } else {
+      setSelectedSpotIds([]);
+    }
+  }, [user, open]);
+
 
   const spotsQuery = useMemoFirebase(() => {
     if (!firestore || !vendorAdmin) return null;
     return query(
       collection(firestore, "vendors", vendorAdmin.uid, "parkingSpots"),
-      where("isAvailable", "==", true)
     );
   }, [firestore, vendorAdmin]);
-  const { data: availableSpots, isLoading: isLoadingSpots } = useCollection<ParkingSpot>(spotsQuery);
+  const { data: allSpots, isLoading: isLoadingSpots } = useCollection<ParkingSpot>(spotsQuery);
   
-  const currentSpotRef = useMemoFirebase(() => {
-      if(!firestore || !vendorAdmin || !user.assignedSpotId) return null;
-      return doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", user.assignedSpotId);
-  }, [firestore, vendorAdmin, user.assignedSpotId]);
-  const { data: currentSpot, isLoading: isLoadingCurrentSpot } = useDoc<ParkingSpot>(currentSpotRef);
-
-  const allSpots = useMemo(() => {
-    let spots = availableSpots ? [...availableSpots] : [];
-    if(currentSpot && !spots.some(s => s.id === currentSpot.id)) {
-        spots = [...spots, currentSpot];
-    }
-    return spots.sort((a,b) => a.name.localeCompare(b.name));
-  }, [availableSpots, currentSpot]);
+  const availableSpots = useMemo(() => {
+    if (!allSpots) return [];
+    // A spot is available if it's not occupied OR if it's occupied by the current user
+    return allSpots.filter(spot => spot.isAvailable || spot.userId === user.id);
+  }, [allSpots, user.id]);
 
 
   const handleSave = async () => {
@@ -88,76 +85,35 @@ export function AssignSpotDialog({
       return;
     }
 
-    if (selectedSpotId === user.assignedSpotId) {
-        toast({ title: "No Change", description: "The spot assignment was not changed." });
-        onOpenChange(false);
-        return;
-    }
-
     setIsSaving(true);
     
     const batch = writeBatch(firestore);
     const userRef = doc(firestore, "users", user.id);
 
-    const oldSpotName = currentSpot?.name || 'Unassigned';
-    const newSpot = allSpots.find(s => s.id === selectedSpotId);
-    const newSpotName = newSpot?.name || 'Unassigned';
+    const spotsToMakeAvailable = (user.assignedSpotIds || []).filter(id => !selectedSpotIds.includes(id));
+    const spotsToOccupy = selectedSpotIds.filter(id => !(user.assignedSpotIds || []).includes(id));
 
-    // Case 1: Un-assigning the current spot
-    if (user.assignedSpotId && !selectedSpotId) {
-        const oldSpotRef = doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", user.assignedSpotId);
-        batch.update(oldSpotRef, { isAvailable: true, userId: null });
-        batch.update(userRef, { assignedSpotId: null });
-    }
-    // Case 2: Assigning a new spot (or changing spots)
-    else if (selectedSpotId && selectedSpotId !== user.assignedSpotId) {
-        // Make old spot available if there was one
-        if (user.assignedSpotId) {
-            const oldSpotRef = doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", user.assignedSpotId);
-            batch.update(oldSpotRef, { isAvailable: true, userId: null });
-        }
-        // Assign new spot
-        const newSpotRef = doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", selectedSpotId);
-        batch.update(newSpotRef, { isAvailable: false, userId: user.id });
-        batch.update(userRef, { assignedSpotId: selectedSpotId });
-    }
-
-    // Create a document for the change
-    const docContent = `
-PARKING SPOT ASSIGNMENT CHANGE RECORD
--------------------------------------
-Date of Change: ${new Date().toLocaleString()}
-
-User: ${user.firstName} ${user.lastName} (ID: ${user.id})
-
-PREVIOUS ASSIGNMENT:
-Spot: ${oldSpotName}
-
-NEW ASSIGNMENT:
-Spot: ${newSpotName}
-
-This document confirms the change in parking spot assignment as requested or administered.
-    `.trim();
-
-    const docsRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userDocuments');
-    addDocumentNonBlocking(docsRef, {
-        userId: user.id,
-        vendorId: vendorAdmin.uid,
-        name: `Spot Change Record - ${new Date().toLocaleDateString()}`,
-        content: docContent,
-        createdAt: new Date().toISOString(),
+    // Release old spots
+    spotsToMakeAvailable.forEach(spotId => {
+        const spotRef = doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", spotId);
+        batch.update(spotRef, { isAvailable: true, userId: null });
     });
 
+    // Assign new spots
+    spotsToOccupy.forEach(spotId => {
+        const spotRef = doc(firestore, "vendors", vendorAdmin.uid, "parkingSpots", spotId);
+        batch.update(spotRef, { isAvailable: false, userId: user.id });
+    });
+    
+    // Update user's assigned spots
+    batch.update(userRef, { assignedSpotIds: selectedSpotIds });
+    
 
     try {
         await batch.commit();
         toast({
-            title: "Parking Spot Assigned",
-            description: `${user.firstName} ${user.lastName} has been assigned to spot ${newSpotName}.`,
-        });
-        toast({
-            title: "Document Created",
-            description: "A record of the spot change has been saved.",
+            title: "Parking Spots Updated",
+            description: `${user.firstName} ${user.lastName} now has ${selectedSpotIds.length} spot(s).`,
         });
         onOpenChange(false);
     } catch(e) {
@@ -167,40 +123,57 @@ This document confirms the change in parking spot assignment as requested or adm
         setIsSaving(false);
     }
   };
+  
+  const handleSpotToggle = (spotId: string) => {
+    setSelectedSpotIds(prev => 
+      prev.includes(spotId) ? prev.filter(id => id !== spotId) : [...prev, spotId]
+    );
+  };
 
-  const isLoading = isLoadingSpots || isLoadingCurrentSpot;
+  const isLoading = isLoadingSpots;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Spot to {user.firstName}</DialogTitle>
+          <DialogTitle>Assign Spot(s) to {user.firstName}</DialogTitle>
           <DialogDescription>
-            Select an available spot. This will generate a record of the change.
+            Select one or more available spots for this user.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-            <Label htmlFor="spot-select">Available Spots</Label>
-            {isLoading ? (
-                <Skeleton className="h-10 w-full" />
-            ): (
-            <Select
-                value={selectedSpotId || 'unassigned'}
-                onValueChange={(value) => setSelectedSpotId(value === 'unassigned' ? null : value)}
-            >
-                <SelectTrigger id="spot-select">
-                <SelectValue placeholder="Select a spot..." />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {allSpots.map((spot) => (
-                    <SelectItem key={spot.id} value={spot.id}>
-                    {spot.name}
-                    </SelectItem>
-                ))}
-                </SelectContent>
-            </Select>
-            )}
+            <Label>Available Spots ({selectedSpotIds.length} selected)</Label>
+            <ScrollArea className="h-60 mt-2 w-full rounded-md border p-4">
+              {isLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                    <Skeleton className="h-8 w-full" />
+                  </div>
+              ): availableSpots.length > 0 ? (
+                <div className="space-y-2">
+                  {availableSpots.map((spot) => (
+                    <div key={spot.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`spot-${spot.id}`}
+                        checked={selectedSpotIds.includes(spot.id)}
+                        onCheckedChange={() => handleSpotToggle(spot.id)}
+                      />
+                      <label
+                        htmlFor={`spot-${spot.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {spot.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No available spots.
+                </div>
+              )}
+            </ScrollArea>
         </div>
         <DialogFooter>
           <Button
@@ -220,3 +193,4 @@ This document confirms the change in parking spot assignment as requested or adm
   );
 }
 
+    
