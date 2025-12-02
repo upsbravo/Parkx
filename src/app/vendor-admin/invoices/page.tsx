@@ -31,6 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { differenceInDays, format } from 'date-fns';
 import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
 import { syncStripeInvoices } from '@/ai/flows/sync-stripe-invoices-flow';
+import { cn } from '@/lib/utils';
 
 
 type Vendor = {
