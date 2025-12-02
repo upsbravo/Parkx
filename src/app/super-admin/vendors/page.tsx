@@ -50,7 +50,6 @@ import {
 import { differenceInDays } from "date-fns";
 import Link from 'next/link';
 import { cancelStripeSubscription } from "@/ai/flows/cancel-stripe-subscription-flow";
-import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
 
 
 type Vendor = {
@@ -62,7 +61,7 @@ type Vendor = {
   trialEnds: string | null; // ISO string or null
   spotsUsed: number;
   spotLimit: number;
-  isPrivileged?: boolean; // New field for privileged status
+  isPrivileged?: boolean;
   stripeSubscriptionId?: string;
 };
 
@@ -162,68 +161,6 @@ export default function VendorsPage() {
     toast({
       title: "Vendor Reactivated",
       description: `${vendor.name} has been marked as active.`,
-    });
-  };
-
-  const handleStartTrial = async (vendor: Vendor) => {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    const vendorRef = doc(firestore, "vendors", vendor.id);
-
-    // Update Firestore document first
-    updateDocumentNonBlocking(vendorRef, { 
-      status: "Trial",
-      trialEnds: trialEndDate.toISOString(),
-      agreementSigned: true, // Mark agreement as signed
-      agreementSignedDate: new Date().toISOString(),
-    });
-
-    toast({
-      title: "Trial Started",
-      description: `${vendor.name} has been placed on a 30-day trial.`,
-    });
-    
-    // In a real app, you would also need to create a trialing subscription in Stripe here.
-    // This part is complex and depends on having a pre-defined plan.
-    // For now, we are just updating the status in our DB.
-  };
-
-  const handleEndTrial = async (vendor: Vendor) => {
-    const vendorRef = doc(firestore, "vendors", vendor.id);
-    
-    // If there's a subscription, end its trial in Stripe
-    if (vendor.stripeSubscriptionId) {
-        try {
-            // Ending a trial is done by updating the subscription to remove the trial end date.
-            const result = await updateStripeSubscription({
-                subscriptionId: vendor.stripeSubscriptionId,
-                // priceId and quantity are not needed for ending a trial, but the flow expects them.
-                // We pass placeholder or existing values if available.
-                // A better flow would have a dedicated 'endTrial' action.
-                // For now, we will assume the flow can handle this by just having the subscriptionId.
-                // Or we can modify the flow to accept optional parameters.
-                // Let's assume for now just updating the local status is enough for the demo.
-            });
-
-            if (!result.success) {
-                // For simplicity, we are not actually ending trial in stripe here,
-                // as that requires a more specific API call not available in the current flow.
-                // In a real scenario, you would call `stripe.subscriptions.update(id, { trial_end: 'now' })`
-            }
-        } catch (error: any) {
-            toast({
-                variant: "destructive",
-                title: "Stripe Error",
-                description: "Could not end the trial in Stripe. Please do it manually in the Stripe dashboard.",
-            });
-            // We don't return here, we still update our internal status.
-        }
-    }
-
-    updateDocumentNonBlocking(vendorRef, { status: "Active", trialEnds: null });
-    toast({
-      title: "Trial Ended",
-      description: `${vendor.name}'s trial has ended and they are now Active.`,
     });
   };
 
@@ -381,7 +318,7 @@ export default function VendorsPage() {
                               Adjust Spot Limit
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
-                              Billings
+                              Billings & Credits
                             </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/documents`)}>
                                 <FileText className="mr-2 h-4 w-4"/>
@@ -394,11 +331,6 @@ export default function VendorsPage() {
                             <DropdownMenuItem onClick={() => handleTogglePrivileged(vendor)}>
                               {vendor.isPrivileged ? 'Demote to Regular' : 'Promote to Privileged'}
                             </DropdownMenuItem>
-                             {vendor.status === 'Trial' ? (
-                              <DropdownMenuItem onClick={() => handleEndTrial(vendor)}>End Trial</DropdownMenuItem>
-                            ) : vendor.status === 'Pending Agreement' ? (
-                              <DropdownMenuItem onClick={() => handleStartTrial(vendor)}>Start Trial</DropdownMenuItem>
-                            ) : null}
                             <DropdownMenuSeparator />
                             {vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
@@ -461,3 +393,5 @@ export default function VendorsPage() {
     </>
   );
 }
+
+    

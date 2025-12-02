@@ -85,6 +85,10 @@
           "description": "The date the vendor joined.",
           "format": "date-time"
         },
+        "trialOffered": {
+          "type": "boolean",
+          "description": "Indicates if a 30-day trial was offered upon creation."
+        },
         "trialEnds": {
           "type": [
             "string",

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -22,6 +23,7 @@ type Vendor = {
   name: string;
   spotLimit: number;
   stripeCustomerId?: string;
+  trialOffered?: boolean;
   address?: {
     street1?: string;
     city?: string;
@@ -93,7 +95,6 @@ export default function MasterAgreementPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToCharge, setAgreedToCharge] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [includeTrial, setIncludeTrial] = useState(true);
 
   const vendorDocRef = useMemoFirebase(
     () => (user ? doc(firestore, 'vendors', user.uid) : null),
@@ -164,7 +165,8 @@ ParkX Technologies LLC – Auto-signed
             }
         };
 
-        if (includeTrial) {
+        // Check if the vendor was offered a trial
+        if (vendorData.trialOffered) {
             checkoutInput.subscription_data = {
                 trial_period_days: 30,
             };
@@ -173,13 +175,13 @@ ParkX Technologies LLC – Auto-signed
         const result = await createStripeCheckout(checkoutInput);
 
         if (result.url) {
-             const trialEndDate = includeTrial ? new Date() : null;
+             const trialEndDate = vendorData.trialOffered ? new Date() : null;
              if (trialEndDate) {
                 trialEndDate.setDate(trialEndDate.getDate() + 30);
              }
              
              await updateDocumentNonBlocking(vendorDocRef!, {
-                status: includeTrial ? 'Trial' : 'Active', // Set status based on trial
+                status: vendorData.trialOffered ? 'Trial' : 'Active', // Set status based on trial
                 agreementSigned: true,
                 agreementSignedDate: new Date().toISOString(),
                 trialEnds: trialEndDate ? trialEndDate.toISOString() : null,
@@ -202,6 +204,7 @@ ParkX Technologies LLC – Auto-signed
 
   const isLoading = isUserLoading || isVendorLoading;
   const canSubmit = signerName && signerTitle && agreedToTerms && agreedToCharge && !isLoading && !isSubmitting;
+  const wasTrialOffered = vendorData?.trialOffered !== false; // Default to true if undefined
 
   return (
     <div className="flex flex-col items-center justify-center p-4 md:p-6 bg-muted min-h-screen">
@@ -237,16 +240,10 @@ ParkX Technologies LLC – Auto-signed
                 )}
                 <Separator />
                 <div className="flex justify-between font-bold"><p>Total Monthly Fee</p> <p>${totalMonthlyFee.toFixed(2)}</p></div>
-                 <div className="flex items-center justify-between pt-4">
-                    <Label htmlFor="trial-switch" className="text-sm font-medium">Include 30-Day Free Trial?</Label>
-                    <Switch
-                        id="trial-switch"
-                        checked={includeTrial}
-                        onCheckedChange={setIncludeTrial}
-                        disabled={isLoading}
-                    />
-                 </div>
-                 <p className="text-xs text-muted-foreground pt-2">{includeTrial ? "You will not be charged until your trial ends." : "Your first payment will be processed immediately."}</p>
+                 
+                 {wasTrialOffered && (
+                    <p className="text-sm text-green-600 font-medium pt-2">A 30-day free trial will be applied. You will not be charged until your trial ends.</p>
+                 )}
             </div>
 
             <div className="w-full grid md:grid-cols-2 gap-4">
@@ -281,3 +278,5 @@ ParkX Technologies LLC – Auto-signed
     </div>
   );
 }
+
+    

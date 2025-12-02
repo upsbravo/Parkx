@@ -20,6 +20,7 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/au
 import { initializeApp, deleteApp } from "firebase/app";
 import { firebaseConfig } from "@/firebase/config";
 import { createStripeCustomer } from "@/ai/flows/create-stripe-customer-flow";
+import { Switch } from "@/components/ui/switch";
 
 
 export function InviteVendorDialog({
@@ -35,6 +36,7 @@ export function InviteVendorDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [spotLimit, setSpotLimit] = useState(20);
+  const [offerTrial, setOfferTrial] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateVendor = async () => {
@@ -80,6 +82,7 @@ export function InviteVendorDialog({
         stripeCustomerId: stripeCustomerId,
         profileComplete: false, // Start with incomplete profile
         agreementSigned: false, // Start with unsigned agreement
+        trialOffered: offerTrial, // Save trial eligibility
       });
 
       // Step 4: Create the customer document for the extension (optional, but good practice)
@@ -101,6 +104,8 @@ export function InviteVendorDialog({
       setEmail("");
       setPassword("");
       setSpotLimit(20);
+      setOfferTrial(true);
+
     } catch (error: any) {
       console.error("Error creating vendor: ", error);
       // If user was created in Auth but something else failed, clean up the auth user.
@@ -121,7 +126,7 @@ export function InviteVendorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create New Vendor</DialogTitle>
           <DialogDescription>
@@ -129,54 +134,55 @@ export function InviteVendorDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Vendor Name
-            </Label>
+          <div className="space-y-2">
+            <Label htmlFor="name">Vendor Name</Label>
             <Input
               id="name"
               placeholder="Acme Parking Inc."
-              className="col-span-3"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="email" className="text-right">
-              Email
-            </Label>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
               placeholder="vendor@example.com"
-              className="col-span-3"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="password" className="text-right">
-              Temp Password
-            </Label>
+           <div className="space-y-2">
+            <Label htmlFor="password">Temp Password</Label>
             <Input
               id="password"
               type="password"
               placeholder="Set a temporary password"
-              className="col-span-3"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="spot-limit" className="text-right">
-              Spot Limit
-            </Label>
+           <div className="space-y-2">
+            <Label htmlFor="spot-limit">Spot Limit</Label>
             <Input
               id="spot-limit"
               type="number"
-              className="col-span-3"
               value={spotLimit}
               onChange={(e) => setSpotLimit(Number(e.target.value))}
+            />
+          </div>
+           <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label>Offer 30-Day Trial?</Label>
+              <p className="text-xs text-muted-foreground">
+                If off, the vendor will be charged immediately upon signup.
+              </p>
+            </div>
+            <Switch
+              checked={offerTrial}
+              onCheckedChange={setOfferTrial}
+              aria-label="Toggle trial offer"
             />
           </div>
         </div>
@@ -197,3 +203,5 @@ export function InviteVendorDialog({
     </Dialog>
   );
 }
+
+    
