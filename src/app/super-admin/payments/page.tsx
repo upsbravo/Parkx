@@ -63,7 +63,7 @@ export default function PlatformPaymentsPage() {
     );
   }, [transactions, searchTerm]);
 
-  const formatCurrency = (amountInCents: number, currency: string) => {
+  const formatCurrency = (amountInCents: number | undefined, currency: string = 'usd') => {
     if (typeof amountInCents !== 'number') return '-';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -125,9 +125,9 @@ export default function PlatformPaymentsPage() {
                         <TableHead>Date</TableHead>
                         <TableHead>Vendor</TableHead>
                         <TableHead>Customer</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Fee</TableHead>
-                        <TableHead>Net</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Fee</TableHead>
+                        <TableHead className="text-right">Net</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Receipt</TableHead>
@@ -140,9 +140,9 @@ export default function PlatformPaymentsPage() {
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                            <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-16" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-20" /></TableCell>
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
@@ -151,14 +151,14 @@ export default function PlatformPaymentsPage() {
                       ) : filteredTransactions.length > 0 ? (
                         filteredTransactions.map((tx) => (
                           <TableRow key={tx.id}>
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium text-xs">
                               {format(new Date(tx.created * 1000), 'PPp')}
                             </TableCell>
                             <TableCell>{tx.vendorName}</TableCell>
                             <TableCell>{tx.customerEmail}</TableCell>
-                            <TableCell>{formatCurrency(tx.amount, tx.currency)}</TableCell>
-                            <TableCell>{formatCurrency(tx.fee || 0, tx.currency)}</TableCell>
-                            <TableCell>{formatCurrency(tx.net || 0, tx.currency)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(tx.amount, tx.currency)}</TableCell>
+                            <TableCell className="text-right text-destructive">- {formatCurrency(tx.fee, tx.currency)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(tx.net, tx.currency)}</TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-2">
                                    {typeIcon[tx.type]}
