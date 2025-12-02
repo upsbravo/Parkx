@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";

@@ -85,6 +85,10 @@
           "description": "The date the vendor joined.",
           "format": "date-time"
         },
+        "trialOffered": {
+          "type": "boolean",
+          "description": "Indicates if a 30-day trial was offered upon creation."
+        },
         "trialEnds": {
           "type": [
             "string",
@@ -172,12 +176,12 @@
           "type": "string",
           "description": "Last name of the end-user."
         },
-        "assignedSpotId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "Reference to ParkingSpot. (Relationship: ParkingSpot 1:1 EndUser)"
+        "assignedSpotIds": {
+          "type": "array",
+          "description": "An array of ParkingSpot IDs assigned to this user.",
+          "items": {
+            "type": "string"
+          }
         },
         "cancellationRequested": {
           "type": "boolean",
