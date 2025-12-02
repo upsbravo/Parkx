@@ -13,4 +13,5 @@ import '@/ai/flows/cancel-stripe-subscription-flow.ts';
 import '@/ai/flows/update-stripe-subscription-flow.ts';
 import '@/ai/flows/create-stripe-checkout-flow.ts';
 import '@/ai/flows/update-stripe-customer-flow.ts';
+import '@/ai/flows/sync-stripe-invoices-flow.ts';
 

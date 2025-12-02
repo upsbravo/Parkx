@@ -1,3 +1,4 @@
+
 // src/app/vendor-admin/invoices/page.tsx
 
 'use client';
@@ -24,11 +25,12 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, where, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Download, MoreHorizontal, Info, LifeBuoy, ExternalLink } from 'lucide-react';
+import { Download, MoreHorizontal, Info, LifeBuoy, ExternalLink, RefreshCw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { differenceInDays, format } from 'date-fns';
 import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
+import { syncStripeInvoices } from '@/ai/flows/sync-stripe-invoices-flow';
 
 
 type Vendor = {
@@ -55,6 +57,7 @@ export default function VendorInvoicesPage() {
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -71,7 +74,7 @@ export default function VendorInvoicesPage() {
     () => (user && user.uid ? query(collection(firestore, 'vendorInvoices'), where('vendorId', '==', user.uid)) : null),
     [user, firestore]
   );
-  const { data: invoices, isLoading: areInvoicesLoading } = useCollection<VendorInvoice>(invoicesQuery);
+  const { data: invoices, isLoading: areInvoicesLoading, refetch: refetchInvoices } = useCollection<VendorInvoice>(invoicesQuery);
   
   const statusVariant = {
     Paid: 'default',
@@ -139,6 +142,36 @@ export default function VendorInvoicesPage() {
     }
   };
 
+  const handleSyncInvoices = async () => {
+    if (!vendorData?.stripeCustomerId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Stripe Customer ID not found.' });
+        return;
+    }
+    setIsSyncing(true);
+    try {
+        const result = await syncStripeInvoices({ stripeCustomerId: vendorData.stripeCustomerId });
+        if (result.success) {
+            toast({
+                title: 'Sync Complete',
+                description: `${result.syncedCount} new invoice(s) have been synced from Stripe.`,
+            });
+            if (refetchInvoices) {
+                refetchInvoices();
+            }
+        } else {
+            throw new Error(result.error || 'Unknown sync error.');
+        }
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sync Failed',
+            description: e.message,
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
 
   const isLoading = isUserLoading || areInvoicesLoading || isVendorLoading;
 
@@ -180,11 +213,17 @@ export default function VendorInvoicesPage() {
 
 
       <Card>
-        <CardHeader>
-          <CardTitle>My Invoice History</CardTitle>
-          <CardDescription>
-            A list of your monthly subscription payments to ParkX.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>My Invoice History</CardTitle>
+                <CardDescription>
+                    A list of your monthly subscription payments to ParkX.
+                </CardDescription>
+            </div>
+            <Button variant="outline" onClick={handleSyncInvoices} disabled={isSyncing || isLoading}>
+                <RefreshCw className={cn("mr-2 h-4 w-4", isSyncing && "animate-spin")} />
+                {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
+            </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -255,7 +294,7 @@ export default function VendorInvoicesPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No subscription invoices found.
+                    No subscription invoices found. Try syncing with Stripe.
                   </TableCell>
                 </TableRow>
               )}
