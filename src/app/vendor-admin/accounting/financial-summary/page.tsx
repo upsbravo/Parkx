@@ -54,14 +54,14 @@ export default function VendorFinancialSummaryPage() {
 
   const transactionsQuery = useMemoFirebase(
     () => {
-        if (!firestore || !vendorAdmin?.uid) return null; // <-- IMPORTANT: Wait for vendorAdmin.uid
+        if (!firestore || !vendorAdmin?.uid) return null;
         return query(
             collection(firestore, 'transactions'),
             where('vendorId', '==', vendorAdmin.uid),
             orderBy('created', 'desc')
         );
     },
-    [firestore, vendorAdmin]
+    [firestore, vendorAdmin?.uid]
   );
   
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);

@@ -83,7 +83,7 @@ type VisibleColumns = {
 export default function VendorPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
-  const { user: vendorAdmin } = useUser();
+  const { user: vendorAdmin, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
@@ -107,22 +107,20 @@ export default function VendorPaymentsPage() {
   const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
 
   const transactionsQuery = useMemoFirebase(() => {
-    if (!firestore || !vendorAdmin) {
-      return null;
-    }
-  
+    if (!firestore || !vendorAdmin?.uid) return null; // Wait for vendorAdmin.uid
+
     // For privileged vendors, show all transactions across the platform.
     if (vendorData?.isPrivileged) {
       return query(collection(firestore, 'transactions'), orderBy('created', 'desc'));
     }
-  
+
     // For regular vendors, it is REQUIRED to filter by their vendorId to comply with security rules.
     return query(
       collection(firestore, 'transactions'),
       where('vendorId', '==', vendorAdmin.uid),
       orderBy('created', 'desc')
     );
-  }, [firestore, vendorAdmin, vendorData]);
+  }, [firestore, vendorAdmin?.uid, vendorData?.isPrivileged]);
 
 
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
@@ -173,7 +171,7 @@ export default function VendorPaymentsPage() {
     pending: 'secondary',
   } as const;
 
-  const isLoading = areTransactionsLoading || isVendorDataLoading || arePayoutsLoading;
+  const isLoading = isUserLoading || areTransactionsLoading || isVendorDataLoading || arePayoutsLoading;
   const totalPayout = payouts?.reduce((acc, p) => acc + p.amount, 0) ?? 0;
 
 
