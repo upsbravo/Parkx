@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, ChangeEvent } from 'react';
+import { useState, useMemo, ChangeEvent, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -38,8 +38,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
 
 type Transaction = {
   id: string;
@@ -56,6 +56,7 @@ type Transaction = {
 
 type Vendor = {
     isPrivileged?: boolean;
+    stripeCustomerId?: string;
 }
 
 type Payout = {
@@ -88,6 +89,7 @@ export default function VendorPaymentsPage() {
   const { toast } = useToast();
 
   const [statementDescriptor, setStatementDescriptor] = useState('ACME PARKING');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
@@ -158,6 +160,42 @@ export default function VendorPaymentsPage() {
         description: 'Your changes will appear on customer statements within 24 hours.',
     });
   }
+
+  const handleManageBilling = async () => {
+    if (isSubmitting || !vendorData || !vendorData.stripeCustomerId) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: vendorData?.stripeCustomerId ? 'An operation is already in progress.' : 'Your Stripe customer account is not set up.'
+        });
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast({ title: 'Generating Portal Link...' });
+
+    try {
+        const result = await createStripePortalSession({
+            customerId: vendorData.stripeCustomerId,
+            returnUrl: window.location.href,
+        });
+
+        if (result.url) {
+            window.location.href = result.url;
+        } else {
+            throw new Error(result.error || 'Failed to get customer portal URL.');
+        }
+    } catch (e: any) {
+        console.error("Error creating portal session:", e);
+        toast({
+            variant: 'destructive',
+            title: 'Failed to Open Billing Portal',
+            description: e.message || 'An unexpected error occurred.',
+        });
+        setIsSubmitting(false);
+    }
+  };
+
 
   const statusVariant = {
     succeeded: 'default',
@@ -247,18 +285,11 @@ export default function VendorPaymentsPage() {
                         Manage your Stripe account and update your bank details for payouts.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                     <div className="flex items-center justify-between rounded-lg border bg-card p-4">
-                        <div>
-                            <p className="text-sm font-medium">Acme Parking Inc.</p>
-                            <p className="text-sm text-muted-foreground">acct_123...xyz</p>
-                        </div>
-                        <Badge variant="default">Enabled</Badge>
-                    </div>
-                     <p className='text-sm text-muted-foreground'>ParkX uses Stripe to process payments from your customers. Click below to securely manage your account details, including your bank account for payouts.</p>
+                <CardContent>
+                    <StripeConnectOnboarding />
                 </CardContent>
                 <CardFooter>
-                     <Button variant="outline">
+                     <Button variant="outline" onClick={handleManageBilling} disabled={isSubmitting}>
                         Manage on Stripe <ExternalLink className='ml-2 h-4 w-4'/>
                     </Button>
                 </CardFooter>

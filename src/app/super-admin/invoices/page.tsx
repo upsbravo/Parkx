@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, query, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInDays } from 'date-fns';
@@ -72,7 +72,7 @@ export default function AllInvoicesPage() {
 
   const firestore = useFirestore();
   const invoicesQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'vendorInvoices') : null),
+    () => (firestore ? query(collection(firestore, 'vendorInvoices')) : null),
     [firestore]
   );
   const { data: vendorInvoices, isLoading } =
@@ -105,7 +105,7 @@ export default function AllInvoicesPage() {
   }
   
   const handleMarkAsPaid = (invoice: VendorInvoice) => {
-    if (invoice.status === 'Paid') return;
+    if (invoice.status === 'Paid' || !firestore) return;
     const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
     updateDocumentNonBlocking(invoiceRef, { status: 'Paid' });
     toast({
@@ -121,7 +121,7 @@ export default function AllInvoicesPage() {
   };
   
   const handleVoidConfirm = () => {
-    if (!selectedInvoice) return;
+    if (!selectedInvoice || !firestore) return;
     const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
     deleteDocumentNonBlocking(invoiceRef);
     toast({

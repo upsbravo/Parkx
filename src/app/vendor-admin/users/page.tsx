@@ -59,6 +59,7 @@ type EndUser = {
   isRecurringPayment?: boolean;
   vendorId: string;
   waiverSigned?: boolean;
+  profileComplete?: boolean;
 };
 
 type ParkingSpot = {
@@ -113,11 +114,11 @@ export default function UserManagementPage() {
   };
 
   const handleAssignSpot = (user: EndUser) => {
-    if (!user.waiverSigned) {
+    if (!user.profileComplete || !user.waiverSigned) {
       toast({
         variant: "destructive",
-        title: "Agreement Not Signed",
-        description: "You cannot assign a parking lot until the user has signed the parking agreement.",
+        title: "Profile Incomplete",
+        description: "The user must complete their profile and sign the agreement before a spot can be assigned.",
       });
       return;
     }
@@ -282,7 +283,7 @@ export default function UserManagementPage() {
                                     <span>View Documents</span>
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleAssignSpot(user)} disabled={!user.waiverSigned}>Assign Parking Lot(s)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Parking Lot(s)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (
