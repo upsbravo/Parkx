@@ -108,8 +108,9 @@ export default function VendorPaymentsPage() {
   const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
 
   const transactionsQuery = useMemoFirebase(() => {
-    // Wait until we have all necessary data to build the query correctly.
-    if (!firestore || !vendorAdmin || isVendorDataLoading) {
+    // A regular vendor MUST have a vendorId to query transactions.
+    // A privileged vendor can query all transactions, so we don't need to wait for their ID.
+    if (!firestore || !vendorAdmin || (isVendorDataLoading && !vendorData?.isPrivileged)) {
       return null;
     }
   
