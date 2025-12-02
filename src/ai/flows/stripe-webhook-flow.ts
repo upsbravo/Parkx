@@ -298,16 +298,19 @@ async function handleInvoicePaymentFailed(invoice: any) {
  */
 async function handleChargeSucceeded(charge: any) {
     // Determine the vendorId. In a Connect platform, this comes from the destination account.
-    const vendorId = charge.destination || charge.on_behalf_of || charge.transfer_data?.destination;
+    let vendorId = charge.destination || charge.on_behalf_of || charge.transfer_data?.destination;
+    let vendorName;
 
+    // If there is no vendorId, it's a platform fee, not a vendor transaction.
     if (!vendorId) {
-        console.log('Charge succeeded without a vendor ID. This might be a platform fee.', charge.id);
-        return;
+        console.log('Charge succeeded without a vendor ID. Recording as platform revenue.', charge.id);
+        vendorId = 'platform';
+        vendorName = 'ParkX Platform Revenue';
+    } else {
+        // If there is a vendorId, denormalize vendor name
+        const vendorSnap = await getDoc(doc(firestore, 'vendors', vendorId));
+        vendorName = vendorSnap.exists() ? vendorSnap.data().name : 'Unknown Vendor';
     }
-
-    // Denormalize vendor name
-    const vendorSnap = await getDoc(doc(firestore, 'vendors', vendorId));
-    const vendorName = vendorSnap.exists() ? vendorSnap.data().name : 'Unknown Vendor';
 
     // Fee details are in the balance_transaction
     const balanceTransactionId = charge.balance_transaction;
