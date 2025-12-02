@@ -10,11 +10,12 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, collection, where, query, getDocs, doc, setDoc, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, writeBatch } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
 const SyncStripeInvoicesInputSchema = z.object({
   stripeCustomerId: z.string().describe("The ID of the Stripe Customer whose invoices should be synced."),
+  vendorId: z.string().describe("The Firebase UID of the vendor requesting the sync."),
 });
 export type SyncStripeInvoicesInput = z.infer<typeof SyncStripeInvoicesInputSchema>;
 
@@ -37,7 +38,7 @@ const syncStripeInvoicesFlow = ai.defineFlow(
     inputSchema: SyncStripeInvoicesInputSchema,
     outputSchema: SyncStripeInvoicesOutputSchema,
   },
-  async ({ stripeCustomerId }) => {
+  async ({ stripeCustomerId, vendorId }) => {
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error('STRIPE_SECRET_KEY environment variable not set.');
       return {
@@ -53,17 +54,20 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      // 1. Find the vendor details from our database using the Stripe Customer ID.
-      const vendorsRef = collection(firestore, 'vendors');
-      const q = query(vendorsRef, where('stripeCustomerId', '==', stripeCustomerId));
-      const vendorSnapshot = await getDocs(q);
+      // 1. Find the vendor details from our database using the provided vendorId.
+      const vendorRef = doc(firestore, 'vendors', vendorId);
+      const vendorSnapshot = await getDoc(vendorRef);
 
-      if (vendorSnapshot.empty) {
-        return { success: false, syncedCount: 0, error: 'Could not find a vendor with the provided Stripe Customer ID.' };
+      if (!vendorSnapshot.exists()) {
+        return { success: false, syncedCount: 0, error: 'Could not find a vendor with the provided ID.' };
       }
-      const vendorDoc = vendorSnapshot.docs[0];
-      const vendorId = vendorDoc.id;
-      const vendorName = vendorDoc.data().name;
+      const vendorData = vendorSnapshot.data();
+      const vendorName = vendorData.name;
+      
+      // Security check: ensure the stripe ID matches
+      if (vendorData.stripeCustomerId !== stripeCustomerId) {
+           return { success: false, syncedCount: 0, error: 'Stripe customer ID mismatch.' };
+      }
 
       // 2. Fetch all invoices for this customer from Stripe.
       const stripeInvoices = await stripe.invoices.list({
@@ -73,16 +77,17 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       
       const batch = writeBatch(firestore);
       let newInvoiceCount = 0;
+      const vendorInvoicesRef = collection(firestore, 'vendorInvoices');
 
       // 3. Loop through Stripe invoices and create them in Firestore if they don't exist.
       for (const invoice of stripeInvoices.data) {
           // We only care about invoices that have been paid or failed, not drafts.
           if (!invoice.paid && invoice.status !== 'open') continue;
 
-          const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
-          const existingInvoiceSnap = await getDocs(query(collection(firestore, 'vendorInvoices'), where('id', '==', invoice.id)));
+          const invoiceRef = doc(vendorInvoicesRef, invoice.id);
+          const existingInvoiceSnap = await getDoc(invoiceRef);
           
-          if (existingInvoiceSnap.empty) {
+          if (!existingInvoiceSnap.exists()) {
             newInvoiceCount++;
             const status = invoice.status === 'paid' ? 'Paid' : (invoice.status === 'open' ? 'Overdue' : 'Pending');
 

@@ -1,4 +1,5 @@
 
+
 // src/app/vendor-admin/invoices/page.tsx
 
 'use client';
@@ -144,13 +145,16 @@ export default function VendorInvoicesPage() {
   };
 
   const handleSyncInvoices = async () => {
-    if (!vendorData?.stripeCustomerId) {
+    if (!vendorData?.stripeCustomerId || !user?.uid) {
         toast({ variant: 'destructive', title: 'Error', description: 'Stripe Customer ID not found.' });
         return;
     }
     setIsSyncing(true);
     try {
-        const result = await syncStripeInvoices({ stripeCustomerId: vendorData.stripeCustomerId });
+        const result = await syncStripeInvoices({ 
+            stripeCustomerId: vendorData.stripeCustomerId,
+            vendorId: user.uid 
+        });
         if (result.success) {
             toast({
                 title: 'Sync Complete',
