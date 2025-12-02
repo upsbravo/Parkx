@@ -154,7 +154,7 @@ ParkX Technologies LLC – Auto-signed
                 ...(extraSpaces > 0 ? [{ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }] : [])
             ],
             mode: 'subscription',
-            successUrl: `${window.location.origin}/vendor-admin/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            successUrl: `${window.location.origin}/vendor-admin/dashboard`,
             cancelUrl: window.location.origin + pathname,
             subscription_data: {
                 trial_period_days: 30,
