@@ -288,11 +288,6 @@ export default function VendorPaymentsPage() {
                 <CardContent>
                     <StripeConnectOnboarding />
                 </CardContent>
-                <CardFooter>
-                     <Button variant="outline" onClick={handleManageBilling} disabled={isSubmitting}>
-                        Manage on Stripe <ExternalLink className='ml-2 h-4 w-4'/>
-                    </Button>
-                </CardFooter>
             </Card>
              <Card>
                 <CardHeader>
@@ -548,3 +543,5 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
+
+    
