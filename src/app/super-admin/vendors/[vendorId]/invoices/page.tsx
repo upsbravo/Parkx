@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -23,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink, Send } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink, Send, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,8 +51,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, where, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -63,6 +62,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 import { createStripePortalSession } from '@/ai/flows/create-stripe-portal-session-flow';
+import { syncStripeInvoices } from '@/ai/flows/sync-stripe-invoices-flow';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
@@ -117,6 +117,7 @@ export default function VendorInvoicesPage() {
   const [paymentView, setPaymentView] = useState('options');
   const [selectedInvoice, setSelectedInvoice] = useState<VendorInvoice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
@@ -416,6 +417,39 @@ export default function VendorInvoicesPage() {
     }
     // No need to set isSubmitting to false if redirect is successful
   };
+
+   const handleSyncInvoices = async () => {
+    if (!vendor?.stripeCustomerId || !vendorId) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Stripe Customer ID not found.' });
+        return;
+    }
+    setIsSyncing(true);
+    try {
+        const result = await syncStripeInvoices({ 
+            stripeCustomerId: vendor.stripeCustomerId,
+            vendorId: vendorId 
+        });
+        if (result.success) {
+            toast({
+                title: 'Sync Complete',
+                description: `${result.syncedCount} new invoice(s) have been synced from Stripe.`,
+            });
+            if (refetchInvoices) {
+                refetchInvoices();
+            }
+        } else {
+            throw new Error(result.error || 'Unknown sync error.');
+        }
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sync Failed',
+            description: e.message,
+        });
+    } finally {
+        setIsSyncing(false);
+    }
+  };
   
   const isLoading = isVendorLoading || isInvoicesLoading;
 
@@ -436,8 +470,8 @@ export default function VendorInvoicesPage() {
     const handleSuccessfulPayment = () => {
         setRecordPaymentOpen(false);
         setSelectedInvoice(null);
-        refetchInvoices?.(); // Refetch invoices to show the updated status
-        refetchVendor?.(); // Also refetch vendor data if needed
+        refetchInvoices?.();
+        refetchVendor?.();
     }
 
     const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
@@ -505,10 +539,16 @@ export default function VendorInvoicesPage() {
                 A list of all invoices generated for this vendor.
                 </CardDescription>
             </div>
-            <Button onClick={() => setCreateInvoiceOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Manual Payment
-            </Button>
+            <div className='flex gap-2'>
+              <Button variant="outline" onClick={handleSyncInvoices} disabled={isSyncing || isLoading}>
+                  <RefreshCw className={cn("mr-2 h-4 w-4", isSyncing && "animate-spin")} />
+                  {isSyncing ? 'Syncing...' : 'Sync with Stripe'}
+              </Button>
+              <Button onClick={() => setCreateInvoiceOpen(true)}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create Manual Payment
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -842,5 +882,3 @@ export default function VendorInvoicesPage() {
     
 
     
-
-

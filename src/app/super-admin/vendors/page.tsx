@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +56,7 @@ type Vendor = {
   id: string;
   name: string;
   email: string;
-  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement';
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement' | 'Canceled';
   joinDate: string; // ISO string
   trialEnds: string | null; // ISO string or null
   spotsUsed: number;
@@ -95,6 +95,7 @@ export default function VendorsPage() {
     Trial: "outline",
     Inactive: "destructive",
     'Pending Agreement': "secondary",
+    Canceled: "destructive",
   };
 
   const handleAdjustClick = (vendor: Vendor) => {
@@ -144,11 +145,12 @@ export default function VendorsPage() {
         }
     }
 
-    // Now, deactivate the vendor in Firestore.
-    updateDocumentNonBlocking(vendorRef, { status: "Inactive" });
+    // Now, mark the vendor as canceled in Firestore.
+    updateDocumentNonBlocking(vendorRef, { status: "Canceled" });
     toast({
+      variant: "destructive",
       title: "Vendor Deactivated",
-      description: `${selectedVendor.name} has been marked as inactive.`,
+      description: `${selectedVendor.name} has been marked as Canceled.`,
     });
 
     setDeactivateAlertOpen(false);
@@ -157,10 +159,27 @@ export default function VendorsPage() {
 
   const handleReactivate = (vendor: Vendor) => {
     const vendorRef = doc(firestore, "vendors", vendor.id);
-    updateDocumentNonBlocking(vendorRef, { status: "Active" });
+    // Reactivating might mean putting them back into 'Pending Agreement'
+    // if they need to re-sign or set up payment.
+    updateDocumentNonBlocking(vendorRef, { status: "Pending Agreement" });
     toast({
       title: "Vendor Reactivated",
-      description: `${vendor.name} has been marked as active.`,
+      description: `${vendor.name} is now pending agreement to reactivate their subscription.`,
+    });
+  };
+  
+  const handleOfferTrial = (vendor: Vendor) => {
+    const vendorRef = doc(firestore, "vendors", vendor.id);
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 30);
+    
+    updateDocumentNonBlocking(vendorRef, { 
+      status: "Trial",
+      trialEnds: trialEndDate.toISOString(),
+    });
+    toast({
+      title: "Trial Offered",
+      description: `A 30-day trial has been granted to ${vendor.name}.`,
     });
   };
 
@@ -318,7 +337,7 @@ export default function VendorsPage() {
                               Adjust Spot Limit
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
-                              Billings & Credits
+                              Billings &amp; Credits
                             </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/documents`)}>
                                 <FileText className="mr-2 h-4 w-4"/>
@@ -328,11 +347,15 @@ export default function VendorsPage() {
                               Send Password Reset
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleOfferTrial(vendor)}>
+                                <Gift className="mr-2 h-4 w-4" />
+                                <span>Offer 30-Day Trial</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleTogglePrivileged(vendor)}>
                               {vendor.isPrivileged ? 'Demote to Regular' : 'Promote to Privileged'}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            {vendor.status === 'Inactive' ? (
+                            {vendor.status === 'Inactive' || vendor.status === 'Canceled' ? (
                               <DropdownMenuItem
                                 onClick={() => handleReactivate(vendor)}
                               >
@@ -379,7 +402,7 @@ export default function VendorsPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Deactivate Vendor?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will set the vendor's account to Inactive and cancel their Stripe subscription, preventing future charges. This action is reversible. Are you sure you want to continue?
+                    This will set the vendor's account to 'Canceled' and cancel their Stripe subscription, preventing future charges. This action is reversible. Are you sure you want to continue?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

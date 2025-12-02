@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { StripePaymentElementOptions } from '@stripe/stripe-js';
 import { useToast } from '@/hooks/use-toast';
+import { processStripePayment } from '@/ai/flows/process-stripe-payment-flow';
 
 type CheckoutFormProps = {
   invoiceId: string;
@@ -40,26 +41,67 @@ export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, on
     setIsLoading(true);
     setErrorMessage(null);
 
-    // This confirms the PaymentIntent that was created when the Elements group was initialized.
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: `${window.location.origin}/vendor-admin/user-invoices?payment_success=true&invoice_id=${invoiceId}`,
-      },
-      // We are redirecting to a new page, so we don't need to handle the result here.
-      // If you want to handle the result on the same page, you can use `redirect: 'if_required'`
-    });
-
-    if (error.type === "card_error" || error.type === "validation_error") {
-      setErrorMessage(error.message || 'An unexpected error occurred.');
-    } else {
-       toast({
-          variant: "destructive",
-          title: 'Payment Error',
-          description: error.message || 'An unexpected error occurred.',
-      });
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setErrorMessage(submitError.message || 'An unexpected error occurred.');
+      setIsLoading(false);
+      return;
     }
+
+    try {
+        const {error: paymentMethodError, paymentMethod} = await stripe.createPaymentMethod({
+            elements,
+        });
+
+        if(paymentMethodError) {
+            setErrorMessage(paymentMethodError.message || 'An unexpected error occurred.');
+            setIsLoading(false);
+            return;
+        }
+
+        const result = await processStripePayment({
+            paymentMethodId: paymentMethod.id,
+            invoiceId,
+            vendorId,
+            amount: Math.round(amount * 100),
+            currency: 'usd',
+            customer: stripeCustomerId,
+        });
+
+        if (result.success) {
+            toast({
+                title: 'Payment Successful!',
+                description: 'The invoice has been paid.',
+            });
+            onSuccessfulPayment();
+        } else if (result.clientSecret) {
+            // Needs 3D secure authentication
+            const { error: confirmError } = await stripe.confirmPayment({
+                clientSecret: result.clientSecret,
+                confirmParams: {
+                    return_url: window.location.href, // Or a dedicated success page
+                },
+                redirect: 'if_required' // Handle redirect within the page
+            });
+
+            if (confirmError) {
+                setErrorMessage(confirmError.message || 'Could not confirm payment.');
+            } else {
+                 toast({
+                    title: 'Payment Successful!',
+                    description: 'The invoice has been paid after authentication.',
+                });
+                onSuccessfulPayment();
+            }
+        }
+        else {
+            setErrorMessage(result.message || 'Payment processing failed.');
+        }
+
+    } catch (e: any) {
+        setErrorMessage(e.message || 'An unexpected error occurred during payment.');
+    }
+    
 
     setIsLoading(false);
   };
