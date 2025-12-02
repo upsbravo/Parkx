@@ -69,7 +69,6 @@ type Vendor = {
 export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
-  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [isDeactivateAlertOpen, setDeactivateAlertOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -153,24 +152,6 @@ export default function VendorsPage() {
     });
 
     setDeactivateAlertOpen(false);
-    setSelectedVendor(null);
-  };
-  
-  const handleDeleteClick = (vendor: Vendor) => {
-    setSelectedVendor(vendor);
-    setDeleteAlertOpen(true);
-  };
-
-  const handleDeleteConfirm = () => {
-    if (!selectedVendor) return;
-    const vendorRef = doc(firestore, "vendors", selectedVendor.id);
-    deleteDocumentNonBlocking(vendorRef);
-    toast({
-      variant: 'destructive',
-      title: 'Vendor Deleted',
-      description: `${selectedVendor.name} has been permanently deleted.`,
-    });
-    setDeleteAlertOpen(false);
     setSelectedVendor(null);
   };
 
@@ -393,12 +374,6 @@ export default function VendorsPage() {
                                 Deactivate
                               </DropdownMenuItem>
                             )}
-                             <DropdownMenuItem
-                              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                              onClick={() => handleDeleteClick(vendor)}
-                            >
-                              Delete Vendor
-                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -427,32 +402,12 @@ export default function VendorsPage() {
           onOpenChange={setAdjustOpen}
         />
       )}
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the vendor
-              and all of their associated data, including users, spots, and invoices.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setDeactivateAlertOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
                 <AlertDialogTitle>Deactivate Vendor?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will set the vendor's account to Inactive. If they have an active Stripe subscription, it will be cancelled. This action can be reversed.
+                    This will set the vendor's account to Inactive and cancel their Stripe subscription, preventing future charges. This action is reversible. Are you sure you want to continue?
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
