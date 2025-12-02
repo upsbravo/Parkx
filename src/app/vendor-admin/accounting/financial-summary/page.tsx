@@ -50,13 +50,21 @@ const formatCurrency = (amountInCents?: number) => {
 export default function VendorFinancialSummaryPage() {
   const [date, setDate] = useState<DateRange | undefined>();
   const firestore = useFirestore();
-  const { user: vendorAdmin } = useUser();
+  const { user: vendorAdmin, isUserLoading } = useUser();
 
   const transactionsQuery = useMemoFirebase(
-    () => (firestore && vendorAdmin ? query(collection(firestore, 'transactions'), where('vendorId', '==', vendorAdmin.uid), orderBy('created', 'desc')) : null),
+    () => {
+        if (!firestore || !vendorAdmin?.uid) return null; // <-- IMPORTANT: Wait for vendorAdmin.uid
+        return query(
+            collection(firestore, 'transactions'),
+            where('vendorId', '==', vendorAdmin.uid),
+            orderBy('created', 'desc')
+        );
+    },
     [firestore, vendorAdmin]
   );
-  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+  
+  const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -81,6 +89,8 @@ export default function VendorFinancialSummaryPage() {
 
     return { totalGross, totalFees, totalNet };
   }, [filteredTransactions]);
+
+  const isLoading = isUserLoading || areTransactionsLoading;
 
 
   return (
