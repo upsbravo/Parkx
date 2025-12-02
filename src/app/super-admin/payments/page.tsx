@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search } from "lucide-react";
+import { CreditCard, DollarSign, Search, ExternalLink } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -26,7 +26,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
+import Link from 'next/link';
 
 
 type Transaction = {
@@ -202,12 +202,17 @@ export default function PlatformPaymentsPage() {
                 <CardTitle>Stripe Account Management</CardTitle>
               </div>
               <CardDescription>
-                Connect and manage your platform's Stripe account to receive payouts,
+                Manage your platform's Stripe account to receive payouts,
                 set subscription pricing, and manage business details.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <StripeConnectOnboarding />
+               <Button asChild>
+                <Link href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
+                    Manage on Stripe
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
