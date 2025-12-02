@@ -68,9 +68,12 @@ service cloud.firestore {
                          (isSignedIn() && request.query.where.userId == request.auth.uid);
       }
 
-      // Vendor Admins can manage documents for their own users
+      // Vendor Admins can manage documents for their own users, and users can create their own.
       match /userDocuments/{docId} {
-        allow read, list, write: if request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(resource.data.userId)) && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.vendorId == request.auth.uid) || request.auth.uid == resource.data.userId;
+        allow read, list: if request.auth.uid == vendorId;
+        allow create: if (isVendorAdmin() && request.resource.data.vendorId == request.auth.uid) ||
+                         (isSignedIn() && request.resource.data.userId == request.auth.uid);
+        allow update, delete: if isVendorAdmin() && request.auth.uid == vendorId;
       }
       
       // VENDOR <> SUPER ADMIN MESSAGES
