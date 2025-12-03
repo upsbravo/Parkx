@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText, AlertTriangle, Send } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText, AlertTriangle, Send, MessageSquare } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
