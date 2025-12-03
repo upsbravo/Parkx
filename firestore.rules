@@ -137,6 +137,11 @@ service cloud.firestore {
       match /notifications/{notificationId} {
         // A user can read, write, and list their own notifications.
         allow read, write, list: if request.auth.uid == userId;
+
+        // A vendor admin can create a notification for their own user.
+        allow create: if 
+            isVendorAdmin() &&
+            get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
       }
        
       // CHECKOUT SESSIONS
