@@ -22,6 +22,7 @@ import {
   Settings,
   BadgeCheck,
   BookCopy,
+  PenSquare,
 } from "lucide-react";
 import * as React from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/super-admin/dashboard", icon: <LayoutDashboard />, label: "Dashboard" },
   { href: "/super-admin/vendors", icon: <Building />, label: "Vendor Management" },
   { href: "/super-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
+   { href: "/super-admin/content", icon: <PenSquare />, label: "Content" },
   {
     label: "Accounting",
     icon: <BookCopy />,
