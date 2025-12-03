@@ -54,8 +54,8 @@ export default function DashboardLayout({
         <Sidebar>
           <SidebarHeader>
             <Logo
-              logoUrl={role === "Vendor Admin" && vendorLogo ? vendorLogo : undefined}
-              name={role === "Vendor Admin" && vendorName ? vendorName : undefined}
+              logoUrl={role === "End User" && vendorLogo ? vendorLogo : undefined}
+              name={role === "End User" && vendorName ? vendorName : undefined}
             />
           </SidebarHeader>
           {nav}
