@@ -61,6 +61,7 @@ export function SendSmsDialog({
       const result = await sendSms({
         to: user.phone,
         body: message,
+        userId: user.id, // Pass the user ID for logging
       });
 
       if (result.success) {

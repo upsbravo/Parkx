@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Card,
@@ -23,7 +23,7 @@ import {
   useCollection,
   useUser
 } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,6 +39,7 @@ import {
   ScanLine,
   FileText,
   Download,
+  Mail,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -54,6 +55,8 @@ import { TextScanner } from '@/components/text-scanner';
 import Image from 'next/image';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
 
 type EndUser = {
   id: string;
@@ -85,10 +88,20 @@ type UserDocument = {
     content: string;
 };
 
+type SmsLog = {
+    id: string;
+    to: string;
+    body: string;
+    status: 'success' | 'failed';
+    error?: string;
+    sentAt: any;
+};
+
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userId = params.userId as string;
 
   const firestore = useFirestore();
@@ -99,6 +112,10 @@ export default function UserProfilePage() {
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [isVinScannerOpen, setIsVinScannerOpen] = useState(false);
   const [isTagScannerOpen, setIsTagScannerOpen] = useState(false);
+  
+  const defaultTab = searchParams.get('tab') || 'profile';
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
 
   const userDocRef = useMemoFirebase(
     () => (firestore && userId ? doc(firestore, 'users', userId) : null),
@@ -114,8 +131,18 @@ export default function UserProfilePage() {
           where('userId', '==', userId)
       );
   }, [firestore, vendorAdmin, userId]);
+  
+  const smsLogsQuery = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
+    return query(
+      collection(firestore, 'users', userId, 'sms_logs'),
+      orderBy('sentAt', 'desc')
+    );
+  }, [firestore, userId]);
+
 
   const { data: userDocuments, isLoading: areDocumentsLoading } = useCollection<UserDocument>(documentsQuery);
+  const { data: smsLogs, isLoading: areSmsLogsLoading } = useCollection<SmsLog>(smsLogsQuery);
 
   useEffect(() => {
     if (userData) {
@@ -206,7 +233,7 @@ export default function UserProfilePage() {
   };
   
   const fullName = `${formData.firstName || ''} ${formData.lastName || ''}`.trim();
-  const isLoading = isUserDocLoading || areDocumentsLoading;
+  const isLoading = isUserDocLoading || areDocumentsLoading || areSmsLogsLoading;
 
   return (
     <>
@@ -227,10 +254,11 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        <Tabs defaultValue="profile">
-            <TabsList className="grid w-full grid-cols-2">
+        <Tabs defaultValue={defaultTab} onValueChange={setActiveTab} value={activeTab}>
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="profile">Profile & Vehicle</TabsTrigger>
                 <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="sms">SMS History</TabsTrigger>
             </TabsList>
             <TabsContent value="profile" className="space-y-6 mt-6">
                 <Card>
@@ -482,6 +510,55 @@ export default function UserProfilePage() {
                     </CardContent>
                 </Card>
             </TabsContent>
+             <TabsContent value="sms">
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center gap-3">
+                            <Mail className="h-5 w-5 text-muted-foreground" />
+                            <CardTitle>SMS History</CardTitle>
+                        </div>
+                        <CardDescription>
+                            A log of all text messages sent to this user from the platform.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Date Sent</TableHead>
+                                <TableHead>Message</TableHead>
+                                <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    Array.from({ length: 3 }).map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell colSpan={3}><Skeleton className="h-10 w-full" /></TableCell>
+                                    </TableRow>
+                                    ))
+                                ) : smsLogs && smsLogs.length > 0 ? (
+                                    smsLogs.map((log) => (
+                                        <TableRow key={log.id}>
+                                            <TableCell className="text-xs">{log.sentAt ? format(log.sentAt.toDate(), 'PPpp') : '...'}</TableCell>
+                                            <TableCell className="max-w-md truncate">{log.body}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={log.status === 'success' ? 'default' : 'destructive'}>{log.status}</Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">
+                                        No SMS messages have been sent to this user.
+                                    </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </TabsContent>
         </Tabs>
       </div>
 
@@ -521,4 +598,3 @@ export default function UserProfilePage() {
     </>
   );
 }
-
