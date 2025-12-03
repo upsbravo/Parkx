@@ -23,6 +23,8 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { useToast } from '@/hooks/use-toast';
 
 type UserInvoice = {
   id: string;
@@ -36,12 +38,15 @@ type UserInvoice = {
 
 type EndUser = {
     vendorId: string;
+    stripeCustomerId?: string;
 }
 
 export default function InvoicesPage() {
   const [isClient, setIsClient] = useState(false);
+  const [isPaying, setIsPaying] = useState<string | null>(null);
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsClient(true);
@@ -115,6 +120,50 @@ Thank you for your business.
     URL.revokeObjectURL(url);
   };
 
+  const handlePayInvoice = async (invoice: UserInvoice) => {
+    if (!userProfile) {
+        toast({variant: 'destructive', title: 'Error', description: 'Could not find user profile.'});
+        return;
+    }
+    setIsPaying(invoice.id);
+    try {
+        const result = await createStripeCheckout({
+            mode: 'payment',
+            line_items: [{
+                price_data: {
+                    currency: 'usd',
+                    product_data: {
+                        name: invoice.notes || `Invoice #${invoice.id.substring(0, 8)}`,
+                    },
+                    unit_amount: Math.round(invoice.amount * 100),
+                },
+                quantity: 1,
+            }],
+            successUrl: `${window.location.href}?payment_success=true`,
+            cancelUrl: window.location.href,
+            customer: userProfile.stripeCustomerId,
+            metadata: {
+                userInvoiceId: invoice.id,
+                vendorId: invoice.vendorId,
+            }
+        });
+
+        if (result.url) {
+            window.location.href = result.url;
+        } else {
+            throw new Error(result.error || 'Failed to create payment session.');
+        }
+
+    } catch (e: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Payment Error',
+            description: e.message,
+        });
+        setIsPaying(null);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -164,7 +213,7 @@ Thank you for your business.
                       <Skeleton className="h-4 w-32" />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Skeleton className="h-8 w-8 inline-block" />
+                      <Skeleton className="h-8 w-24 inline-block" />
                     </TableCell>
                   </TableRow>
                 ))
@@ -180,7 +229,12 @@ Thank you for your business.
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">{invoice.notes}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                        {invoice.status !== 'Paid' && (
+                            <Button size="sm" onClick={() => handlePayInvoice(invoice)} disabled={isPaying === invoice.id}>
+                                {isPaying === invoice.id ? 'Redirecting...' : 'Pay Now'}
+                            </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => handleDownloadInvoice(invoice)}>
                             <Download className="h-4 w-4" />
                         </Button>

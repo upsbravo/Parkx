@@ -1,7 +1,7 @@
 'use server';
 /**
  * @fileOverview A server-side flow to securely process a payment using a Stripe PaymentMethod ID.
- * This should be used with Stripe Elements on the frontend.
+ * This flow now supports taking an application fee for the platform.
  *
  * - processStripePayment - A function that creates and confirms a Stripe PaymentIntent.
  * - ProcessStripePaymentInput - The input type for the function.
@@ -19,7 +19,7 @@ const ProcessStripePaymentInputSchema = z.object({
   amount: z.number().int().min(50).describe("The amount to charge, in the smallest currency unit (e.g., cents)."),
   currency: z.string().default('usd').describe("The three-letter ISO currency code."),
   customer: z.string().optional().describe("The Stripe Customer ID."),
-  vendorId: z.string().describe("The ID of the vendor who is receiving the payment."),
+  vendorId: z.string().describe("The ID of the vendor who is receiving the payment. This is also their Stripe Connected Account ID."),
 });
 export type ProcessStripePaymentInput = z.infer<typeof ProcessStripePaymentInputSchema>;
 
@@ -47,56 +47,57 @@ const processStripePaymentFlow = ai.defineFlow(
   async (input) => {
     const { firestore } = initializeFirebase();
     
-    // In a real app, you would initialize Stripe with your SECRET key.
-    // As we can't access environment variables here, we will simulate the Stripe SDK calls.
-    // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-    console.log("Simulating Stripe PaymentIntent creation with input:", input);
-    
-    // This server-side logic is now correctly placed inside the Genkit flow.
-    if (!process.env.GCLOUD_PROJECT) {
-      console.error('GCLOUD_PROJECT environment variable not set. This function must be run in a Google Cloud environment.');
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('STRIPE_SECRET_KEY environment variable not set.');
       return {
         success: false,
-        message: 'This feature is only available in the deployed production environment, not on the local developer machine.',
+        message: 'The application is not configured for payments. Please contact support.',
       };
     }
 
     try {
-      // Step 1: Simulate creating a PaymentIntent with Stripe
-      // const paymentIntent = await stripe.paymentIntents.create({
-      //   amount: input.amount,
-      //   currency: input.currency,
-      //   customer: input.customer,
-      //   payment_method: input.paymentMethodId,
-      //   confirm: true, // This attempts to charge the card immediately
-      //   off_session: true, // Indicates the customer is not present during the payment
-      // });
-      const simulatedPaymentIntent = {
-          id: `pi_${Math.random().toString(36).substring(7)}`,
-          status: 'succeeded',
-          client_secret: `pi_${Math.random().toString(36).substring(7)}_secret_${Math.random().toString(36).substring(7)}`
-      };
+      const { default: Stripe } = await import('stripe');
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      // Step 2: Handle the simulated PaymentIntent status
-      if (simulatedPaymentIntent.status === 'succeeded') {
+      // Calculate the application fee (e.g., 5% platform fee)
+      const applicationFee = Math.round(input.amount * 0.05);
+
+      // Step 1: Create a PaymentIntent with Stripe
+      // We perform the charge on behalf of the connected account (the vendor)
+      // and take an application fee.
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: input.amount,
+        currency: input.currency,
+        customer: input.customer,
+        payment_method: input.paymentMethodId,
+        confirm: true, // This attempts to charge the card immediately
+        off_session: false, // Customer is on-session during checkout
+        application_fee_amount: applicationFee,
+        transfer_data: {
+          destination: input.vendorId, // The vendor's Stripe Connected Account ID
+        },
+      });
+
+      // Step 2: Handle the PaymentIntent status
+      if (paymentIntent.status === 'succeeded') {
         // Payment was successful. Update the invoice in Firestore.
         const invoiceRef = doc(firestore, 'vendors', input.vendorId, 'userInvoices', input.invoiceId);
         await updateDoc(invoiceRef, {
           status: 'Paid',
-          notes: `Paid via Stripe. PaymentIntent ID: ${simulatedPaymentIntent.id}`
+          notes: `Paid via Stripe. PaymentIntent ID: ${paymentIntent.id}`
         });
 
         return { success: true, message: 'Payment successful!' };
-      } else if (simulatedPaymentIntent.status === 'requires_action') {
+      } else if (paymentIntent.status === 'requires_action') {
         // Card requires 3D Secure or another authentication step
         return { 
           success: false, 
           message: 'Further authentication is required.',
-          clientSecret: simulatedPaymentIntent.client_secret,
+          clientSecret: paymentIntent.client_secret,
         };
       } else {
         // Payment failed for other reasons (e.g., insufficient funds)
-        return { success: false, message: 'Payment failed. Please try another card.' };
+        return { success: false, message: `Payment failed with status: ${paymentIntent.status}. Please try another card.` };
       }
     } catch (e: any) {
       console.error('Error processing payment:', e);

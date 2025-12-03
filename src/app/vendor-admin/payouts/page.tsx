@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search, RefreshCw } from "lucide-react";
+import { CreditCard, DollarSign, Search, ExternalLink, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -27,6 +27,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import Link from 'next/link';
 import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
 
 
@@ -47,6 +48,17 @@ type Transaction = {
 type Vendor = {
     isPrivileged?: boolean;
     stripeCustomerId?: string;
+}
+
+type Payout = {
+    id: string;
+    amount: number;
+    currency: string;
+    arrival_date: number; // Unix timestamp
+    created: number;
+    status: string;
+    type: string;
+    description: string;
 }
 
 export default function VendorPaymentsPage() {
@@ -75,9 +87,14 @@ export default function VendorPaymentsPage() {
       orderBy('created', 'desc')
     );
   }, [firestore, vendorAdmin?.uid, vendorData?.isPrivileged]);
-
+  
+  const payoutsQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorAdmin?.uid) return null;
+    return query(collection(firestore, 'vendors', vendorAdmin.uid, 'payouts'), orderBy('created', 'desc'));
+  }, [firestore, vendorAdmin?.uid]);
 
   const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
+  const { data: payouts, isLoading: arePayoutsLoading } = useCollection<Payout>(payoutsQuery);
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -103,7 +120,7 @@ export default function VendorPaymentsPage() {
     refunded: 'outline',
   } as const;
   
-  const isLoading = isUserLoading || areTransactionsLoading || isVendorDataLoading;
+  const isLoading = isUserLoading || areTransactionsLoading || isVendorDataLoading || arePayoutsLoading;
 
   return (
     <div className="space-y-6">
@@ -120,7 +137,7 @@ export default function VendorPaymentsPage() {
         <TabsList>
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="payouts" disabled>Payouts</TabsTrigger>
+          <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="readers" disabled>Readers</TabsTrigger>
           <TabsTrigger value="ach" disabled>ACH</TabsTrigger>
           <TabsTrigger value="bnpl" disabled>Buy Now Pay Later</TabsTrigger>
@@ -224,6 +241,63 @@ export default function VendorPaymentsPage() {
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center">
                         No transactions found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+         <TabsContent value="payouts" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>My Payouts</CardTitle>
+              <CardDescription>
+                History of payouts from Stripe to your bank account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Payout Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : payouts && payouts.length > 0 ? (
+                    payouts.map((payout) => (
+                      <TableRow key={payout.id}>
+                        <TableCell className="font-mono text-xs">
+                          {format(new Date(payout.arrival_date * 1000), 'PPp')}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {formatCurrency(payout.amount, payout.currency)}
+                        </TableCell>
+                        <TableCell>{payout.description}</TableCell>
+                        <TableCell>
+                           <Badge variant={payout.status === 'paid' ? 'default' : 'secondary'}>
+                            {payout.status}
+                           </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center">
+                        No payouts found. This can take a few days after your first transaction.
                       </TableCell>
                     </TableRow>
                   )}
