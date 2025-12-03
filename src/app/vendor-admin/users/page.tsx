@@ -48,6 +48,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ManageParkingDialog } from "./manage-parking-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SendSmsDialog } from "./send-sms-dialog";
 
 
 type EndUser = {
@@ -55,6 +56,7 @@ type EndUser = {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   status: 'Active' | 'Pending' | 'Inactive';
   assignedSpotIds?: string[];
   truckParkingSpots?: number;
@@ -81,6 +83,7 @@ export default function UserManagementPage() {
   const [isAssignSpotOpen, setAssignSpotOpen] = useState(false);
   const [isManageParkingOpen, setManageParkingOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [isSmsOpen, setSmsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<EndUser | null>(null);
   const { toast } = useToast();
   
@@ -166,6 +169,15 @@ export default function UserManagementPage() {
     setSelectedUser(user);
     setManageParkingOpen(true);
   };
+
+  const handleSendSms = (user: EndUser) => {
+    if (!user.phone) {
+        toast({ variant: 'destructive', title: 'No Phone Number', description: 'This user does not have a phone number on file.'});
+        return;
+    }
+    setSelectedUser(user);
+    setSmsOpen(true);
+  }
 
   const handleDeactivate = (user: EndUser) => {
     if (!firestore || !vendorAdmin) return;
@@ -349,6 +361,10 @@ export default function UserManagementPage() {
                                     <span>View Documents</span>
                                 </Link>
                             </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleSendSms(user)}>
+                                <MessageSquare className="mr-2 h-4 w-4" />
+                                <span>Send SMS</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Parking Lot(s)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
                             {overdueUserIds.has(user.id) && (
@@ -406,6 +422,13 @@ export default function UserManagementPage() {
           user={selectedUser}
           open={isManageParkingOpen}
           onOpenChange={setManageParkingOpen}
+        />
+      )}
+      {selectedUser && (
+        <SendSmsDialog
+          user={selectedUser}
+          open={isSmsOpen}
+          onOpenChange={setSmsOpen}
         />
       )}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
