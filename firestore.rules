@@ -75,7 +75,7 @@ service cloud.firestore {
                          (isSignedIn() && request.resource.data.userId == request.auth.uid);
       }
       
-      // VENDOR <> SUPER ADMIN MESSAGES
+      // VENDOR &lt;&gt; SUPER ADMIN MESSAGES
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
@@ -90,6 +90,13 @@ service cloud.firestore {
         allow read: if isSuperAdmin() || request.auth.uid == vendorId;
         allow list: if isSuperAdmin() || request.auth.uid == vendorId;
         allow write: if false; // Only backend can create/update payouts
+      }
+
+      // VENDOR ANNOUNCEMENTS - Vendor can manage, their users can read
+      match /announcements/{announcementId} {
+        allow read: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId;
+        allow list: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId;
+        allow write: if isVendorAdmin() && request.auth.uid == vendorId;
       }
     }
 
@@ -112,7 +119,7 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
         
-      // VENDOR <> USER MESSAGES
+      // VENDOR &lt;&gt; USER MESSAGES
       match /messages/{messageId} {
         // End user can read/write their own messages
         allow read, write: if request.auth.uid == userId;
@@ -141,9 +148,9 @@ service cloud.firestore {
     
     // Allow vendors to list their own invoices, and super admins to see all
     match /vendorInvoices/{invoiceId} {
-      allow get: if request.auth == null || isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
+      allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
       allow list: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow write: if request.auth == null || isSuperAdmin();
+      allow write: if isSuperAdmin();
     }
     
     // Stripe Transactions - VENDORS CAN SEE ONLY THEIR OWN
@@ -167,6 +174,14 @@ service cloud.firestore {
       // Only backend (Stripe extension, Cloud Functions) can write
       allow create, update, delete: if false;
     }
+    
+    // GLOBAL ANNOUNCEMENTS
+    match /announcements/{announcementId} {
+        // Anyone can read
+        allow get, list: if true;
+        // Only super admins can write
+        allow write: if isSuperAdmin();
+    }
 
     match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
 
@@ -176,3 +191,5 @@ service cloud.firestore {
     }
   }
 }
+
+  
