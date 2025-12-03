@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -8,7 +7,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -33,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email(),
@@ -106,17 +105,17 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
-      <div className="flex items-center justify-center py-12">
-        <div className="mx-auto grid w-[350px] gap-6">
-          <div className="grid gap-2 text-center">
-            <div className="mb-4 flex justify-center"><Logo /></div>
-            <h1 className="text-3xl font-bold">Login</h1>
-            <p className="text-balance text-muted-foreground">
-              Enter your email below to login to your account
-            </p>
-          </div>
-          <Form {...form}>
+    <div className="w-full min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+           <div className="mb-4 flex justify-center"><Logo /></div>
+          <CardTitle className="text-3xl font-bold">Login</CardTitle>
+          <CardDescription>
+            Enter your email below to login to your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleLogin)}>
               <div className="grid gap-4">
                 <FormField control={form.control} name="email" render={({ field }) => (
@@ -146,25 +145,18 @@ export default function LoginPage() {
                   </FormItem>
                 )} />
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                   {isLoading ? 'Signing in...' : 'Sign in'}
+                   {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : 'Sign in'}
                 </Button>
               </div>
             </form>
           </Form>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        {loginImage && (
-            <Image
-                src={loginImage.imageUrl}
-                alt={loginImage.description}
-                width="1920"
-                height="1080"
-                data-ai-hint={loginImage.imageHint}
-                className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-            />
-        )}
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
