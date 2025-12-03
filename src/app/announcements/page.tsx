@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -24,6 +23,7 @@ export default function AnnouncementsPage() {
   const firestore = useFirestore();
 
   const announcementsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
     return query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc'));
   }, [firestore]);
 
@@ -33,7 +33,7 @@ export default function AnnouncementsPage() {
   const regularAnnouncements = announcements?.filter(a => !a.isPinned) || [];
 
   return (
-    <div className="bg-muted/40 min-h-screen">
+    <div className="bg-background min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
           <Logo />
@@ -43,7 +43,7 @@ export default function AnnouncementsPage() {
         </div>
       </header>
       
-      <main className="container mx-auto py-12 px-4 md:px-6">
+      <main className="container mx-auto py-12 px-4 md:px-6 flex-1">
         <div className="mx-auto max-w-3xl">
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold tracking-tight">Announcements & News</h1>
@@ -99,6 +99,12 @@ export default function AnnouncementsPage() {
           </div>
         </div>
       </main>
+      <footer className="border-t bg-card">
+        <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 md:flex-row md:px-6">
+          <Logo />
+          <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} ParkX. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
