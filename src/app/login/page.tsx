@@ -1,6 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,11 +32,14 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const formSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+const loginImage = PlaceHolderImages.find((img) => img.id === 'hero-image');
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +69,7 @@ export default function LoginPage() {
       return;
     }
   
-    // 3. End User – NEW: check top-level users collection
+    // 3. End User
     const userRef = doc(firestore, 'users', user.uid);
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
@@ -101,51 +106,65 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="mb-8"><Logo /></div>
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
-        </CardHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleLogin)}>
-            <CardContent className="grid gap-4">
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="you@example.com" {...field} disabled={isLoading} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="password" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} disabled={isLoading} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-        <CardFooter className="flex flex-col gap-4 text-xs text-muted-foreground text-center">
-            <p>Demo accounts:</p>
-            <p>
-              super@parkx.com / password<br />
-              vendor@acme.com / password<br />
-              user@example.com / password
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+          <div className="grid gap-2 text-center">
+            <div className="mb-4 flex justify-center"><Logo /></div>
+            <h1 className="text-3xl font-bold">Login</h1>
+            <p className="text-balance text-muted-foreground">
+              Enter your email below to login to your account
             </p>
-        </CardFooter>
-      </Card>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleLogin)}>
+              <div className="grid gap-4">
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="you@example.com" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="password" render={({ field }) => (
+                  <FormItem>
+                     <div className="flex items-center">
+                        <FormLabel>Password</FormLabel>
+                        <Link
+                          href="#"
+                          className="ml-auto inline-block text-sm underline"
+                        >
+                          Forgot your password?
+                        </Link>
+                      </div>
+                    <FormControl>
+                      <Input type="password" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                   {isLoading ? 'Signing in...' : 'Sign in'}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        {loginImage && (
+            <Image
+                src={loginImage.imageUrl}
+                alt={loginImage.description}
+                width="1920"
+                height="1080"
+                data-ai-hint={loginImage.imageHint}
+                className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+            />
+        )}
+      </div>
     </div>
   );
 }
