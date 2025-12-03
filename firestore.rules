@@ -144,6 +144,12 @@ service cloud.firestore {
             get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
       }
        
+      // SMS LOGS
+      match /sms_logs/{logId} {
+        allow create: if isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
+        allow read, list: if request.auth.uid == userId || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
+      }
+       
       // CHECKOUT SESSIONS
       // Allow user to create and read their own checkout sessions
       match /checkout_sessions/{sessionId} {
