@@ -59,6 +59,10 @@
           "type": "string",
           "description": "The ID of the customer object in Stripe."
         },
+        "stripeAccountId": {
+          "type": "string",
+          "description": "The ID of the Stripe Connected Account for payouts."
+        },
         "stripeSubscriptionId": {
           "type": "string",
           "description": "The ID of the active Stripe subscription."
@@ -288,6 +292,11 @@
         "trailerPlate": {
           "type": "string",
           "description": "The trailer plate of the user's vehicle, if any."
+        },
+         "acknowledgedAnnouncements": {
+          "type": "array",
+          "description": "A list of VendorAnnouncement IDs that the user has acknowledged.",
+          "items": { "type": "string" }
         }
       },
       "required": [
@@ -612,6 +621,33 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "title", "message", "type", "isRead", "createdAt"]
+    },
+    "Announcement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Announcement",
+      "description": "A global announcement or blog post made by the Super Admin.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isPinned": { "type": "boolean", "default": false }
+      },
+      "required": ["title", "content", "authorName", "createdAt"]
+    },
+    "VendorAnnouncement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VendorAnnouncement",
+      "description": "An announcement made by a Vendor to all their End Users.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean", "default": true }
+      },
+      "required": ["title", "content", "createdAt", "isActive"]
     }
   },
   "auth": {
@@ -873,10 +909,33 @@
             { "name": "payoutId", "description": "The unique ID of the payout from Stripe." }
           ]
         }
+      },
+      {
+        "path": "/announcements/{announcementId}",
+        "definition": {
+          "entityName": "Announcement",
+          "schema": { "$ref": "#/backend/entities/Announcement" },
+          "description": "Stores global announcements from the Super Admin. Publicly readable.",
+          "params": [
+            { "name": "announcementId", "description": "The unique ID for the announcement." }
+          ]
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/announcements/{announcementId}",
+        "definition": {
+          "entityName": "VendorAnnouncement",
+          "schema": { "$ref": "#/backend/entities/VendorAnnouncement" },
+          "description": "Stores announcements from a vendor to their users.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the vendor." },
+            { "name": "announcementId", "description": "The unique ID for the announcement." }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA. A top-level `transactions` collection is added to log all payments from Stripe."
+    "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA. A top-level `transactions` collection is added to log all payments from Stripe. Two new collections were added for the announcement features: a top-level `/announcements` for global posts and a `/vendors/{vendorId}/announcements` subcollection for vendor-specific alerts."
   }
 }
 
-    
+  
