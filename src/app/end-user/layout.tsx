@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -7,6 +8,7 @@ import EndUserNav from "@/components/nav/end-user-nav";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 
 type EndUser = {
   id: string;
@@ -82,9 +84,8 @@ export default function EndUserLayout({
 
   return (
     <DashboardLayout nav={<EndUserNav />} role="End User">
+      <AnnouncementBanner />
       {children}
     </DashboardLayout>
   );
 }
-
-    
