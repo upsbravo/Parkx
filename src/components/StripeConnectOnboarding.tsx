@@ -31,13 +31,13 @@ function OnboardingForm() {
     return doc(firestore, 'vendors', user.uid);
   }, [user, firestore]);
 
-  const {data: vendorData, isLoading: isVendorLoading} = useDoc<Vendor>(vendorRef);
+  const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
 
 
   useEffect(() => {
     const fetchAccountSession = async () => {
       if (!vendorData || !vendorData.stripeAccountId) {
-          if (!isVendorLoading && vendorData) { // Only error if done loading and still no ID
+          if (!isVendorDataLoading && vendorData) { // Only error if done loading and still no ID
             setError('Stripe Account ID is missing for this vendor. Please contact support.');
           }
           return;
@@ -59,7 +59,7 @@ function OnboardingForm() {
     };
 
     fetchAccountSession();
-  }, [vendorData, isVendorLoading]);
+  }, [vendorData, isVendorDataLoading]);
 
   if (error) {
     return (
@@ -71,7 +71,7 @@ function OnboardingForm() {
     );
   }
   
-  if (!clientSecret || isVendorLoading) {
+  if (!clientSecret || isVendorDataLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />

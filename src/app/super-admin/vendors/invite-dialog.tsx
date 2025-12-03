@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
@@ -33,6 +33,7 @@ export function InviteVendorDialog({
 }) {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user: superAdmin } = useUser();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,6 +104,18 @@ export function InviteVendorDialog({
         name: name,
         stripeId: stripeCustomerId,
       });
+
+      // Step 6: Create a notification for the super admin
+      if (superAdmin) {
+        const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
+        addDocumentNonBlocking(notifRef, {
+            title: 'New Vendor Created',
+            message: `A new vendor account for ${name} has been created.`,
+            type: 'new_vendor',
+            isRead: false,
+            createdAt: serverTimestamp()
+        });
+      }
 
       toast({
         title: "Vendor Created!",

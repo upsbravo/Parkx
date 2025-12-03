@@ -13,8 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser, updateProfile } from "firebase/auth";
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -84,6 +84,10 @@ export function InviteUserDialog({
         profileComplete: false, // <-- New field
         waiverSigned: false, // <-- New field
       });
+
+      // 3. (Optional but good practice) Notify Super Admin
+      // This requires knowing the super admin's UID or having a dedicated notifications collection.
+      // For now, we'll skip this to avoid complexity, but it could be added.
 
       toast({
         title: "User Created!",
@@ -188,5 +192,3 @@ export function InviteUserDialog({
     </Dialog>
   );
 }
-
-    

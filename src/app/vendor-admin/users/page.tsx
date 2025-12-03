@@ -344,7 +344,7 @@ export default function UserManagementPage() {
                                 <Link href={`/vendor-admin/users/${user.id}`}>Edit User Profile</Link>
                             </DropdownMenuItem>
                              <DropdownMenuItem asChild>
-                                <Link href={`/vendor-admin/users/${user.id}`}>
+                                <Link href={`/vendor-admin/users/${user.id}?tab=documents`}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     <span>View Documents</span>
                                 </Link>
