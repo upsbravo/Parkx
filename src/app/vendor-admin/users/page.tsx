@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText, AlertTriangle, Send } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,8 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { InviteUserDialog } from "./invite-user-dialog";
-import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
-import { collection, query, doc, where } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase, useUser, updateDocumentNonBlocking, deleteDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { collection, query, doc, where, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssignSpotDialog } from "./assign-spot-dialog";
 import Link from "next/link";
@@ -64,6 +64,12 @@ type EndUser = {
   profileComplete?: boolean;
 };
 
+type UserInvoice = {
+    id: string;
+    userId: string;
+    status: 'Pending' | 'Overdue' | 'Paid';
+};
+
 type ParkingSpot = {
   id: string;
   name: string;
@@ -93,7 +99,22 @@ export default function UserManagementPage() {
   }, [firestore, vendorAdmin]);
   const { data: parkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(parkingSpotsQuery);
   
-  const isLoading = isVendorLoading || areUsersLoading || areSpotsLoading;
+  const invoicesQuery = useMemoFirebase(() => {
+      if(!firestore || !vendorAdmin) return null;
+      return collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+  }, [firestore, vendorAdmin]);
+  const { data: invoices, isLoading: areInvoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
+
+  const overdueUserIds = useMemo(() => {
+      if (!invoices) return new Set();
+      return new Set(
+          invoices
+            .filter(inv => inv.status === 'Pending' || inv.status === 'Overdue')
+            .map(inv => inv.userId)
+      );
+  }, [invoices]);
+
+  const isLoading = isVendorLoading || areUsersLoading || areSpotsLoading || areInvoicesLoading;
 
   const usersWithMismatch = useMemo(() => {
     if (!endUsers) return [];
@@ -179,6 +200,22 @@ export default function UserManagementPage() {
     setSelectedUser(null);
   };
 
+  const handleSendReminder = (user: EndUser) => {
+    if (!firestore) return;
+    const notificationRef = collection(firestore, `users/${user.id}/notifications`);
+    addDocumentNonBlocking(notificationRef, {
+        title: "Payment Reminder",
+        message: "You have a pending invoice that requires your attention. Please visit the Invoices page to complete your payment.",
+        type: 'invoice',
+        isRead: false,
+        createdAt: serverTimestamp(),
+    });
+    toast({
+        title: "Reminder Sent",
+        description: `A payment reminder has been sent to ${user.firstName}.`
+    });
+  };
+
   return (
     <>
       <div className="space-y-4">
@@ -225,7 +262,7 @@ export default function UserManagementPage() {
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Agreement</TableHead>
-                  <TableHead>Spots Count</TableHead>
+                  <TableHead>Payment Status</TableHead>
                   <TableHead>Parking Spots</TableHead>
                   <TableHead>Truck Parks</TableHead>
                   <TableHead>
@@ -237,13 +274,10 @@ export default function UserManagementPage() {
                 {isLoading ? (
                    Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell>
-                        <Skeleton className="h-5 w-24" />
-                        <Skeleton className="h-4 w-32 mt-1" />
-                      </TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /><Skeleton className="h-4 w-32 mt-1" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
@@ -283,7 +317,13 @@ export default function UserManagementPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{getSpotCount(user.assignedSpotIds)}</TableCell>
+                      <TableCell>
+                        {overdueUserIds.has(user.id) ? (
+                            <Badge variant="destructive">Overdue</Badge>
+                        ) : (
+                            <Badge variant="secondary">Paid</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="max-w-[150px] truncate">{getSpotNames(user.assignedSpotIds)}</TableCell>
                       <TableCell>{user.truckParkingSpots || 0}</TableCell>
                       <TableCell>
@@ -311,6 +351,12 @@ export default function UserManagementPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleAssignSpot(user)}>Assign Parking Lot(s)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleManageParking(user)}>Manage Truck Parking</DropdownMenuItem>
+                            {overdueUserIds.has(user.id) && (
+                                <DropdownMenuItem onClick={() => handleSendReminder(user)}>
+                                    <Send className="mr-2 h-4 w-4"/>
+                                    <span>Send Payment Reminder</span>
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             {user.status === 'Inactive' ? (
                                <DropdownMenuItem onClick={() => handleReactivate(user)}>
