@@ -75,7 +75,7 @@ service cloud.firestore {
                          (isSignedIn() && request.resource.data.userId == request.auth.uid);
       }
       
-      // VENDOR &lt;&gt; SUPER ADMIN MESSAGES
+      // VENDOR <> SUPER ADMIN MESSAGES
       match /support-messages/{messageId} {
         allow read, write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
@@ -94,8 +94,8 @@ service cloud.firestore {
 
       // VENDOR ANNOUNCEMENTS - Vendor can manage, their users can read
       match /announcements/{announcementId} {
-        allow read: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId;
-        allow list: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId;
+        allow read, list: if (isVendorAdmin() && request.auth.uid == vendorId) ||
+                           (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
         allow write: if isVendorAdmin() && request.auth.uid == vendorId;
       }
     }
@@ -119,7 +119,7 @@ service cloud.firestore {
         isPrivilegedVendor() ||
         (resource != null && resource.data.vendorId == request.auth.uid);
         
-      // VENDOR &lt;&gt; USER MESSAGES
+      // VENDOR <> USER MESSAGES
       match /messages/{messageId} {
         // End user can read/write their own messages
         allow read, write: if request.auth.uid == userId;
@@ -191,5 +191,3 @@ service cloud.firestore {
     }
   }
 }
-
-  
