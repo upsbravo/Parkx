@@ -143,16 +143,11 @@ service cloud.firestore {
             isVendorAdmin() &&
             get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
       }
-
+       
       // SMS LOGS
       match /sms_logs/{logId} {
-        // Vendor can create and read logs for their own users.
-        allow create, read, list: if
-          isVendorAdmin() &&
-          get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
-        
-        // User can read their own logs.
-        allow read, list: if request.auth.uid == userId;
+        allow create: if isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
+        allow read, list: if request.auth.uid == userId || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
       }
        
       // CHECKOUT SESSIONS
