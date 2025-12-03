@@ -3,6 +3,7 @@
 /**
  * @fileOverview A server-side flow to securely process a payment using a Stripe PaymentMethod ID.
  * This flow now supports taking an application fee for the platform.
+ * It also verifies that the destination vendor account is capable of receiving payouts.
  *
  * - processStripePayment - A function that creates and confirms a Stripe PaymentIntent.
  * - ProcessStripePaymentInput - The input type for the function.
@@ -70,6 +71,15 @@ const processStripePaymentFlow = ai.defineFlow(
     try {
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+      
+      // CRITICAL VALIDATION STEP: Check if the vendor's account can receive payments.
+      const vendorAccount = await stripe.accounts.retrieve(input.vendorId);
+      if (!vendorAccount.payouts_enabled) {
+          return {
+              success: false,
+              message: 'This vendor is not currently set up to receive payments. Please contact the vendor.',
+          }
+      }
 
       // Calculate the application fee (e.g., 5% platform fee)
       const applicationFee = Math.round(input.amount * 0.05);
@@ -88,6 +98,7 @@ const processStripePaymentFlow = ai.defineFlow(
         transfer_data: {
           destination: input.vendorId, // The vendor's Stripe Connected Account ID
         },
+        receipt_email: vendorAccount.email, // Send receipt to the vendor
       });
 
       // Step 2: Handle the PaymentIntent status
@@ -117,5 +128,3 @@ const processStripePaymentFlow = ai.defineFlow(
     }
   }
 );
-
-    
