@@ -61,6 +61,14 @@ const createStripeAccountFlow = ai.defineFlow(
       return { accountId: account.id };
     } catch (e: any) {
       console.error('Error creating Stripe connected account:', e);
+
+      // Check for the specific onboarding error message.
+      if (e.message?.includes('You must complete your platform profile')) {
+        return {
+          error: 'Platform setup incomplete: You must complete your platform profile in the Stripe Dashboard before you can create connected accounts for vendors.',
+        };
+      }
+
       return {
         error: e.message || 'An unexpected error occurred while creating the Stripe account.',
       };
