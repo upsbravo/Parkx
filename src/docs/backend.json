@@ -371,7 +371,7 @@
         "created": { "type": "number", "description": "Unix timestamp of transaction creation." },
         "amount": { "type": "number", "description": "Amount in the smallest currency unit (e.g., cents)." },
         "currency": { "type": "string", "description": "Three-letter ISO currency code." },
-        "status": { "type": "string", "enum": ["succeeded", "pending", "failed"] },
+        "status": { "type": "string", "enum": ["succeeded", "pending", "failed", "refunded"] },
         "vendorId": { "type": "string", "description": "The ID of the vendor who received the payment." },
         "vendorName": { "type": "string", "description": "Denormalized name of the vendor." },
         "customerEmail": { "type": "string", "description": "Email of the customer who made the payment." },
@@ -384,6 +384,14 @@
         "net": {
           "type": "number",
           "description": "The net amount received after fees, in the smallest currency unit."
+        },
+        "amountRefunded": {
+            "type": "number",
+            "description": "The amount refunded, in the smallest currency unit."
+        },
+        "refundedAt": {
+            "type": "number",
+            "description": "Unix timestamp of when the refund was processed."
         }
       },
       "required": ["id", "created", "amount", "currency", "status", "vendorId", "customerEmail"]
@@ -870,3 +878,5 @@
     "reasoning": "The Firestore structure has been updated to use a top-level `/users` collection for End Users. This is a best practice that ensures fast, scalable, and secure user role lookups during login, eliminating the need for expensive and permission-prone collection-group queries. Each user document in the `/users` collection contains a `vendorId` field to maintain its relationship with a vendor, which is used for authorization in security rules. A new sub-collection `userInvoices` has been added under `/vendors/{vendorId}` to store billing records from a vendor to their users, ensuring that a vendor can only access their own financial data. A new sub-collection 'userDocuments' has been added to store signed waivers and other documents for users, accessible by the vendor. The messaging system is refactored to use a `/users/{userId}/messages` subcollection, which is a more direct and secure pattern for 1-to-1 chats between a user and their vendor. A new `/vendors/{vendorId}/support-messages` subcollection has been added for private communication between vendors and super admins. Finally, a `vendorDocuments` subcollection is added to store important vendor-specific documents like the signed MSA. A top-level `transactions` collection is added to log all payments from Stripe."
   }
 }
+
+    

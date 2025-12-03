@@ -12,7 +12,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, doc, updateDoc, setDoc, collection, getDoc, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
 
 // This is not a public-facing Zod schema. It's for internal validation of the webhook payload.
@@ -21,8 +22,15 @@ const StripeWebhookInputSchema = z.object({
   signature: z.string(), // The stripe-signature header
 });
 
-// Initialize outside the flow to reuse the connection
-const { firestore } = initializeFirebase();
+// Server-safe Firestore initialization for this flow
+const getWebhookFirestore = () => {
+    const appName = 'stripe-webhook-flow-app';
+    if (getApps().some(app => app.name === appName)) {
+        return getFirestore(getApp(appName));
+    }
+    const app = initializeApp(firebaseConfig, appName);
+    return getFirestore(app);
+}
 
 /**
  * Handles incoming Stripe webhook events.
@@ -106,6 +114,7 @@ const stripeWebhookFlow = ai.defineFlow(
 );
 
 async function getVendorIdFromCustomerId(customerId: string): Promise<string | null> {
+    const firestore = getWebhookFirestore();
     const q = query(collection(firestore, 'vendors'), where('stripeCustomerId', '==', customerId));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
@@ -121,6 +130,7 @@ async function getVendorIdFromCustomerId(customerId: string): Promise<string | n
  * @param session The Stripe Checkout Session object.
  */
 async function handleCheckoutSessionCompleted(session: any) {
+  const firestore = getWebhookFirestore();
   // Retrieve the invoice ID we stored in metadata
   const userInvoiceId = session.metadata?.userInvoiceId;
   const vendorId = session.metadata?.vendorId;
@@ -164,6 +174,7 @@ async function handleCheckoutSessionCompleted(session: any) {
  * @param subscription The Stripe Subscription object.
  */
 async function handleSubscriptionUpdated(subscription: any) {
+  const firestore = getWebhookFirestore();
   // This assumes the UID is stored in the subscription's metadata, which the Stripe extension does.
   const vendorId = subscription.metadata.uid; 
   
@@ -184,6 +195,7 @@ async function handleSubscriptionUpdated(subscription: any) {
  * @param subscription The Stripe Subscription object.
  */
 async function handleSubscriptionDeleted(subscription: any) {
+  const firestore = getWebhookFirestore();
   const vendorId = subscription.metadata.uid;
   if (!vendorId) {
     console.error('No vendor ID found in subscription metadata for deletion.');
@@ -201,6 +213,7 @@ async function handleSubscriptionDeleted(subscription: any) {
  * @param invoice The Stripe Invoice object.
  */
 async function handleInvoicePaid(invoice: any) {
+    const firestore = getWebhookFirestore();
     // Only handle subscription-related invoices here, not one-off payments
     if (invoice.billing_reason !== 'subscription_cycle' && invoice.billing_reason !== 'subscription_create') {
         return;
@@ -248,6 +261,7 @@ async function handleInvoicePaid(invoice: any) {
  * @param invoice The Stripe Invoice object.
  */
 async function handleInvoicePaymentSucceeded(invoice: any) {
+    const firestore = getWebhookFirestore();
     const invoiceId = invoice.id;
     const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoiceId);
     const userInvoiceRef = doc(firestore, `vendors/${invoice.metadata?.vendorId}/userInvoices`, invoiceId);
@@ -275,6 +289,7 @@ async function handleInvoicePaymentSucceeded(invoice: any) {
  * @param invoice The Stripe Invoice object.
  */
 async function handleInvoicePaymentFailed(invoice: any) {
+    const firestore = getWebhookFirestore();
     const customerId = invoice.customer;
     const vendorId = await getVendorIdFromCustomerId(customerId);
 
@@ -313,6 +328,7 @@ async function handleInvoicePaymentFailed(invoice: any) {
  * @param charge The Stripe Charge object.
  */
 async function handleChargeSucceeded(charge: any) {
+    const firestore = getWebhookFirestore();
     // Determine the vendorId. In a Connect platform, this comes from the destination account.
     let vendorId = charge.destination || charge.on_behalf_of || charge.transfer_data?.destination;
     let vendorName;
@@ -360,6 +376,7 @@ async function handleChargeSucceeded(charge: any) {
  * @param charge The Stripe Charge object from the 'charge.refunded' event.
  */
 async function handleChargeRefunded(charge: any) {
+  const firestore = getWebhookFirestore();
   console.log(`Processing refund for charge: ${charge.id}`);
   
   const transactionRef = doc(firestore, 'transactions', charge.id);
@@ -382,6 +399,7 @@ async function handleChargeRefunded(charge: any) {
  * @param payout The Stripe Payout object.
  */
 async function handlePayoutPaid(payout: any) {
+    const firestore = getWebhookFirestore();
     // For connected accounts, the payout is tied to the Stripe Account ID.
     // The Stripe account ID is typically the vendorId in our system.
     const vendorId = payout.destination; // This is a simplification. Real-world mapping can be complex.
@@ -406,5 +424,7 @@ async function handlePayoutPaid(payout: any) {
     };
     await setDoc(doc(payoutsRef, payout.id), payoutDoc);
 }
+
+    
 
     

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A server-side flow to securely process a payment using a Stripe PaymentMethod ID.
@@ -11,7 +12,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 const ProcessStripePaymentInputSchema = z.object({
   paymentMethodId: z.string().describe("The ID of the Stripe PaymentMethod created by Stripe.js on the client."),
@@ -30,6 +32,16 @@ const ProcessStripePaymentOutputSchema = z.object({
 });
 export type ProcessStripePaymentOutput = z.infer<typeof ProcessStripePaymentOutputSchema>;
 
+
+const getFlowFirestore = () => {
+    const appName = 'process-stripe-payment-flow-app';
+    if (getApps().some(app => app.name === appName)) {
+        return getFirestore(getApp(appName));
+    }
+    const app = initializeApp(firebaseConfig, appName);
+    return getFirestore(app);
+}
+
 // This function is exported and can be called from the client.
 export async function processStripePayment(
   input: ProcessStripePaymentInput
@@ -45,7 +57,7 @@ const processStripePaymentFlow = ai.defineFlow(
     outputSchema: ProcessStripePaymentOutputSchema,
   },
   async (input) => {
-    const { firestore } = initializeFirebase();
+    const firestore = getFlowFirestore();
     
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error('STRIPE_SECRET_KEY environment variable not set.');
@@ -105,3 +117,5 @@ const processStripePaymentFlow = ai.defineFlow(
     }
   }
 );
+
+    
