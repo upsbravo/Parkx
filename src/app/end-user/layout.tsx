@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -12,8 +11,14 @@ import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 
 type EndUser = {
   id: string;
+  vendorId: string;
   profileComplete?: boolean;
   waiverSigned?: boolean;
+};
+
+type Vendor = {
+  name: string;
+  logoUrl?: string;
 };
 
 export default function EndUserLayout({
@@ -31,6 +36,12 @@ export default function EndUserLayout({
     [user, firestore]
   );
   const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
+
+  const vendorDocRef = useMemoFirebase(
+    () => (firestore && userData?.vendorId ? doc(firestore, 'vendors', userData.vendorId) : null),
+    [firestore, userData?.vendorId]
+  );
+  const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
   useEffect(() => {
     if (isUserLoading || isUserDataLoading) {
@@ -50,7 +61,7 @@ export default function EndUserLayout({
     }
   }, [user, userData, isUserLoading, isUserDataLoading, pathname, router]);
 
-  const isLoading = isUserLoading || isUserDataLoading;
+  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading;
 
   // Show a loading skeleton while we determine the user's state
   if (isLoading) {
@@ -83,7 +94,12 @@ export default function EndUserLayout({
   }
 
   return (
-    <DashboardLayout nav={<EndUserNav />} role="End User">
+    <DashboardLayout 
+        nav={<EndUserNav />} 
+        role="End User"
+        vendorName={vendorData?.name}
+        vendorLogo={vendorData?.logoUrl}
+    >
       <AnnouncementBanner />
       {children}
     </DashboardLayout>
