@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -12,9 +13,10 @@ import {
   Car,
   DollarSign,
   AlertTriangle,
+  Megaphone,
 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, limit } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis, Pie, PieChart, Cell } from 'recharts';
 import { ChartContainer, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
@@ -23,6 +25,7 @@ import { format, subMonths, differenceInDays } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 
 type Vendor = {
@@ -48,6 +51,14 @@ type UserInvoice = {
     dueDate: string;
     status: 'Pending' | 'Overdue' | 'Paid';
 };
+
+type Announcement = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: any;
+};
+
 
 export default function VendorAdminDashboard() {
   const { user, isUserLoading } = useUser();
@@ -76,6 +87,13 @@ export default function VendorAdminDashboard() {
     return query(collection(firestore, `vendors/${user.uid}/userInvoices`), where('status', 'in', ['Pending', 'Overdue']));
   }, [firestore, user]);
   const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
+  
+  const announcementsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc'), limit(3));
+  }, [firestore]);
+  const { data: globalAnnouncements, isLoading: areAnnouncementsLoading } = useCollection<Announcement>(announcementsQuery);
+
 
   const overdueInvoices = useMemo(() => {
       if (!pendingInvoices) return [];
@@ -85,7 +103,7 @@ export default function VendorAdminDashboard() {
   }, [pendingInvoices]);
 
   
-  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading || invoicesLoading;
+  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading || invoicesLoading || areAnnouncementsLoading;
   
   const totalUsers = usersData?.length ?? 0;
   const totalSpots = vendorData?.spotLimit ?? 0;
@@ -286,42 +304,82 @@ export default function VendorAdminDashboard() {
             </CardContent>
           </Card>
        </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-           <CardDescription>Newest users to complete their profile.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           {isLoading ? (
-              <div className="space-y-4">
-                  <Skeleton className="h-12 w-full"/>
-                  <Skeleton className="h-12 w-full"/>
-              </div>
-            ) : recentUsers.length > 0 ? (
-                <div className="space-y-4">
-                {recentUsers.map((user) => (
-                    <div key={user.id} className="flex items-center">
-                    <Avatar className="h-9 w-9">
-                        <AvatarFallback>{user.firstName?.[0]}{user.lastName?.[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">{user.firstName} {user.lastName}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
+       
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+               <CardDescription>Newest users to complete their profile.</CardDescription>
+            </CardHeader>
+            <CardContent>
+               {isLoading ? (
+                  <div className="space-y-4">
+                      <Skeleton className="h-12 w-full"/>
+                      <Skeleton className="h-12 w-full"/>
+                  </div>
+                ) : recentUsers.length > 0 ? (
+                    <div className="space-y-4">
+                    {recentUsers.map((user) => (
+                        <div key={user.id} className="flex items-center">
+                        <Avatar className="h-9 w-9">
+                            <AvatarFallback>{user.firstName?.[0]}{user.lastName?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="ml-4 space-y-1">
+                            <p className="text-sm font-medium leading-none">{user.firstName} {user.lastName}</p>
+                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                        <div className="ml-auto font-medium text-sm text-muted-foreground">
+                            Joined {format(new Date(user.waiverSignedDate!), 'PPP')}
+                        </div>
+                        </div>
+                    ))}
                     </div>
-                    <div className="ml-auto font-medium text-sm text-muted-foreground">
-                        Joined {format(new Date(user.waiverSignedDate!), 'PPP')}
+                ) : (
+                     <div className="flex h-24 items-center justify-center">
+                        <p className="text-sm text-muted-foreground">No recent user activity.</p>
                     </div>
+                )}
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>Platform Announcements</CardTitle>
+                        <CardDescription>News and updates from ParkX.</CardDescription>
                     </div>
-                ))}
+                     <Button variant="ghost" size="sm" asChild>
+                        <Link href="/announcements">View all</Link>
+                    </Button>
                 </div>
-            ) : (
-                 <div className="flex h-24 items-center justify-center">
-                    <p className="text-sm text-muted-foreground">No recent user activity.</p>
-                </div>
-            )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <Skeleton className="h-12 w-full"/>
+                        <Skeleton className="h-12 w-full"/>
+                    </div>
+                ) : globalAnnouncements && globalAnnouncements.length > 0 ? (
+                    <div className="space-y-4">
+                        {globalAnnouncements.map((post) => (
+                             <div key={post.id} className="flex items-start gap-3">
+                                <Megaphone className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium leading-none">{post.title}</p>
+                                    <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
+                                    <p className="text-xs text-muted-foreground pt-1">{format(post.createdAt.toDate(), 'PP')}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                     <div className="flex h-24 items-center justify-center">
+                        <p className="text-sm text-muted-foreground">No platform announcements.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
