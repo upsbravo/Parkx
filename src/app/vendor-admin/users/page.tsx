@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, CheckCircle, XCircle, FileText, AlertTriangle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from "@/hooks/use-toast";
 import { ManageParkingDialog } from "./manage-parking-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 type EndUser = {
   id: string;
@@ -92,6 +94,19 @@ export default function UserManagementPage() {
   const { data: parkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(parkingSpotsQuery);
   
   const isLoading = isVendorLoading || areUsersLoading || areSpotsLoading;
+
+  const usersWithMismatch = useMemo(() => {
+    if (!endUsers) return [];
+    return endUsers.filter(user => {
+      const assignedCount = user.assignedSpotIds?.length || 0;
+      const billedCount = user.truckParkingSpots || 0;
+      // We only care if there is *some* activity. If both are 0, it's not a mismatch.
+      if (assignedCount === 0 && billedCount === 0) {
+        return false;
+      }
+      return assignedCount !== billedCount;
+    });
+  }, [endUsers]);
 
   const getSpotNames = (assignedSpotIds?: string[]): string => {
     if (!assignedSpotIds || assignedSpotIds.length === 0) return 'N/A';
@@ -179,6 +194,17 @@ export default function UserManagementPage() {
             Create User
           </Button>
         </div>
+
+        {usersWithMismatch.length > 0 && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Billing Mismatch Detected</AlertTitle>
+            <AlertDescription>
+              The number of assigned spots does not match the number of billed truck parks for: {usersWithMismatch.map(u => `${u.firstName} ${u.lastName}`).join(', ')}. Please use "Manage Truck Parking" to correct the discrepancy.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>All Users</CardTitle>
