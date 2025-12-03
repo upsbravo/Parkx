@@ -13,7 +13,7 @@ import { z } from 'genkit';
 
 const CreateStripeAccountInputSchema = z.object({
   email: z.string().email().describe("The vendor's email address."),
-  uid: z.string().describe("The vendor's Firebase UID, to be used as the account ID."),
+  uid: z.string().describe("The vendor's Firebase UID, used for metadata."),
 });
 export type CreateStripeAccountInput = z.infer<typeof CreateStripeAccountInputSchema>;
 

@@ -9,23 +9,42 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { createStripeAccountSession } from '@/ai/flows/create-stripe-account-session-flow';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
-import { useUser } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 // Load Stripe.js outside of a component's render to avoid
 // recreating the Stripe object on every render.
 const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
+type Vendor = {
+    stripeAccountId: string;
+}
+
 function OnboardingForm() {
   const { user } = useUser();
+  const firestore = useFirestore();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const vendorRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'vendors', user.uid);
+  }, [user, firestore]);
+
+  const {data: vendorData, isLoading: isVendorLoading} = useDoc<Vendor>(vendorRef);
+
+
   useEffect(() => {
     const fetchAccountSession = async () => {
-      if (!user) return;
+      if (!vendorData || !vendorData.stripeAccountId) {
+          if (!isVendorLoading && vendorData) { // Only error if done loading and still no ID
+            setError('Stripe Account ID is missing for this vendor. Please contact support.');
+          }
+          return;
+      }
       
       try {
-        const result = await createStripeAccountSession({ accountId: user.uid });
+        const result = await createStripeAccountSession({ accountId: vendorData.stripeAccountId });
         if (result.client_secret) {
           setClientSecret(result.client_secret);
         } else if (result.error) {
@@ -40,7 +59,7 @@ function OnboardingForm() {
     };
 
     fetchAccountSession();
-  }, [user]);
+  }, [vendorData, isVendorLoading]);
 
   if (error) {
     return (
@@ -52,7 +71,7 @@ function OnboardingForm() {
     );
   }
   
-  if (!clientSecret) {
+  if (!clientSecret || isVendorLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
@@ -94,5 +113,3 @@ export function StripeConnectOnboarding() {
 
   return <OnboardingForm />;
 }
-
-    

@@ -59,6 +59,10 @@
           "type": "string",
           "description": "The ID of the customer object in Stripe."
         },
+        "stripeAccountId": {
+          "type": "string",
+          "description": "The ID of the Stripe Connected Account for payouts."
+        },
         "stripeSubscriptionId": {
           "type": "string",
           "description": "The ID of the active Stripe subscription."

@@ -71,7 +71,6 @@ export function InviteVendorDialog({
       stripeCustomerId = stripeCustomerResult.customerId;
       
       // Step 3: Create Stripe Connected Account (for paying out the vendor)
-      // We explicitly pass the new Firebase UID to be the Stripe Account ID.
       const stripeAccountResult = await createStripeAccount({ email, uid: newUser.uid });
       if (stripeAccountResult.error || !stripeAccountResult.accountId) {
           throw new Error(stripeAccountResult.error || "Failed to create Stripe Connected Account.");
@@ -79,9 +78,9 @@ export function InviteVendorDialog({
       stripeAccountId = stripeAccountResult.accountId;
 
       // Step 4: Create the vendor document in Firestore with all necessary IDs
-      // The vendor's doc ID *is* their Firebase UID, which is also their Stripe Account ID.
+      // The vendor's doc ID *is* their Firebase UID.
       await setDoc(doc(firestore, "vendors", newUser.uid), {
-        id: newUser.uid, // This is also the Stripe Account ID
+        id: newUser.uid,
         name: name,
         email: email,
         status: "Pending Agreement",
@@ -91,6 +90,7 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         role: "vendorAdmin",
         stripeCustomerId: stripeCustomerId,
+        stripeAccountId: stripeAccountId, // Storing the correct Stripe Account ID
         profileComplete: false,
         agreementSigned: false,
         trialOffered: offerTrial,
