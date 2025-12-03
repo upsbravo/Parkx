@@ -31,8 +31,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from "@/firebase";
+import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -75,7 +75,7 @@ export default function VendorsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user: superAdmin, isUserLoading } = useUser();
 
   useEffect(() => {
     setIsClient(true);
@@ -84,9 +84,9 @@ export default function VendorsPage() {
 
   const firestore = useFirestore();
   const vendorsQuery = useMemoFirebase(() => {
-    if (isUserLoading || !user || !firestore) return null;
+    if (isUserLoading || !superAdmin || !firestore) return null;
     return collection(firestore, 'vendors');
-  }, [firestore, user, isUserLoading]);
+  }, [firestore, superAdmin, isUserLoading]);
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
   const statusVariant = {
@@ -97,6 +97,18 @@ export default function VendorsPage() {
     'Pending Agreement': "secondary",
     Canceled: "destructive",
   };
+
+  const createNotification = (title: string, message: string, type: 'payment_failure' | 'new_vendor' | 'support_ticket' = 'new_vendor') => {
+    if (!superAdmin) return;
+    const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
+    addDocumentNonBlocking(notifRef, {
+      title,
+      message,
+      type,
+      isRead: false,
+      createdAt: serverTimestamp(),
+    })
+  }
 
   const handleAdjustClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
@@ -111,6 +123,10 @@ export default function VendorsPage() {
       title: `Vendor ${newStatus ? 'Promoted' : 'Demoted'}`,
       description: `${vendor.name} is now a ${newStatus ? 'Privileged' : 'Regular'} Vendor.`,
     });
+    createNotification(
+        `Vendor ${newStatus ? 'Promoted' : 'Demoted'}`,
+        `${vendor.name} is now a ${newStatus ? 'Privileged' : 'Regular'} Vendor.`
+    );
   };
 
   const handleDeactivateClick = (vendor: Vendor) => {
@@ -152,6 +168,7 @@ export default function VendorsPage() {
       title: "Vendor Deactivated",
       description: `${selectedVendor.name} has been marked as Canceled.`,
     });
+    createNotification('Vendor Deactivated', `${selectedVendor.name} has been marked as Canceled.`);
 
     setDeactivateAlertOpen(false);
     setSelectedVendor(null);
@@ -166,6 +183,7 @@ export default function VendorsPage() {
       title: "Vendor Reactivated",
       description: `${vendor.name} is now pending agreement to reactivate their subscription.`,
     });
+    createNotification('Vendor Reactivated', `${vendor.name} is now pending agreement.`);
   };
   
   const handleOfferTrial = (vendor: Vendor) => {
@@ -181,6 +199,7 @@ export default function VendorsPage() {
       title: "Trial Offered",
       description: `A 30-day trial has been granted to ${vendor.name}.`,
     });
+    createNotification('Trial Offered', `A 30-day trial has been granted to ${vendor.name}.`);
   };
 
   const handleSendPasswordReset = async (email: string) => {
