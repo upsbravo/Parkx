@@ -146,7 +146,8 @@ service cloud.firestore {
        
       // SMS LOGS
       match /sms_logs/{logId} {
-        allow create: if isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid;
+        // Allow server-side (unauthenticated) writes, or client-side writes from the user's vendor
+        allow create: if request.auth == null || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
         allow read, list: if request.auth.uid == userId || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
       }
        
