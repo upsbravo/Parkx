@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -144,7 +143,7 @@ export function VendorAdminNotifications() {
                 </div>
             )}
         </div>
-         <div className="p-2 text-center border-t">
+        <div className="p-2 text-center border-t">
             <Button variant="link" size="sm" asChild>
                 <Link href="/vendor-admin/notifications">View all notifications</Link>
             </Button>
