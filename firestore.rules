@@ -165,10 +165,10 @@ service cloud.firestore {
       }
     }
     
-    // Allow vendors to list their own invoices, and super admins to see all
+    // VENDOR INVOICES
     match /vendorInvoices/{invoiceId} {
       allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || isVendorAdmin();
       allow write: if isSuperAdmin() || request.auth == null;
     }
     
