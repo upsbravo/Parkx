@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -13,10 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useFirestore, useMemoFirebase, useUser, useStorage } from '@/firebase';
+import { useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import Image from 'next/image';
@@ -58,7 +59,6 @@ type VendorFormData = {
 export default function BrandingPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const storage = useStorage();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,6 +170,7 @@ export default function BrandingPage() {
   
     if (logoFile) {
       setIsUploading(true);
+      const storage = getStorage();
       const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/${logoFile.name}`);
       const uploadTask = uploadBytesResumable(logoStorageRef, logoFile);
   
