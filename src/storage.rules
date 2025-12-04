@@ -1,26 +1,19 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow anyone to read public files
-    match /public/{allPaths=**} {
-      allow read;
-    }
-
-    // Allow vendor admins to upload their own logo with a specific filename
-    match /vendors/{vendorId}/logo/logo {
+    // Allow vendor admins to upload their own logo
+    match /vendors/{vendorId}/logo/{fileName} {
       allow read;
       allow write: if request.auth != null && request.auth.uid == vendorId;
     }
-    
-    // Allow participants of a conversation to read/write attachments
-    match /conversations/{conversationId}/{allPaths=**} {
-        allow read, write: if request.auth != null && request.auth.uid in get(/databases/(default)/documents/conversations/$(conversationId)).data.participants;
-    }
 
-    // Allow authenticated users to upload their own files
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Default deny all other paths for now
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
+
+    

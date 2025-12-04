@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -170,8 +171,7 @@ export default function BrandingPage() {
     if (logoFile) {
       setIsUploading(true);
       const storage = getStorage();
-      // Use a consistent filename like 'logo' to match security rules
-      const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/logo`);
+      const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/${logoFile.name}`);
       const uploadTask = uploadBytesResumable(logoStorageRef, logoFile);
   
       uploadTask.on('state_changed',
@@ -333,3 +333,5 @@ export default function BrandingPage() {
     </div>
   );
 }
+
+    
