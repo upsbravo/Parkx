@@ -8,7 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, updateDoc, setDoc, collection, getDoc, query, where } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
@@ -71,7 +71,11 @@ const stripeWebhookFlow = ai.defineFlow(
         break;
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
+      case 'customer.subscription.resumed':
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        break;
+      case 'customer.subscription.paused':
+        await handleSubscriptionPaused(event.data.object as Stripe.Subscription);
         break;
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
@@ -106,7 +110,7 @@ const stripeWebhookFlow = ai.defineFlow(
 async function getVendorIdByCustomerId(customerId: string): Promise<string | null> {
     const firestore = getWebhookFirestore();
     const q = query(collection(firestore, 'vendors'), where('stripeCustomerId', '==', customerId));
-    const querySnapshot = await getDoc(q.docs[0]);
+    const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
         return querySnapshot.docs[0].id;
     }
@@ -116,7 +120,7 @@ async function getVendorIdByCustomerId(customerId: string): Promise<string | nul
 async function getVendorIdByStripeAccountId(accountId: string): Promise<string | null> {
     const firestore = getWebhookFirestore();
     const q = query(collection(firestore, 'vendors'), where('stripeAccountId', '==', accountId));
-    const querySnapshot = await getDoc(q.docs[0]);
+    const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
         return querySnapshot.docs[0].id;
     }
@@ -184,6 +188,16 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       stripeSubscriptionId: subscription.id,
       trialEnds: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
   });
+}
+
+async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
+  const firestore = getWebhookFirestore();
+  const vendorId = await getVendorIdByCustomerId(subscription.customer as string);
+  
+  if (!vendorId) return;
+
+  const vendorRef = doc(firestore, 'vendors', vendorId);
+  await updateDoc(vendorRef, { status: 'Paused' });
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -301,3 +315,5 @@ async function handleCheckoutSessionCompleted(session: any) {
     });
   }
 }
+
+    

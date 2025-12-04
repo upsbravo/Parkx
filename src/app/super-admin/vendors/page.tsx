@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift, Play, Pause, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,13 +50,15 @@ import {
 import { differenceInDays } from "date-fns";
 import Link from 'next/link';
 import { cancelStripeSubscription } from "@/ai/flows/cancel-stripe-subscription-flow";
+import { pauseStripeSubscription } from "@/ai/flows/pause-stripe-subscription-flow";
+import { resumeStripeSubscription } from "@/ai/flows/resume-stripe-subscription-flow";
 
 
 type Vendor = {
   id: string;
   name: string;
   email: string;
-  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement' | 'Canceled';
+  status: 'Pending' | 'Active' | 'Trial' | 'Inactive' | 'Pending Agreement' | 'Canceled' | 'Paused';
   joinDate: string; // ISO string
   trialEnds: string | null; // ISO string or null
   spotsUsed: number;
@@ -96,6 +98,7 @@ export default function VendorsPage() {
     Inactive: "destructive",
     'Pending Agreement': "secondary",
     Canceled: "destructive",
+    Paused: "secondary"
   };
 
   const createNotification = (title: string, message: string, type: 'payment_failure' | 'new_vendor' | 'support_ticket' = 'new_vendor') => {
@@ -129,58 +132,63 @@ export default function VendorsPage() {
     );
   };
 
-  const handleDeactivateClick = (vendor: Vendor) => {
+  const handleCancelClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setDeactivateAlertOpen(true);
   };
   
-  const handleDeactivateConfirm = async () => {
+  const handleCancelConfirm = async () => {
     if (!selectedVendor) return;
     const vendorRef = doc(firestore, "vendors", selectedVendor.id);
 
-    // If there's a subscription, cancel it first.
     if (selectedVendor.stripeSubscriptionId) {
         try {
             const result = await cancelStripeSubscription({ subscriptionId: selectedVendor.stripeSubscriptionId });
-            if (!result.success) {
-                throw new Error(result.error || "Failed to cancel subscription in Stripe.");
-            }
+            if (!result.success) throw new Error(result.error || "Failed to cancel subscription in Stripe.");
             toast({
                 title: 'Stripe Subscription Cancelled',
-                description: `The subscription for ${selectedVendor.name} has been cancelled.`,
+                description: `The subscription for ${selectedVendor.name} has been cancelled immediately.`,
             });
         } catch (e: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Stripe Error',
-                description: e.message || "Could not cancel the Stripe subscription.",
-            });
-            setDeactivateAlertOpen(false); // Close dialog on failure
-            return; // Stop the process
+            toast({ variant: 'destructive', title: 'Stripe Error', description: e.message });
+            setDeactivateAlertOpen(false);
+            return;
         }
     }
 
-    // Now, mark the vendor as canceled in Firestore.
-    updateDocumentNonBlocking(vendorRef, { 
-        status: "Canceled",
-        stripeSubscriptionId: null // Also clear the subscription ID
-    });
-    
-    toast({
-      variant: "destructive",
-      title: "Vendor Deactivated",
-      description: `${selectedVendor.name} has been marked as Canceled.`,
-    });
-    createNotification('Vendor Deactivated', `${selectedVendor.name} has been marked as Canceled.`);
-
+    updateDocumentNonBlocking(vendorRef, { status: "Canceled", stripeSubscriptionId: null });
+    toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
+    createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
     setDeactivateAlertOpen(false);
     setSelectedVendor(null);
   };
+  
+  const handlePauseSubscription = async (vendor: Vendor) => {
+    if (!vendor.stripeSubscriptionId) return;
+    try {
+        const result = await pauseStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
+        if (!result.success) throw new Error(result.error);
+        toast({ title: "Subscription Paused", description: `${vendor.name}'s subscription is now paused.` });
+        // Webhook will update Firestore status to 'Paused'
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Pause Failed", description: e.message });
+    }
+  }
+
+  const handleResumeSubscription = async (vendor: Vendor) => {
+    if (!vendor.stripeSubscriptionId) return;
+    try {
+        const result = await resumeStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
+        if (!result.success) throw new Error(result.error);
+        toast({ title: "Subscription Resumed", description: `${vendor.name}'s subscription is now active.` });
+        // Webhook will update Firestore status to 'Active'
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Resume Failed", description: e.message });
+    }
+  }
 
   const handleReactivate = (vendor: Vendor) => {
     const vendorRef = doc(firestore, "vendors", vendor.id);
-    // Reactivating might mean putting them back into 'Pending Agreement'
-    // if they need to re-sign or set up payment.
     updateDocumentNonBlocking(vendorRef, { status: "Pending Agreement" });
     toast({
       title: "Vendor Reactivated",
@@ -352,12 +360,6 @@ export default function VendorsPage() {
                                     <span>Edit Vendor Profile</span>
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Impersonate</DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleAdjustClick(vendor)}
-                            >
-                              Adjust Spot Limit
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/super-admin/vendors/${vendor.id}/invoices`)}>
                               Billings &amp; Credits
                             </DropdownMenuItem>
@@ -365,9 +367,29 @@ export default function VendorsPage() {
                                 <FileText className="mr-2 h-4 w-4"/>
                                 View Documents
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                             <DropdownMenuItem onClick={() => handleAdjustClick(vendor)}>
+                              Adjust Spot Limit
+                            </DropdownMenuItem>
                              <DropdownMenuItem onClick={() => handleSendPasswordReset(vendor.email)}>
                               Send Password Reset
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                             {vendor.status === "Active" && (
+                                <DropdownMenuItem onClick={() => handlePauseSubscription(vendor)}>
+                                    <Pause className="mr-2 h-4 w-4" /> Pause Subscription
+                                </DropdownMenuItem>
+                            )}
+                            {vendor.status === "Paused" && (
+                                <DropdownMenuItem onClick={() => handleResumeSubscription(vendor)}>
+                                    <Play className="mr-2 h-4 w-4" /> Resume Subscription
+                                </DropdownMenuItem>
+                            )}
+                            {vendor.status !== "Canceled" && vendor.status !== 'Inactive' && (
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleCancelClick(vendor)}>
+                                    <X className="mr-2 h-4 w-4" /> Cancel Subscription
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleOfferTrial(vendor)}>
                                 <Gift className="mr-2 h-4 w-4" />
@@ -376,21 +398,14 @@ export default function VendorsPage() {
                             <DropdownMenuItem onClick={() => handleTogglePrivileged(vendor)}>
                               {vendor.isPrivileged ? 'Demote to Regular' : 'Promote to Privileged'}
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {vendor.status === 'Inactive' || vendor.status === 'Canceled' ? (
+                             <DropdownMenuSeparator />
+                            {vendor.status === 'Canceled' || vendor.status === 'Inactive' ? (
                               <DropdownMenuItem
                                 onClick={() => handleReactivate(vendor)}
                               >
                                 Reactivate
                               </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                                onClick={() => handleDeactivateClick(vendor)}
-                              >
-                                Deactivate
-                              </DropdownMenuItem>
-                            )}
+                            ) : null}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -422,15 +437,15 @@ export default function VendorsPage() {
       <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setDeactivateAlertOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
-                <AlertDialogTitle>Deactivate Vendor?</AlertDialogTitle>
+                <AlertDialogTitle>Cancel Subscription Immediately?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This will set the vendor's account to 'Canceled' and cancel their Stripe subscription, preventing future charges. This action is reversible. Are you sure you want to continue?
+                    This will permanently cancel the vendor's Stripe subscription, and they will lose access to the service immediately. This action cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Back</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeactivateConfirm} className="bg-destructive hover:bg-destructive/90">
-                    Yes, Deactivate Vendor
+                <AlertDialogAction onClick={handleCancelConfirm} className="bg-destructive hover:bg-destructive/90">
+                    Yes, Cancel Immediately
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
