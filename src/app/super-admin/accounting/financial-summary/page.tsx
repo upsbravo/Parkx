@@ -19,7 +19,7 @@ import {
   TableRow,
   TableFooter,
 } from '@/components/ui/table';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, Calendar as CalendarIcon, DollarSign, FileDigit, Landmark } from 'lucide-react';
@@ -51,10 +51,11 @@ const formatCurrency = (amountInCents?: number) => {
 export default function FinancialSummaryPage() {
   const [date, setDate] = useState<DateRange | undefined>();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const transactionsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
+    [firestore, user]
   );
   const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
 
