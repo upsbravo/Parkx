@@ -1,25 +1,45 @@
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
+import React, { useState, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { createStripeAccountSession } from '@/ai/flows/create-stripe-account-session-flow';
-import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
-// Load Stripe.js outside of a component's render to avoid
-// recreating the Stripe object on every render.
-const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+const StripeConnectAccountOnboarding = dynamic(
+  () => {
+    // This dynamically loads the Stripe Connect JS script
+    if (!document.querySelector('script[src="https://connect-js.stripe.com/v1.1/init.js"]')) {
+        const script = document.createElement('script');
+        script.src = "https://connect-js.stripe.com/v1.1/init.js";
+        script.async = true;
+        document.head.appendChild(script);
+    }
+    // @ts-ignore - Stripe's web component is not typed in a standard way
+    return Promise.resolve((props) => <stripe-connect-account-onboarding {...props} />);
+  },
+  { 
+    ssr: false,
+    loading: () => (
+        <div className="space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-10 w-1/3" />
+        </div>
+    ),
+  }
+);
+
 
 type Vendor = {
-    stripeAccountId: string;
+    stripeAccountId?: string;
 }
 
-function OnboardingForm() {
+function OnboardingComponent() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -36,7 +56,7 @@ function OnboardingForm() {
   useEffect(() => {
     const fetchAccountSession = async () => {
       if (!vendorData || !vendorData.stripeAccountId) {
-          if (!isVendorDataLoading && vendorData) { // Only error if done loading and still no ID
+          if (!isVendorDataLoading && vendorData) {
             setError('Stripe Account ID is missing for this vendor. Please contact support.');
           }
           return;
@@ -47,7 +67,7 @@ function OnboardingForm() {
         if (result.client_secret) {
           setClientSecret(result.client_secret);
         } else if (result.error) {
-          setError(result.error); // Set the error in state instead of throwing
+          setError(result.error);
         } else {
           setError('Failed to retrieve client secret.');
         }
@@ -57,7 +77,9 @@ function OnboardingForm() {
       }
     };
 
-    fetchAccountSession();
+    if(vendorData) {
+        fetchAccountSession();
+    }
   }, [vendorData, isVendorDataLoading]);
 
   if (error) {
@@ -70,7 +92,7 @@ function OnboardingForm() {
     );
   }
   
-  if (!clientSecret || isVendorDataLoading) {
+  if (isVendorDataLoading || !clientSecret) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
@@ -81,40 +103,14 @@ function OnboardingForm() {
   }
 
   return (
-    <Elements stripe={stripePromise}>
-      <div className='min-h-[400px]'>
-         {/* @ts-ignore */}
-        <stripe-connect-account-onboarding client-secret={clientSecret} />
-      </div>
-    </Elements>
+    <div className='min-h-[400px]'>
+        <StripeConnectAccountOnboarding client-secret={clientSecret} />
+    </div>
   );
 }
 
+
 export function StripeConnectOnboarding() {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    // This component relies on browser APIs, so we ensure it only renders on the client.
-    setIsClient(true);
-    
-    // Dynamically load the Stripe Connect JS script if it doesn't already exist.
-    if (!document.querySelector('script[src="https://connect-js.stripe.com/v1.1/init.js"]')) {
-      const script = document.createElement('script');
-      script.src = "https://connect-js.stripe.com/v1.1/init.js";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-  }, []);
-
-  if (!isClient) {
-    return (
-        <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-10 w-1/3" />
-        </div>
-    );
-  }
-
-  return <OnboardingForm />;
+  return <OnboardingComponent />;
 }
+
