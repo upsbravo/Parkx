@@ -68,7 +68,8 @@ export function AssignSpotDialog({
   
   const availableSpots = useMemo(() => {
     if (!allSpots) return [];
-    // A spot is available if it's not occupied OR if it's occupied by the current user
+    // A spot is available if it's marked as available, OR if it is already assigned to the user being edited.
+    // This prevents showing spots assigned to other users.
     return allSpots.filter(spot => spot.isAvailable || spot.userId === user.id);
   }, [allSpots, user.id]);
 
