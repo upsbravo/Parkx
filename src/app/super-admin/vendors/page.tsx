@@ -99,7 +99,7 @@ export default function VendorsPage() {
     'Pending Agreement': "secondary",
     Canceled: "destructive",
     Paused: "secondary"
-  };
+  } as const;
 
   const createNotification = (title: string, message: string, type: 'payment_failure' | 'new_vendor' | 'support_ticket' = 'new_vendor') => {
     if (!superAdmin) return;
@@ -156,6 +156,8 @@ export default function VendorsPage() {
         }
     }
 
+    // This part is now handled by the 'customer.subscription.deleted' webhook
+    // but we can update optimistically for a better UX.
     updateDocumentNonBlocking(vendorRef, { status: "Canceled", stripeSubscriptionId: null });
     toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
     createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
@@ -168,7 +170,7 @@ export default function VendorsPage() {
     try {
         const result = await pauseStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
         if (!result.success) throw new Error(result.error);
-        toast({ title: "Subscription Paused", description: `${vendor.name}'s subscription is now paused.` });
+        toast({ title: "Subscription Paused", description: `${vendor.name}'s subscription is now paused. Status will update shortly.` });
         // Webhook will update Firestore status to 'Paused'
     } catch (e: any) {
         toast({ variant: "destructive", title: "Pause Failed", description: e.message });
@@ -180,7 +182,7 @@ export default function VendorsPage() {
     try {
         const result = await resumeStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
         if (!result.success) throw new Error(result.error);
-        toast({ title: "Subscription Resumed", description: `${vendor.name}'s subscription is now active.` });
+        toast({ title: "Subscription Resumed", description: `${vendor.name}'s subscription is now active. Status will update shortly.` });
         // Webhook will update Firestore status to 'Active'
     } catch (e: any) {
         toast({ variant: "destructive", title: "Resume Failed", description: e.message });
@@ -324,11 +326,7 @@ export default function VendorsPage() {
                       <TableCell>
                         <Badge
                           variant={
-                            statusVariant[vendor.status] as
-                              | "default"
-                              | "secondary"
-                              | "outline"
-                              | "destructive"
+                            statusVariant[vendor.status] ?? "secondary"
                           }
                         >
                           {vendor.status === 'Trial' ? getTrialStatus(vendor.trialEnds) : vendor.status}
@@ -385,7 +383,7 @@ export default function VendorsPage() {
                                     <Play className="mr-2 h-4 w-4" /> Resume Subscription
                                 </DropdownMenuItem>
                             )}
-                            {vendor.status !== "Canceled" && vendor.status !== 'Inactive' && (
+                            {(vendor.status === "Active" || vendor.status === "Paused") && (
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleCancelClick(vendor)}>
                                     <X className="mr-2 h-4 w-4" /> Cancel Subscription
                                 </DropdownMenuItem>

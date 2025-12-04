@@ -96,7 +96,7 @@ const stripeWebhookFlow = ai.defineFlow(
         await handlePayoutPaid(event.data.object as Stripe.Payout);
         break;
       case 'checkout.session.completed':
-         await handleCheckoutSessionCompleted(event.data.object);
+         await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
         break;
       default:
         console.log(`Unhandled event type ${event.type}`);
@@ -303,7 +303,7 @@ async function handlePayoutPaid(payout: Stripe.Payout) {
 }
 
 
-async function handleCheckoutSessionCompleted(session: any) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const firestore = getWebhookFirestore();
   const vendorId = session.metadata?.uid; // The vendor's Firebase UID
 
@@ -315,5 +315,3 @@ async function handleCheckoutSessionCompleted(session: any) {
     });
   }
 }
-
-    
