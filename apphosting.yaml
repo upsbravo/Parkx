@@ -7,8 +7,6 @@ runConfig:
   maxInstances: 1
 env:
   - variable: STRIPE_WEBHOOK_SECRET
-    secret: STRIPE_WEBHOOK_SECRET
-    availability:
-      - RUNTIME
+    value: whsec_7ope1hEgORuSRTf58Qr4mthadTaD0Avk
 storage:
   cors: cors.json
