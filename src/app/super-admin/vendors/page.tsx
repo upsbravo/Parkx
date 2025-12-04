@@ -54,6 +54,7 @@ import { pauseStripeSubscription } from "@/ai/flows/pause-stripe-subscription-fl
 import { resumeStripeSubscription } from "@/ai/flows/resume-stripe-subscription-flow";
 import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PasscodeDialog } from "./passcode-dialog";
 
 
 type Vendor = {
@@ -73,8 +74,8 @@ type Vendor = {
 export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
-  const [isDeactivateAlertOpen, setDeactivateAlertOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [isPasscodeDialogOpen, setIsPasscodeDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
@@ -150,7 +151,7 @@ export default function VendorsPage() {
 
   const handleCancelClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
-    setDeactivateAlertOpen(true);
+    setDeleteAlertOpen(true);
   };
   
   const handleCancelConfirm = async () => {
@@ -167,7 +168,7 @@ export default function VendorsPage() {
             });
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Stripe Error', description: e.message });
-            setDeactivateAlertOpen(false);
+            setDeleteAlertOpen(false);
             return;
         }
     }
@@ -177,12 +178,17 @@ export default function VendorsPage() {
     updateDocumentNonBlocking(vendorRef, { status: "Canceled", stripeSubscriptionId: null });
     toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
     createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
-    setDeactivateAlertOpen(false);
+    setDeleteAlertOpen(false);
     setSelectedVendor(null);
   };
 
   const handleDeleteClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
+    setIsPasscodeDialogOpen(true);
+  }
+
+  const handlePasscodeSuccess = () => {
+    setIsPasscodeDialogOpen(false);
     setDeleteAlertOpen(true);
   }
 
@@ -555,22 +561,6 @@ export default function VendorsPage() {
           onOpenChange={setAdjustOpen}
         />
       )}
-      <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setDeactivateAlertOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Cancel Subscription Immediately?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This will permanently cancel the vendor's Stripe subscription, and they will lose access to the service immediately. This action cannot be undone.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Back</AlertDialogCancel>
-                <AlertDialogAction onClick={handleCancelConfirm} className="bg-destructive hover:bg-destructive/90">
-                    Yes, Cancel Immediately
-                </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -587,6 +577,13 @@ export default function VendorsPage() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+       {selectedVendor && (
+        <PasscodeDialog
+          open={isPasscodeDialogOpen}
+          onOpenChange={setIsPasscodeDialogOpen}
+          onSuccess={handlePasscodeSuccess}
+        />
+      )}
     </>
   );
 }
