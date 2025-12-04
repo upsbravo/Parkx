@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A server-side flow to securely cancel a Stripe subscription.
+ * @fileOverview A server-side flow to securely and immediately cancel a Stripe subscription.
  *
  * - cancelStripeSubscription - A function that cancels a subscription in Stripe.
  * - CancelStripeSubscriptionInput - The input type for the function.
@@ -48,12 +48,9 @@ const cancelStripeSubscriptionFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      // The `stripe.subscriptions.del` function cancels the subscription.
-      // By default, it prorates and creates an invoice for the final usage.
-      // To cancel immediately without a final invoice, use `stripe.subscriptions.cancel`.
-      // `del` is often preferred for usage-based billing. For simple subscriptions, `cancel` is also common.
-      // We will use `del` which is equivalent to canceling at the end of the period by default.
-      await stripe.subscriptions.del(subscriptionId);
+      // Use stripe.subscriptions.cancel() to terminate the subscription immediately.
+      // The previous method, .del(), schedules cancellation for the end of the period.
+      await stripe.subscriptions.cancel(subscriptionId);
 
       return { success: true };
 
