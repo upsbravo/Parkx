@@ -30,6 +30,7 @@ service cloud.firestore {
     // SUPER ADMINS
     match /superAdmins/{superAdminId} {
       // Super admins can read and write their own profile
+      allow get: if isSuperAdmin() && request.auth.uid == superAdminId;
       allow read, write: if isSuperAdmin() && request.auth.uid == superAdminId;
       
       // Super admins can manage their own notifications
@@ -41,14 +42,8 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
-      allow get: if isSuperAdmin() || request.auth.uid == vendorId || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
+      allow get: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
       allow list: if isSuperAdmin() || isPrivilegedVendor();
-      allow read: if (request.auth == null) || // Allow trusted server-side access
-                     isSuperAdmin() ||
-                     request.auth.uid == vendorId ||
-                     isPrivilegedVendor() ||
-                     (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
       // End-users can read their own spot, admins can manage all spots
@@ -169,8 +164,7 @@ service cloud.firestore {
     
     // VENDOR INVOICES
     match /vendorInvoices/{invoiceId} {
-      allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow read, list: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
       allow write: if isSuperAdmin() || request.auth == null;
     }
     
@@ -212,3 +206,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
