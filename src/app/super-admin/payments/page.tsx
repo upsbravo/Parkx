@@ -22,7 +22,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -47,10 +47,11 @@ type Transaction = {
 export default function PlatformPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const transactionsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
+    [firestore, user]
   );
   const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
 
