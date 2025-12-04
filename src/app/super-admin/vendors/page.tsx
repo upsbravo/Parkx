@@ -32,7 +32,7 @@ import {
 import { InviteVendorDialog } from "./invite-dialog";
 import { AdjustSpotLimitDialog } from "./adjust-spot-limit-dialog";
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, serverTimestamp, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -186,19 +186,58 @@ export default function VendorsPage() {
     setDeleteAlertOpen(true);
   }
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!selectedVendor || !firestore) return;
-    // Note: This deletes the Firestore document, but does NOT delete the Firebase Auth user.
-    // A backend function would be required to fully delete the Auth user.
-    const vendorRef = doc(firestore, 'vendors', selectedVendor.id);
-    deleteDocumentNonBlocking(vendorRef);
-    toast({
-      variant: 'destructive',
-      title: 'Vendor Deleted',
-      description: `${selectedVendor.name}'s record has been permanently deleted.`,
+
+    const { id: vendorId, name: vendorName } = selectedVendor;
+
+    const deletingToast = toast({
+      title: 'Deleting Vendor...',
+      description: `Finding all users associated with ${vendorName}.`,
     });
-    setDeleteAlertOpen(false);
-    setSelectedVendor(null);
+
+    try {
+        // 1. Find all users for this vendor
+        const usersQuery = query(collection(firestore, 'users'), where('vendorId', '==', vendorId));
+        const usersSnapshot = await getDocs(usersQuery);
+        const userDocs = usersSnapshot.docs;
+
+        // 2. Create a batch write
+        const batch = writeBatch(firestore);
+
+        // 3. Add user deletions to the batch
+        userDocs.forEach(userDoc => {
+            batch.delete(userDoc.ref);
+        });
+        
+        toast.update(deletingToast.id, {
+            description: `Found ${userDocs.length} user(s). Preparing to delete...`,
+        });
+
+        // 4. Add the vendor deletion to the batch
+        const vendorRef = doc(firestore, 'vendors', vendorId);
+        batch.delete(vendorRef);
+        
+        // 5. Commit the batch
+        await batch.commit();
+
+        toast.update(deletingToast.id, {
+            variant: 'destructive',
+            title: 'Vendor & Users Deleted',
+            description: `${vendorName} and all associated user records have been permanently deleted.`,
+        });
+
+    } catch (e: any) {
+        toast.update(deletingToast.id, {
+            variant: 'destructive',
+            title: 'Deletion Failed',
+            description: e.message || 'An error occurred during the deletion process.',
+        });
+        console.error("Cascading delete failed:", e);
+    } finally {
+        setDeleteAlertOpen(false);
+        setSelectedVendor(null);
+    }
   };
   
   const handlePauseSubscription = async (vendor: Vendor) => {
@@ -534,13 +573,13 @@ export default function VendorsPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the vendor's record from the database. This does not delete their authentication credentials, but they will be unable to log in.
+                    This action cannot be undone. This will permanently delete the vendor and all their associated user records. They will lose access immediately.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
-                    Yes, Delete Vendor Record
+                    Yes, Delete Vendor & Users
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
