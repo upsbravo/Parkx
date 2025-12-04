@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift, Play, Pause, X, Zap } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift, Play, Pause, X, Zap, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +74,7 @@ export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [isDeactivateAlertOpen, setDeactivateAlertOpen] = useState(false);
+  const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
@@ -177,6 +178,26 @@ export default function VendorsPage() {
     toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
     createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
     setDeactivateAlertOpen(false);
+    setSelectedVendor(null);
+  };
+
+  const handleDeleteClick = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setDeleteAlertOpen(true);
+  }
+
+  const handleDeleteConfirm = () => {
+    if (!selectedVendor || !firestore) return;
+    // Note: This deletes the Firestore document, but does NOT delete the Firebase Auth user.
+    // A backend function would be required to fully delete the Auth user.
+    const vendorRef = doc(firestore, 'vendors', selectedVendor.id);
+    deleteDocumentNonBlocking(vendorRef);
+    toast({
+      variant: 'destructive',
+      title: 'Vendor Deleted',
+      description: `${selectedVendor.name}'s record has been permanently deleted.`,
+    });
+    setDeleteAlertOpen(false);
     setSelectedVendor(null);
   };
   
@@ -445,7 +466,6 @@ export default function VendorsPage() {
                                     <X className="mr-2 h-4 w-4" /> Cancel Subscription
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleOfferTrial(vendor)}>
                                 <Gift className="mr-2 h-4 w-4" />
                                 <span>Offer 30-Day Trial</span>
@@ -461,6 +481,10 @@ export default function VendorsPage() {
                                 Reactivate
                               </DropdownMenuItem>
                             ) : null}
+                             <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => handleDeleteClick(vendor)}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Vendor
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -501,6 +525,22 @@ export default function VendorsPage() {
                 <AlertDialogCancel>Back</AlertDialogCancel>
                 <AlertDialogAction onClick={handleCancelConfirm} className="bg-destructive hover:bg-destructive/90">
                     Yes, Cancel Immediately
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the vendor's record from the database. This does not delete their authentication credentials, but they will be unable to log in.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-destructive/90">
+                    Yes, Delete Vendor Record
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
