@@ -1,86 +1,62 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, StripeConnectOnboarding as StripeOnboardingComponent } from '@stripe/react-stripe-js';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { createStripeAccountSession } from '@/ai/flows/create-stripe-account-session-flow';
+import { useUser, useAuth } from '@/firebase';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 
-type Vendor = {
-  stripeAccountId?: string;
-};
+// Load Stripe once with your publishable key
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
-// This is the correct way to handle Stripe's web components in React.
-// We dynamically load the script and then create the custom element.
-export default function StripeConnectOnboardingWrapper() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+function OnboardingContent() {
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isScriptLoaded, setScriptLoaded] = useState(false);
-  const onboardingElementRef = useRef<any>(null);
+  const [isFetchingSecret, setIsFetchingSecret] = useState(true);
 
-  const vendorRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'vendors', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
-
-  // Effect 1: Load the Stripe Connect JS script
   useEffect(() => {
-    if (document.querySelector('script[src="https://connect-js.stripe.com/v1.1/init.js"]')) {
-      setScriptLoaded(true);
-      return;
-    }
+    if (!user) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://connect-js.stripe.com/v1.1/init.js';
-    script.async = true;
-    script.onload = () => setScriptLoaded(true);
-    script.onerror = () => setError('Failed to load Stripe Connect script.');
-    document.head.appendChild(script);
+    const fetchConnectSession = async () => {
+        try {
+            const idToken = await user.getIdToken();
+            const response = await fetch('/api/stripe/create-connect-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`,
+                },
+            });
+            
+            const data = await response.json();
 
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to fetch Stripe session.');
+            }
 
-  // Effect 2: Fetch the client secret once the vendor data is available
-  useEffect(() => {
-    if (isVendorLoading || !vendorData) return;
-
-    if (!vendorData.stripeAccountId) {
-      setError('Stripe Account ID is missing for this vendor. Please contact support.');
-      return;
-    }
-
-    createStripeAccountSession({ accountId: vendorData.stripeAccountId })
-      .then((result) => {
-        if (result.client_secret) {
-          setClientSecret(result.client_secret);
-        } else {
-          setError(result.error || 'Failed to initialize Stripe session.');
+            if (data.client_secret) {
+                setClientSecret(data.client_secret);
+            } else {
+                setError(data.error || 'Failed to initialize Stripe session.');
+            }
+        } catch (e: any) {
+             setError(e.message || 'A network error occurred.');
+        } finally {
+            setIsFetchingSecret(false);
         }
-      })
-      .catch((e) => {
-        console.error('Error creating account session:', e);
-        setError('An unexpected network error occurred.');
-      });
-  }, [vendorData, isVendorLoading]);
-  
-  // Effect 3: Set the client secret on the web component once it's available
-  useEffect(() => {
-      if (onboardingElementRef.current && clientSecret) {
-          onboardingElementRef.current.clientSecret = clientSecret;
-      }
-  }, [clientSecret]);
-  
+    };
 
-  if (isVendorLoading || !isScriptLoaded) {
-    return (
+    fetchConnectSession();
+
+  }, [user]);
+
+  if (isUserLoading || isFetchingSecret) {
+     return (
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">Loading Payout Setup...</p>
         <Skeleton className="h-12 w-full" />
@@ -100,21 +76,31 @@ export default function StripeConnectOnboardingWrapper() {
   }
 
   if (!clientSecret) {
-    return (
-        <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Initializing Stripe session...</p>
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-64 w-full" />
-        </div>
-    );
+      return (
+         <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Could Not Load Component</AlertTitle>
+            <AlertDescription>
+                The client secret is missing. The onboarding component cannot be rendered.
+            </AlertDescription>
+        </Alert>
+      )
   }
 
-  // Once everything is ready, we render the custom web component.
-  // React can render custom elements like 'stripe-connect-account-onboarding' if you provide a ref.
   return (
     <div className="min-h-[500px]">
-        {/* @ts-ignore */}
-        <stripe-connect-account-onboarding ref={onboardingElementRef} />
+      <StripeOnboardingComponent
+        clientSecret={clientSecret}
+        appearance={{ theme: 'stripe' }}
+      />
     </div>
+  );
+}
+
+export default function StripeConnectOnboarding() {
+  return (
+    <Elements stripe={stripePromise}>
+      <OnboardingContent />
+    </Elements>
   );
 }
