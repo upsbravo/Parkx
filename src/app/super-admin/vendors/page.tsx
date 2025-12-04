@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift, Play, Pause, X } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Search, Star, FileText, Edit, Gift, Play, Pause, X, Zap } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +52,7 @@ import Link from 'next/link';
 import { cancelStripeSubscription } from "@/ai/flows/cancel-stripe-subscription-flow";
 import { pauseStripeSubscription } from "@/ai/flows/pause-stripe-subscription-flow";
 import { resumeStripeSubscription } from "@/ai/flows/resume-stripe-subscription-flow";
+import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
 
 
 type Vendor = {
@@ -156,8 +157,8 @@ export default function VendorsPage() {
         }
     }
 
-    // This part is now handled by the 'customer.subscription.deleted' webhook
-    // but we can update optimistically for a better UX.
+    // Webhook `customer.subscription.deleted` will set status to Canceled.
+    // We update here for immediate UI feedback.
     updateDocumentNonBlocking(vendorRef, { status: "Canceled", stripeSubscriptionId: null });
     toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
     createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
@@ -186,6 +187,20 @@ export default function VendorsPage() {
         // Webhook will update Firestore status to 'Active'
     } catch (e: any) {
         toast({ variant: "destructive", title: "Resume Failed", description: e.message });
+    }
+  }
+
+  const handleEndTrial = async (vendor: Vendor) => {
+    if (!vendor.stripeSubscriptionId) return;
+    try {
+        const result = await updateStripeSubscription({
+            subscriptionId: vendor.stripeSubscriptionId,
+            endTrial: true
+        });
+        if (!result.success) throw new Error(result.error);
+        toast({ title: "Trial Ended", description: `${vendor.name}'s trial has ended and their subscription is now active. Status will update shortly.` });
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Failed to End Trial", description: e.message });
     }
   }
 
@@ -378,12 +393,17 @@ export default function VendorsPage() {
                                     <Pause className="mr-2 h-4 w-4" /> Pause Subscription
                                 </DropdownMenuItem>
                             )}
+                             {vendor.status === "Trial" && (
+                                <DropdownMenuItem onClick={() => handleEndTrial(vendor)}>
+                                    <Zap className="mr-2 h-4 w-4" /> End Trial &amp; Bill Now
+                                </DropdownMenuItem>
+                            )}
                             {vendor.status === "Paused" && (
                                 <DropdownMenuItem onClick={() => handleResumeSubscription(vendor)}>
                                     <Play className="mr-2 h-4 w-4" /> Resume Subscription
                                 </DropdownMenuItem>
                             )}
-                            {(vendor.status === "Active" || vendor.status === "Paused") && (
+                            {(vendor.status === "Active" || vendor.status === "Paused" || vendor.status === "Trial") && (
                                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleCancelClick(vendor)}>
                                     <X className="mr-2 h-4 w-4" /> Cancel Subscription
                                 </DropdownMenuItem>
@@ -451,5 +471,3 @@ export default function VendorsPage() {
     </>
   );
 }
-
-    

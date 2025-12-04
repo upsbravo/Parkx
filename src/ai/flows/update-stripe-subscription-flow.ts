@@ -65,6 +65,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
 
         if (!itemToUpdate) {
           if (quantity > 0) {
+            // If the item doesn't exist, create it.
             await stripe.subscriptionItems.create({
               subscription: subscriptionId,
               price: priceId,
@@ -72,6 +73,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
             });
           }
         } else {
+          // If the item exists, update its quantity.
           await stripe.subscriptionItems.update(itemToUpdate.id, {
             quantity: quantity,
           });
