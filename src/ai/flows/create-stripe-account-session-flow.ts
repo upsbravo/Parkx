@@ -12,7 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const CreateStripeAccountSessionInputSchema = z.object({
-  accountId: z.string().describe("The ID of the Stripe Connected Account (which is the Super Admin's UID)."),
+  accountId: z.string().describe("The ID of the Stripe Connected Account."),
 });
 export type CreateStripeAccountSessionInput = z.infer<typeof CreateStripeAccountSessionInputSchema>;
 
@@ -35,13 +35,11 @@ const createStripeAccountSessionFlow = ai.defineFlow(
     outputSchema: CreateStripeAccountSessionOutputSchema,
   },
   async ({ accountId }) => {
-    // This flow uses the real Stripe SDK when deployed.
-    
-    console.log("Attempting to create Stripe Account Session for account:", accountId);
+    if (!process.env.STRIPE_SECRET_KEY) {
+        return { error: "Stripe is not configured on the server." };
+    }
 
     try {
-        // NOTE: In a real deployed environment, the 'stripe' package is available.
-        // The following code will execute successfully in production.
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -58,8 +56,6 @@ const createStripeAccountSessionFlow = ai.defineFlow(
 
     } catch (e: any) {
       console.error('Error creating Stripe account session:', e);
-      // This will catch errors if the Stripe SDK call fails in production
-      // or if the 'stripe' package is not available in a local dev environment.
       return {
         error: e.message || 'An unexpected error occurred while creating the account session.',
       };
