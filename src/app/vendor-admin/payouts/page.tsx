@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, ChangeEvent } from 'react';
@@ -25,7 +26,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import StripeConnectOnboarding from '@/components/StripeConnectOnboarding';
+import StripeOnboarding from '@/components/StripeOnboarding';
 
 
 type Transaction = {
@@ -153,7 +154,7 @@ export default function VendorPaymentsPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <StripeConnectOnboarding />
+                <StripeOnboarding />
             </CardContent>
         </Card>
         </TabsContent>
