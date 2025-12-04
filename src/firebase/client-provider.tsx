@@ -6,12 +6,14 @@ import { initializeFirebase } from '@/firebase';
 import { FirebaseApp } from 'firebase/app';
 import { Auth } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
+import { FirebaseStorage } from 'firebase/storage';
 import { Skeleton } from '@/components/ui/skeleton'; // Using Skeleton for loading state
 
 interface FirebaseServices {
   firebaseApp: FirebaseApp;
   auth: Auth;
   firestore: Firestore;
+  storage: FirebaseStorage;
 }
 
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
@@ -45,6 +47,7 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
       firebaseApp={firebaseServices.firebaseApp}
       auth={firebaseServices.auth}
       firestore={firebaseServices.firestore}
+      storage={firebaseServices.storage}
     >
       {children}
     </FirebaseProvider>
