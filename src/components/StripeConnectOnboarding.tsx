@@ -1,116 +1,90 @@
-
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, StripeConnectAccountOnboarding } from '@stripe/react-stripe-js';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import { createStripeAccountSession } from '@/ai/flows/create-stripe-account-session-flow';
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { createStripeAccountSession } from '@/ai/flows/create-stripe-account-session-flow';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 
-const StripeConnectAccountOnboarding = dynamic(
-  () => {
-    // This dynamically loads the Stripe Connect JS script
-    if (!document.querySelector('script[src="https://connect-js.stripe.com/v1.1/init.js"]')) {
-        const script = document.createElement('script');
-        script.src = "https://connect-js.stripe.com/v1.1/init.js";
-        script.async = true;
-        document.head.appendChild(script);
-    }
-    // @ts-ignore - Stripe's web component is not typed in a standard way
-    return Promise.resolve((props) => <stripe-connect-account-onboarding {...props} />);
-  },
-  { 
-    ssr: false,
-    loading: () => (
-        <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-10 w-1/3" />
-        </div>
-    ),
-  }
-);
-
+// Load Stripe with your publishable key
+const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 
 type Vendor = {
-    stripeAccountId?: string;
-}
+  stripeAccountId?: string;
+};
 
-function OnboardingComponent() {
+function OnboardingContent() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const vendorRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'vendors', user.uid);
-  }, [user, firestore]);
-
-  const {data: vendorData, isLoading: isVendorDataLoading} = useDoc<Vendor>(vendorRef);
-
+  const vendorRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'vendors', user.uid) : null),
+    [user, firestore]
+  );
+  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
 
   useEffect(() => {
-    const fetchAccountSession = async () => {
-      if (!vendorData || !vendorData.stripeAccountId) {
-          if (!isVendorDataLoading && vendorData) {
+    if (!vendorData?.stripeAccountId) {
+        if (!isVendorLoading && vendorData) {
             setError('Stripe Account ID is missing for this vendor. Please contact support.');
-          }
-          return;
-      }
-      
-      try {
-        const result = await createStripeAccountSession({ accountId: vendorData.stripeAccountId });
+        }
+        return;
+    }
+
+    createStripeAccountSession({ accountId: vendorData.stripeAccountId })
+      .then((result) => {
         if (result.client_secret) {
           setClientSecret(result.client_secret);
-        } else if (result.error) {
-          setError(result.error);
         } else {
-          setError('Failed to retrieve client secret.');
+          setError(result.error || 'Failed to initialize Stripe session.');
         }
-      } catch (err: any) {
-        console.error('Error creating account session:', err);
-        setError(err.message || 'An unexpected error occurred while setting up Stripe.');
-      }
-    };
+      })
+      .catch((e) => {
+        console.error("Error creating account session:", e);
+        setError('An unexpected network error occurred.');
+      });
 
-    if(vendorData) {
-        fetchAccountSession();
-    }
-  }, [vendorData, isVendorDataLoading]);
+  }, [vendorData, isVendorLoading]);
 
   if (error) {
     return (
       <Alert variant="destructive">
         <Terminal className="h-4 w-4" />
-        <AlertTitle>Connection Error</AlertTitle>
+        <AlertTitle>Stripe Connection Failed</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
   }
-  
-  if (isVendorDataLoading || !clientSecret) {
+
+  if (isVendorLoading || !clientSecret) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
   return (
-    <div className='min-h-[400px]'>
-        <StripeConnectAccountOnboarding client-secret={clientSecret} />
+    <div className="min-h-[500px]">
+      <StripeConnectAccountOnboarding
+        clientSecret={clientSecret}
+      />
     </div>
   );
 }
 
-
 export function StripeConnectOnboarding() {
-  return <OnboardingComponent />;
+  return (
+    <Elements stripe={stripePromise}>
+      <OnboardingContent />
+    </Elements>
+  );
 }
-
