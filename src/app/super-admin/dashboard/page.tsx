@@ -76,34 +76,37 @@ const formatDate = (timestamp: any) => {
 
 export default function SuperAdminDashboard() {
   const firestore = useFirestore();
-  const { user, isUserLoading: isAuthLoading } = useUser();
+  const { user: superAdmin, isUserLoading: isAuthLoading } = useUser();
 
-  const vendorsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore]);
+  const vendorsQuery = useMemoFirebase(() => {
+    if (!firestore || !superAdmin) return null;
+    return collection(firestore, 'vendors');
+  }, [firestore, superAdmin]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
   const usersQuery = useMemoFirebase(() => {
-    if (firestore && user) {
+    if (firestore && superAdmin) {
       return collection(firestore, 'users');
     }
     return null;
-  }, [firestore, user]);
+  }, [firestore, superAdmin]);
 
   const { data: users, isLoading: usersLoading } = useCollection<User>(usersQuery);
   
   const invoicesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !superAdmin) return null;
     return query(collection(firestore, 'vendorInvoices'), where('status', 'in', ['Pending', 'Overdue']));
-  }, [firestore]);
+  }, [firestore, superAdmin]);
   const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<VendorInvoice>(invoicesQuery);
   
   const notificationsQuery = useMemoFirebase(() => {
-      if(!user) return null;
+      if(!superAdmin) return null;
       return query(
-          collection(firestore, 'superAdmins', user.uid, 'notifications'),
+          collection(firestore, 'superAdmins', superAdmin.uid, 'notifications'),
           orderBy('createdAt', 'desc'),
           limit(5)
       )
-  }, [user, firestore])
+  }, [superAdmin, firestore])
   const {data: recentActivities, isLoading: areActivitiesLoading} = useCollection<PlatformNotification>(notificationsQuery);
 
 
