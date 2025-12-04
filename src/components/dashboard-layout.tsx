@@ -1,3 +1,4 @@
+
 import type { ReactNode } from "react";
 import {
   SidebarProvider,
@@ -55,12 +56,18 @@ export default function DashboardLayout({
         <Sidebar>
           <SidebarHeader>
             <Logo
-              logoUrl={role === "End User" && vendorLogo ? vendorLogo : undefined}
-              name={role === "End User" && vendorName ? vendorName : undefined}
+              logoUrl={vendorLogo ? vendorLogo : undefined}
+              name={vendorName || "ParkX"}
             />
           </SidebarHeader>
           {nav}
           <SidebarFooter>
+            <div className="flex flex-col items-center gap-2 border-t pt-4">
+              <Logo className="group-data-[collapsible=icon]:hidden"/>
+              <p className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                Proudly developed by Nexusweft
+              </p>
+            </div>
              <SidebarMenu>
                <SidebarMenuItem>
                   <SidebarMenuButton asChild tooltip="Logout">

@@ -25,7 +25,7 @@ export function Logo({
       ) : (
         <ParkingSquare className="h-8 w-8 text-primary" />
       )}
-      <span className="text-xl font-bold tracking-tight">{name || "ParkX"}</span>
+      <span className="text-xl font-bold tracking-tight group-data-[collapsible=icon]:hidden">{name || "ParkX"}</span>
     </Link>
   );
 }
