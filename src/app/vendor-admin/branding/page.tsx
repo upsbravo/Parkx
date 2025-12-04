@@ -333,5 +333,3 @@ export default function BrandingPage() {
     </div>
   );
 }
-
-    
