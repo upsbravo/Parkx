@@ -20,4 +20,3 @@ service firebase.storage {
     }
   }
 }
-
