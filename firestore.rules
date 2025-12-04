@@ -174,14 +174,8 @@ service cloud.firestore {
       // LIST queries (this is what your useCollection uses!)
       allow list: if isSuperAdmin() || 
                      isPrivilegedVendor() ||
-                     (
-                       isVendorAdmin() && 
-                       request.query.orderBy != null &&
-                       request.query.where.size() == 1 &&
-                       request.query.where[0].field == 'vendorId' &&
-                       request.query.where[0].op == '==' &&
-                       request.query.where[0].value == request.auth.uid
-                     );
+                     (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+
 
       // Only backend (Stripe extension, Cloud Functions) can write
       allow create, update, delete: if false;
