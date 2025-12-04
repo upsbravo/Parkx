@@ -68,16 +68,11 @@ export function AssignSpotDialog({
   
   const availableSpots = useMemo(() => {
     if (!allSpots) return [];
-    // A spot is available if it's explicitly available OR it's already assigned to the current user.
+    // A spot is available if it's explicitly available (isAvailable: true)
+    // OR if it is already assigned to the CURRENT user we are editing.
     // This prevents spots assigned to OTHER users from appearing in the list.
     return allSpots.filter(spot => {
-        if (spot.isAvailable) {
-            return true; // The spot is free for anyone.
-        }
-        if (spot.userId === user.id) {
-            return true; // The spot is taken, but by the user we are currently editing.
-        }
-        return false; // The spot is taken by someone else.
+        return spot.isAvailable || spot.userId === user.id;
     });
   }, [allSpots, user.id]);
 
@@ -192,6 +187,7 @@ This is an automated record of changes made by the Vendor Administrator.`;
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
                         {spot.name}
+                        {spot.userId === user.id && <span className="text-muted-foreground text-xs ml-2">(current)</span>}
                       </label>
                     </div>
                   ))}
