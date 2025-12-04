@@ -8,5 +8,8 @@ runConfig:
 env:
   - variable: STRIPE_WEBHOOK_SECRET
     secret: STRIPE_WEBHOOK_SECRET
+    availability:
+      - BUILD
+      - RUNTIME
 storage:
   cors: cors.json
