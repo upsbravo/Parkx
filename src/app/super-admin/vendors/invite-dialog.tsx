@@ -91,7 +91,7 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         role: "vendorAdmin",
         stripeCustomerId: stripeCustomerId,
-        stripeAccountId: stripeAccountId, // Storing the correct Stripe Account ID
+        stripeAccountId: stripeAccountId,
         profileComplete: false,
         agreementSigned: false,
         trialOffered: offerTrial,

@@ -76,7 +76,7 @@
             "description": "The date the vendor requested a spot limit increase.",
             "format": "date-time"
         },
-        "parkingSpotLimit": {
+        "spotLimit": {
           "type": "number",
           "description": "Maximum number of parking spots allowed for the vendor."
         },
@@ -148,9 +148,10 @@
         "id",
         "name",
         "email",
-        "parkingSpotLimit",
+        "spotLimit",
         "status",
-        "joinDate"
+        "joinDate",
+        "stripeAccountId"
       ]
     },
     "EndUser": {
