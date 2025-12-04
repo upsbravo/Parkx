@@ -149,7 +149,6 @@ export default function VendorsPage() {
                 title: 'Stripe Subscription Cancelled',
                 description: `The subscription for ${selectedVendor.name} has been cancelled.`,
             });
-            updateDocumentNonBlocking(vendorRef, { stripeSubscriptionId: null });
         } catch (e: any) {
             toast({
                 variant: 'destructive',
@@ -162,7 +161,11 @@ export default function VendorsPage() {
     }
 
     // Now, mark the vendor as canceled in Firestore.
-    updateDocumentNonBlocking(vendorRef, { status: "Canceled" });
+    updateDocumentNonBlocking(vendorRef, { 
+        status: "Canceled",
+        stripeSubscriptionId: null // Also clear the subscription ID
+    });
+    
     toast({
       variant: "destructive",
       title: "Vendor Deactivated",
