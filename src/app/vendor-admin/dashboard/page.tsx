@@ -13,7 +13,7 @@ import {
   Car,
   DollarSign,
   AlertTriangle,
-  Megaphone,
+  Building,
 } from 'lucide-react';
 import { useCollection, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, query, where, orderBy, limit } from 'firebase/firestore';
@@ -52,11 +52,20 @@ type UserInvoice = {
     status: 'Pending' | 'Overdue' | 'Paid';
 };
 
-type Announcement = {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: any;
+type VendorNotification = {
+    id: string;
+    title: string;
+    message: string;
+    createdAt: any;
+}
+
+
+const formatDate = (timestamp: any) => {
+    if (!timestamp) return '...';
+    if (timestamp.toDate) {
+      return format(timestamp.toDate(), 'PPp');
+    }
+    return format(new Date(timestamp), 'PPp');
 };
 
 
@@ -88,11 +97,11 @@ export default function VendorAdminDashboard() {
   }, [firestore, user]);
   const { data: pendingInvoices, isLoading: invoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
   
-  const announcementsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'announcements'), orderBy('createdAt', 'desc'), limit(3));
-  }, [firestore]);
-  const { data: globalAnnouncements, isLoading: areAnnouncementsLoading } = useCollection<Announcement>(announcementsQuery);
+  const notificationsQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(collection(firestore, 'vendors', user.uid, 'notifications'), orderBy('createdAt', 'desc'), limit(5));
+  }, [firestore, user]);
+  const { data: recentActivities, isLoading: areActivitiesLoading } = useCollection<VendorNotification>(notificationsQuery);
 
 
   const overdueInvoices = useMemo(() => {
@@ -103,7 +112,7 @@ export default function VendorAdminDashboard() {
   }, [pendingInvoices]);
 
   
-  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading || invoicesLoading || areAnnouncementsLoading;
+  const isLoading = isUserLoading || isVendorLoading || areUsersLoading || areSpotsLoading || invoicesLoading || areActivitiesLoading;
   
   const totalUsers = usersData?.length ?? 0;
   const totalSpots = vendorData?.spotLimit ?? 0;
@@ -166,14 +175,6 @@ export default function VendorAdminDashboard() {
       });
     }
     return data;
-  }, [usersData]);
-  
-  const recentUsers = useMemo(() => {
-    if (!usersData) return [];
-    return [...usersData]
-      .filter(u => u.waiverSignedDate)
-      .sort((a, b) => new Date(b.waiverSignedDate!).getTime() - new Date(a.waiverSignedDate!).getTime())
-      .slice(0, 5);
   }, [usersData]);
 
   const chartConfig = {
@@ -305,11 +306,11 @@ export default function VendorAdminDashboard() {
           </Card>
        </div>
        
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
         <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-               <CardDescription>Newest users to complete their profile.</CardDescription>
+               <CardDescription>An overview of the latest administrative actions.</CardDescription>
             </CardHeader>
             <CardContent>
                {isLoading ? (
@@ -317,64 +318,26 @@ export default function VendorAdminDashboard() {
                       <Skeleton className="h-12 w-full"/>
                       <Skeleton className="h-12 w-full"/>
                   </div>
-                ) : recentUsers.length > 0 ? (
+                ) : recentActivities && recentActivities.length > 0 ? (
                     <div className="space-y-4">
-                    {recentUsers.map((user) => (
-                        <div key={user.id} className="flex items-center">
+                    {recentActivities.map((activity) => (
+                        <div key={activity.id} className="flex items-center">
                         <Avatar className="h-9 w-9">
-                            <AvatarFallback>{user.firstName?.[0]}{user.lastName?.[0]}</AvatarFallback>
+                            <AvatarFallback><Building className="h-4 w-4"/></AvatarFallback>
                         </Avatar>
                         <div className="ml-4 space-y-1">
-                            <p className="text-sm font-medium leading-none">{user.firstName} {user.lastName}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
+                            <p className="text-sm font-medium leading-none">{activity.title}</p>
+                            <p className="text-sm text-muted-foreground">{activity.message}</p>
                         </div>
                         <div className="ml-auto font-medium text-sm text-muted-foreground">
-                            Joined {format(new Date(user.waiverSignedDate!), 'PPP')}
+                            {formatDate(activity.createdAt)}
                         </div>
                         </div>
                     ))}
                     </div>
                 ) : (
                      <div className="flex h-24 items-center justify-center">
-                        <p className="text-sm text-muted-foreground">No recent user activity.</p>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle>Platform Announcements</CardTitle>
-                        <CardDescription>News and updates from ParkX.</CardDescription>
-                    </div>
-                     <Button variant="ghost" size="sm" asChild>
-                        <Link href="/announcements">View all</Link>
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-12 w-full"/>
-                        <Skeleton className="h-12 w-full"/>
-                    </div>
-                ) : globalAnnouncements && globalAnnouncements.length > 0 ? (
-                    <div className="space-y-4">
-                        {globalAnnouncements.map((post) => (
-                             <div key={post.id} className="flex items-start gap-3">
-                                <Megaphone className="h-5 w-5 text-muted-foreground mt-1 flex-shrink-0" />
-                                <div className="space-y-1">
-                                    <p className="text-sm font-medium leading-none">{post.title}</p>
-                                    <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
-                                    <p className="text-xs text-muted-foreground pt-1">{format(post.createdAt.toDate(), 'PP')}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                     <div className="flex h-24 items-center justify-center">
-                        <p className="text-sm text-muted-foreground">No platform announcements.</p>
+                        <p className="text-sm text-muted-foreground">No recent activity to display.</p>
                     </div>
                 )}
             </CardContent>

@@ -23,6 +23,7 @@ import {
   BookCopy,
   Palette,
   Megaphone,
+  Bell,
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -32,6 +33,7 @@ const navItems = [
   { href: "/vendor-admin/parking-lot", icon: <ParkingSquare />, label: "Parking Lot" },
   { href: "/vendor-admin/approvals", icon: <BadgeCheck />, label: "Approvals" },
   { href: "/vendor-admin/messages", icon: <MessageCircle />, label: "User Messages" },
+  { href: "/vendor-admin/notifications", icon: <Bell />, label: "Notifications" },
   {
     label: "Accounting",
     icon: <BookCopy />,

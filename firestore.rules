@@ -98,6 +98,13 @@ service cloud.firestore {
                            (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
         allow write: if isVendorAdmin() && request.auth.uid == vendorId;
       }
+
+      // VENDOR NOTIFICATIONS
+      match /notifications/{notificationId} {
+        allow read, write, list: if isVendorAdmin() && request.auth.uid == vendorId;
+        // Super Admins can create notifications for vendors (e.g. for approvals)
+        allow create: if isSuperAdmin();
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -158,11 +165,13 @@ service cloud.firestore {
       }
     }
     
-    // Allow vendors to list their own invoices, and super admins to see all
+    // VENDOR INVOICES
     match /vendorInvoices/{invoiceId} {
       allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow write: if isSuperAdmin();
+      allow list: if isSuperAdmin() || 
+                     (isVendorAdmin() && 
+                      request.query.where.vendorId == request.auth.uid);
+      allow write: if isSuperAdmin() || request.auth == null;
     }
     
     // Stripe Transactions - VENDORS CAN SEE ONLY THEIR OWN
