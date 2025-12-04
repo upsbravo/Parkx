@@ -158,7 +158,7 @@ ParkX Technologies LLC – Auto-signed
                 ...(extraSpaces > 0 ? [{ price: 'price_1SYZeTFOrzQHr7Jw6MFDflI4', quantity: extraSpaces }] : [])
             ],
             mode: 'subscription',
-            successUrl: `${window.location.origin}/vendor-admin/dashboard`,
+            successUrl: `${window.location.origin}/vendor-admin/stripe-onboarding`,
             cancelUrl: window.location.origin + pathname,
             metadata: {
                 uid: user.uid, // Pass the vendor's UID for the webhook
@@ -279,4 +279,3 @@ ParkX Technologies LLC – Auto-signed
   );
 }
 
-    

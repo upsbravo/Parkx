@@ -48,14 +48,17 @@ export default function VendorAdminLayout({
       }
       
       // 2. If profile is complete, but agreement not signed, force agreement.
-      // This also handles the legacy 'Pending Agreement' status.
       if (profileComplete && !agreementSigned && status !== 'Trial' && status !== 'Active' && pathname !== '/vendor-admin/master-agreement') {
         router.replace('/vendor-admin/master-agreement');
         return;
       }
-      
-      // 3. If everything is complete, but user is on a setup page, redirect to dashboard.
-      if (profileComplete && agreementSigned && (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement')) {
+
+      // After agreement is signed and subscription is set up, they land on stripe-onboarding page.
+      // We don't force them away from it.
+
+      // 3. If everything is complete, and they are on a setup page, redirect to dashboard.
+      if (profileComplete && agreementSigned && 
+          (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement')) {
         router.replace('/vendor-admin/dashboard');
         return;
       }
@@ -74,6 +77,7 @@ export default function VendorAdminLayout({
   const isAllowedToSeeContent = !isLoading && vendorData && (
     (pathname === '/vendor-admin/complete-profile' && !vendorData.profileComplete) ||
     (pathname === '/vendor-admin/master-agreement' && vendorData.profileComplete && !vendorData.agreementSigned) ||
+    (pathname === '/vendor-admin/stripe-onboarding' && vendorData.agreementSigned) ||
     (pathname === '/vendor-admin/invoices' && vendorData.status === 'requires_payment_method') ||
     (vendorData.profileComplete && vendorData.agreementSigned)
   );
