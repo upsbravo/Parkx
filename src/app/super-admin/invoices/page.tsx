@@ -72,8 +72,8 @@ export default function AllInvoicesPage() {
 
   const firestore = useFirestore();
   const invoicesQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'vendorInvoices')) : null),
-    [firestore]
+    () => (firestore && superAdmin ? query(collection(firestore, 'vendorInvoices')) : null),
+    [firestore, superAdmin]
   );
   const { data: vendorInvoices, isLoading } =
     useCollection<VendorInvoice>(invoicesQuery);
