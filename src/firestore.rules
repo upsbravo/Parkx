@@ -98,6 +98,13 @@ service cloud.firestore {
                            (isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
         allow write: if isVendorAdmin() && request.auth.uid == vendorId;
       }
+
+      // VENDOR NOTIFICATIONS
+      match /notifications/{notificationId} {
+        allow read, write, list: if isVendorAdmin() && request.auth.uid == vendorId;
+        // Super Admins can create notifications for vendors (e.g. for approvals)
+        allow create: if isSuperAdmin();
+      }
     }
 
     // USERS – privileged vendors see all, normal vendors see only theirs
@@ -146,7 +153,7 @@ service cloud.firestore {
        
       // SMS LOGS
       match /sms_logs/{logId} {
-        // Allow server-side (unauthenticated) writes, OR client-side writes from the user's vendor
+        // Allow server-side (unauthenticated) writes, or client-side writes from the user's vendor
         allow create: if request.auth == null || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
         allow read, list: if request.auth.uid == userId || (isVendorAdmin() && get(/databases/$(database)/documents/users/$(userId)).data.vendorId == request.auth.uid);
       }
@@ -161,7 +168,9 @@ service cloud.firestore {
     // VENDOR INVOICES
     match /vendorInvoices/{invoiceId} {
       allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || 
+                     (isVendorAdmin() && 
+                      request.query.where.vendorId == request.auth.uid);
       allow write: if isSuperAdmin() || request.auth == null;
     }
     
@@ -203,3 +212,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

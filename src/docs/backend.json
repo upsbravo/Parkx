@@ -76,7 +76,7 @@
             "description": "The date the vendor requested a spot limit increase.",
             "format": "date-time"
         },
-        "parkingSpotLimit": {
+        "spotLimit": {
           "type": "number",
           "description": "Maximum number of parking spots allowed for the vendor."
         },
@@ -148,7 +148,7 @@
         "id",
         "name",
         "email",
-        "parkingSpotLimit",
+        "spotLimit",
         "status",
         "joinDate"
       ]
@@ -369,6 +369,21 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "senderId", "text", "timestamp"]
+    },
+     "SmsLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SmsLog",
+      "type": "object",
+      "description": "Records an SMS message sent to a user.",
+      "properties": {
+        "id": { "type": "string" },
+        "to": { "type": "string", "description": "The recipient's phone number." },
+        "body": { "type": "string", "description": "The content of the SMS message." },
+        "status": { "type": "string", "enum": ["success", "failed"], "description": "The sending status of the message." },
+        "error": { "type": "string", "description": "Any error message if the send failed." },
+        "sentAt": { "type": "string", "format": "date-time", "description": "The timestamp when the message was sent." }
+      },
+      "required": ["id", "to", "body", "status", "sentAt"]
     },
     "Transaction": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -622,6 +637,21 @@
       },
       "required": ["id", "title", "message", "type", "isRead", "createdAt"]
     },
+    "VendorNotification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "VendorNotification",
+      "type": "object",
+      "description": "Represents a notification for a Vendor Admin.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["new_user", "spot_request", "cancellation", "payment_received"] },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "message", "type", "isRead", "createdAt"]
+    },
     "Announcement": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Announcement",
@@ -705,6 +735,18 @@
               "name": "vendorId",
               "description": "The unique identifier for the Vendor document."
             }
+          ]
+        }
+      },
+       {
+        "path": "/vendors/{vendorId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "VendorNotification",
+          "schema": { "$ref": "#/backend/entities/VendorNotification" },
+          "description": "Stores notifications for a Vendor Admin.",
+          "params": [
+            { "name": "vendorId", "description": "The unique ID for the Vendor." },
+            { "name": "notificationId", "description": "The unique ID for the notification." }
           ]
         }
       },
@@ -804,6 +846,26 @@
             {
               "name": "notificationId",
               "description": "The unique identifier for the Notification document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/sms_logs/{logId}",
+        "definition": {
+          "entityName": "SmsLog",
+          "schema": {
+            "$ref": "#/backend/entities/SmsLog"
+          },
+          "description": "Stores a log of all SMS messages sent to this user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the EndUser document."
+            },
+            {
+              "name": "logId",
+              "description": "The unique identifier for the SMS Log document."
             }
           ]
         }
@@ -938,4 +1000,4 @@
   }
 }
 
-  
+    

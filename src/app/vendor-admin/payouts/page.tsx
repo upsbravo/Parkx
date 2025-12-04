@@ -48,6 +48,7 @@ type Transaction = {
 type Vendor = {
     isPrivileged?: boolean;
     stripeCustomerId?: string;
+    stripeAccountId?: string;
 }
 
 type Payout = {
@@ -310,3 +311,5 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
+
+    
