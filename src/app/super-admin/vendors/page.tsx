@@ -168,11 +168,16 @@ export default function VendorsPage() {
   
   const handlePauseSubscription = async (vendor: Vendor) => {
     if (!vendor.stripeSubscriptionId) return;
+    const vendorRef = doc(firestore, "vendors", vendor.id);
     try {
         const result = await pauseStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
         if (!result.success) throw new Error(result.error);
-        toast({ title: "Subscription Paused", description: `${vendor.name}'s subscription is now paused. Status will update shortly.` });
-        // Webhook will update Firestore status to 'Paused'
+        
+        // Optimistically update the UI
+        updateDocumentNonBlocking(vendorRef, { status: "Paused" });
+        toast({ title: "Subscription Paused", description: `${vendor.name}'s subscription is now paused.` });
+        createNotification('Subscription Paused', `Paused subscription for ${vendor.name}.`);
+
     } catch (e: any) {
         toast({ variant: "destructive", title: "Pause Failed", description: e.message });
     }
@@ -180,11 +185,15 @@ export default function VendorsPage() {
 
   const handleResumeSubscription = async (vendor: Vendor) => {
     if (!vendor.stripeSubscriptionId) return;
+    const vendorRef = doc(firestore, "vendors", vendor.id);
     try {
         const result = await resumeStripeSubscription({ subscriptionId: vendor.stripeSubscriptionId });
         if (!result.success) throw new Error(result.error);
-        toast({ title: "Subscription Resumed", description: `${vendor.name}'s subscription is now active. Status will update shortly.` });
-        // Webhook will update Firestore status to 'Active'
+        
+        // Optimistically update the UI
+        updateDocumentNonBlocking(vendorRef, { status: "Active" });
+        toast({ title: "Subscription Resumed", description: `${vendor.name}'s subscription is now active.` });
+        createNotification('Subscription Resumed', `Resumed subscription for ${vendor.name}.`);
     } catch (e: any) {
         toast({ variant: "destructive", title: "Resume Failed", description: e.message });
     }
