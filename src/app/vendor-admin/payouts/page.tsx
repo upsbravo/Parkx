@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, ChangeEvent, useEffect } from 'react';
@@ -8,11 +7,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search, ExternalLink, RefreshCw } from "lucide-react";
+import { CreditCard, DollarSign, Search, ExternalLink } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -27,7 +25,6 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
-import Link from 'next/link';
 import { StripeConnectOnboarding } from '@/components/StripeConnectOnboarding';
 
 
@@ -311,5 +308,3 @@ export default function VendorPaymentsPage() {
     </div>
   );
 }
-
-    
