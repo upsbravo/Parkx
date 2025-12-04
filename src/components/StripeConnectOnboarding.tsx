@@ -82,10 +82,10 @@ function OnboardingForm() {
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
+    <Elements stripe={stripePromise}>
       <div className='min-h-[400px]'>
          {/* @ts-ignore */}
-        <stripe-connect-account-onboarding />
+        <stripe-connect-account-onboarding client-secret={clientSecret} />
       </div>
     </Elements>
   );
