@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -21,8 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InviteVendorDialog } from "./invite-dialog";
-import { AdjustSpotLimitDialog } from "./adjust-spot-limit-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -31,6 +29,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { InviteVendorDialog } from "./invite-dialog";
+import { AdjustSpotLimitDialog } from "./adjust-spot-limit-dialog";
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,6 +53,7 @@ import { cancelStripeSubscription } from "@/ai/flows/cancel-stripe-subscription-
 import { pauseStripeSubscription } from "@/ai/flows/pause-stripe-subscription-flow";
 import { resumeStripeSubscription } from "@/ai/flows/resume-stripe-subscription-flow";
 import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 type Vendor = {
@@ -80,6 +81,9 @@ export default function VendorsPage() {
   const auth = useAuth();
   const { user: superAdmin, isUserLoading } = useUser();
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+
   useEffect(() => {
     setIsClient(true);
   }, []);
@@ -91,6 +95,16 @@ export default function VendorsPage() {
     return collection(firestore, 'vendors');
   }, [firestore, superAdmin, isUserLoading]);
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
+
+  const filteredVendors = useMemo(() => {
+    if (!vendors) return [];
+    return vendors.filter(vendor => {
+      const searchMatch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          vendor.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const statusMatch = statusFilter === 'All' || vendor.status === statusFilter;
+      return searchMatch && statusMatch;
+    });
+  }, [vendors, searchTerm, statusFilter]);
 
   const statusVariant = {
     Active: "default",
@@ -298,11 +312,25 @@ export default function VendorsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <div className="relative">
+            <div className="flex gap-4 mb-4">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search by vendor or email..." className="pl-10" />
+                <Input placeholder="Search by vendor or email..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Statuses</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Trial">Trial</SelectItem>
+                  <SelectItem value="Pending Agreement">Pending Agreement</SelectItem>
+                  <SelectItem value="Paused">Paused</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                  <SelectItem value="Canceled">Canceled</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Table>
               <TableHeader>
@@ -332,8 +360,8 @@ export default function VendorsPage() {
                       <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                   ))
-                ) : vendors && vendors.length > 0 ? (
-                  vendors.map((vendor) => (
+                ) : filteredVendors && filteredVendors.length > 0 ? (
+                  filteredVendors.map((vendor) => (
                     <TableRow key={vendor.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -444,7 +472,7 @@ export default function VendorsPage() {
                       colSpan={6}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      No vendors found. Invite one to get started.
+                      {searchTerm || statusFilter !== 'All' ? 'No vendors match your filters.' : 'No vendors found. Create one to get started.'}
                     </TableCell>
                   </TableRow>
                 )}
