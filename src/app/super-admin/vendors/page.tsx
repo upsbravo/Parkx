@@ -210,7 +210,8 @@ export default function VendorsPage() {
             batch.delete(userDoc.ref);
         });
         
-        toast.update(deletingToast.id, {
+        deletingToast.update({
+            id: deletingToast.id,
             description: `Found ${userDocs.length} user(s). Preparing to delete...`,
         });
 
@@ -221,14 +222,16 @@ export default function VendorsPage() {
         // 5. Commit the batch
         await batch.commit();
 
-        toast.update(deletingToast.id, {
+        deletingToast.update({
+            id: deletingToast.id,
             variant: 'destructive',
             title: 'Vendor & Users Deleted',
             description: `${vendorName} and all associated user records have been permanently deleted.`,
         });
 
     } catch (e: any) {
-        toast.update(deletingToast.id, {
+        deletingToast.update({
+            id: deletingToast.id,
             variant: 'destructive',
             title: 'Deletion Failed',
             description: e.message || 'An error occurred during the deletion process.',
