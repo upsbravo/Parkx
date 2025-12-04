@@ -75,6 +75,7 @@ export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
   const [isAdjustOpen, setAdjustOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
+  const [isCancelAlertOpen, setCancelAlertOpen] = useState(false);
   const [isPasscodeDialogOpen, setIsPasscodeDialogOpen] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -151,7 +152,7 @@ export default function VendorsPage() {
 
   const handleCancelClick = (vendor: Vendor) => {
     setSelectedVendor(vendor);
-    setDeleteAlertOpen(true);
+    setCancelAlertOpen(true);
   };
   
   const handleCancelConfirm = async () => {
@@ -168,7 +169,7 @@ export default function VendorsPage() {
             });
         } catch (e: any) {
             toast({ variant: 'destructive', title: 'Stripe Error', description: e.message });
-            setDeleteAlertOpen(false);
+            setCancelAlertOpen(false);
             return;
         }
     }
@@ -178,7 +179,7 @@ export default function VendorsPage() {
     updateDocumentNonBlocking(vendorRef, { status: "Canceled", stripeSubscriptionId: null });
     toast({ variant: "destructive", title: "Vendor Subscription Canceled", description: `${selectedVendor.name}'s subscription has been canceled.` });
     createNotification('Subscription Canceled', `${selectedVendor.name}'s subscription has been canceled.`);
-    setDeleteAlertOpen(false);
+    setCancelAlertOpen(false);
     setSelectedVendor(null);
   };
 
@@ -561,6 +562,22 @@ export default function VendorsPage() {
           onOpenChange={setAdjustOpen}
         />
       )}
+      <AlertDialog open={isCancelAlertOpen} onOpenChange={setCancelAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to cancel?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will immediately cancel the vendor's Stripe subscription and set their status to "Canceled". They will lose access at the end of the current billing period. This action can be reversed by reactivating them.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Go Back</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelConfirm} className="bg-destructive hover:bg-destructive/90">
+                    Yes, Cancel Subscription
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
