@@ -7,8 +7,8 @@ service firebase.storage {
       allow read;
     }
 
-    // Allow vendor admins to upload their own logo
-    match /vendors/{vendorId}/logo/{fileName} {
+    // Allow vendor admins to upload their own logo with a specific filename
+    match /vendors/{vendorId}/logo/logo {
       allow read;
       allow write: if request.auth != null && request.auth.uid == vendorId;
     }

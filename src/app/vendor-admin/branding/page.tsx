@@ -170,7 +170,8 @@ export default function BrandingPage() {
     if (logoFile) {
       setIsUploading(true);
       const storage = getStorage();
-      const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/${logoFile.name}`);
+      // Use a consistent filename like 'logo' to match security rules
+      const logoStorageRef = storageRef(storage, `vendors/${user.uid}/logo/logo`);
       const uploadTask = uploadBytesResumable(logoStorageRef, logoFile);
   
       uploadTask.on('state_changed',
@@ -183,7 +184,7 @@ export default function BrandingPage() {
           toast({
             variant: "destructive",
             title: "Upload Failed",
-            description: "Your logo could not be uploaded. Please try again.",
+            description: "Your logo could not be uploaded. Please check security rules and storage configuration.",
           });
           setIsSaving(false);
           setIsUploading(false);
