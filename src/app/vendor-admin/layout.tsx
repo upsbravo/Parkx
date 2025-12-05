@@ -37,6 +37,12 @@ export default function VendorAdminLayout({
       return; // Wait for all data to load
     }
 
+    // If auth state is resolved and there is no user, redirect to login
+    if (!isUserLoading && !user) {
+      router.replace('/login');
+      return;
+    }
+
     if (user && vendorData) {
       const { profileComplete, agreementSigned, status } = vendorData;
 
@@ -73,16 +79,10 @@ export default function VendorAdminLayout({
 
   const isLoading = isUserLoading || isVendorLoading;
   
-  // Determine if the content should be shown based on loading state and current route vs. user state
-  const isAllowedToSeeContent = !isLoading && vendorData && (
-    (pathname === '/vendor-admin/complete-profile' && !vendorData.profileComplete) ||
-    (pathname === '/vendor-admin/master-agreement' && vendorData.profileComplete && !vendorData.agreementSigned) ||
-    (pathname === '/vendor-admin/stripe-onboarding' && vendorData.agreementSigned) ||
-    (pathname === '/vendor-admin/invoices' && vendorData.status === 'requires_payment_method') ||
-    (vendorData.profileComplete && vendorData.agreementSigned)
-  );
-
-  if (isLoading || !isAllowedToSeeContent) {
+  // This layout should only render children if the user is authenticated and data is loaded.
+  // The useEffect above handles all redirection logic. If we're not loading and there's no user,
+  // we render a loading skeleton to prevent flashing content before the redirect completes.
+  if (isLoading || !user) {
     return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
         <div className="space-y-4 p-4 md:p-6">
@@ -93,6 +93,8 @@ export default function VendorAdminLayout({
     );
   }
 
+  // At this point, user is authenticated and data is loaded, but we might still be on an onboarding page.
+  // The logic inside the child pages is what matters now.
   return (
     <DashboardLayout
       nav={<VendorAdminNav />}
