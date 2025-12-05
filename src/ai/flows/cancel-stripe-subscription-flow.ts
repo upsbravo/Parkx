@@ -48,8 +48,8 @@ const cancelStripeSubscriptionFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      // Use stripe.subscriptions.cancel() to terminate the subscription immediately.
-      // The previous method, .del(), schedules cancellation for the end of the period.
+      // Use stripe.subscriptions.cancel() to terminate the subscription immediately,
+      // which is the modern and recommended method.
       await stripe.subscriptions.cancel(subscriptionId);
 
       return { success: true };
