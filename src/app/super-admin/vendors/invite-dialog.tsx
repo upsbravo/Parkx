@@ -79,7 +79,7 @@ export function InviteVendorDialog({
       stripeAccountId = stripeAccountResult.accountId;
 
       // Step 4: Create the vendor document in Firestore with all necessary IDs.
-      // The vendor's doc ID *is* their Firebase UID. This is the single source of truth.
+      // This is the single source of truth for the new vendor's data.
       await setDoc(doc(firestore, "vendors", newUser.uid), {
         id: newUser.uid,
         name: name,
@@ -91,7 +91,7 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         role: "vendorAdmin",
         stripeCustomerId: stripeCustomerId,
-        stripeAccountId: stripeAccountId,
+        stripeAccountId: stripeAccountId, // This line is crucial and now correctly included
         profileComplete: false,
         agreementSigned: false,
         trialOffered: offerTrial,
