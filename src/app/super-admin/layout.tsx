@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/dashboard-layout";
 import SuperAdminNav from "@/components/nav/super-admin-nav";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useAuth, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function SuperAdminLayout({
   children,
@@ -14,29 +15,44 @@ export default function SuperAdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
-
-  const userRoleRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'roles_super_admin', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: userRole, isLoading: isRoleLoading } = useDoc(userRoleRef);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Only perform redirects once all loading is complete
-    if (!isUserLoading && !isRoleLoading) {
-      if (!user || !userRole) {
+    if (!auth || !firestore) {
+        // Firebase services are not ready yet.
+        return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // No user logged in, redirect to login page.
+        router.replace('/login');
+        return;
+      }
+
+      // User is logged in, now check their role in Firestore.
+      const roleRef = doc(firestore, 'roles_super_admin', user.uid);
+      const roleSnap = await getDoc(roleRef);
+
+      if (roleSnap.exists()) {
+        // User has the super admin role.
+        setIsAuthorized(true);
+      } else {
+        // User does not have the role, redirect them.
         router.replace('/login');
       }
-    }
-  }, [user, userRole, isUserLoading, isRoleLoading, router]);
+      setLoading(false);
+    });
 
-  // While we verify the user's role, or if they don't have the role, show a loading skeleton.
-  // This prevents any "flash" of content before the redirect in useEffect can occur.
-  const isLoading = isUserLoading || isRoleLoading;
-  
-  if (isLoading || !userRole) {
+    return () => unsubscribe();
+  }, [auth, firestore, router]);
+
+
+  // While we verify the user's role, show a loading skeleton.
+  if (loading) {
     return (
       <DashboardLayout nav={<SuperAdminNav />} role="Super Admin">
         <div className="space-y-4 p-4 md:p-6">
@@ -47,10 +63,11 @@ export default function SuperAdminLayout({
     );
   }
 
-  // Only render children if all checks pass and the user has the correct role.
-  return (
+  // If the user is authorized, render the children. Otherwise, render nothing
+  // as the redirect is already in progress.
+  return isAuthorized ? (
     <DashboardLayout nav={<SuperAdminNav />} role="Super Admin">
       {children}
     </DashboardLayout>
-  );
+  ) : null;
 }

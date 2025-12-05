@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/dashboard-layout";
 import EndUserNav from "@/components/nav/end-user-nav";
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useAuth, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AnnouncementBanner } from '@/components/AnnouncementBanner';
 
@@ -28,74 +29,59 @@ export default function EndUserLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
 
-  const userDocRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'users', user.uid) : null),
-    [user, firestore]
-  );
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<EndUser>(userDocRef);
-
-  const vendorDocRef = useMemoFirebase(
-    () => (firestore && userData?.vendorId ? doc(firestore, 'vendors', userData.vendorId) : null),
-    [firestore, userData?.vendorId]
-  );
-  const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
+  const [userData, setUserData] = useState<EndUser | null>(null);
+  const [vendorData, setVendorData] = useState<Vendor | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait for all data to finish loading before making any decisions
-    if (isUserLoading || isUserDataLoading) {
-      return; 
-    }
-    
-    // If auth is done and there's no user, redirect to login
-    if (!user) {
-      router.replace('/login');
+    if (!auth || !firestore) {
       return;
     }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.replace('/login');
+        return;
+      }
 
-    // If auth is done and there's a user, but they have no user document, they don't belong here
-    if (!userData) {
-      router.replace('/login');
-      return;
-    }
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userSnap = await getDoc(userDocRef);
 
-    // If user is loaded and has a profile, enforce the onboarding flow
-    // 1. If profile is not complete, redirect to complete it
-    if (!userData.profileComplete && pathname !== '/end-user/complete-profile') {
-      router.replace('/end-user/complete-profile');
-      return;
-    }
-    // 2. If profile is complete but waiver is not signed, redirect to waiver
-    if (userData.profileComplete && !userData.waiverSigned && pathname !== '/end-user/waiver') {
-      router.replace('/end-user/waiver');
-      return;
-    }
-    // 3. If everything is complete, but they are on an onboarding page, redirect to dashboard
-    if (userData.profileComplete && userData.waiverSigned && (pathname === '/end-user/complete-profile' || pathname === '/end-user/waiver')) {
-      router.replace('/end-user/dashboard');
-      return;
-    }
+      if (!userSnap.exists()) {
+        router.replace('/login');
+        return;
+      }
+      
+      const endUserData = userSnap.data() as EndUser;
+      setUserData(endUserData);
+      
+      const vendorDocRef = doc(firestore, 'vendors', endUserData.vendorId);
+      const vendorSnap = await getDoc(vendorDocRef);
+      if (vendorSnap.exists()) {
+        setVendorData(vendorSnap.data() as Vendor);
+      }
 
-  }, [user, userData, isUserLoading, isUserDataLoading, pathname, router]);
+      // Onboarding flow enforcement
+      if (!endUserData.profileComplete && pathname !== '/end-user/complete-profile') {
+        router.replace('/end-user/complete-profile');
+      } else if (endUserData.profileComplete && !endUserData.waiverSigned && pathname !== '/end-user/waiver') {
+        router.replace('/end-user/waiver');
+      } else if (endUserData.profileComplete && endUserData.waiverSigned && (pathname === '/end-user/complete-profile' || pathname === '/end-user/waiver')) {
+        router.replace('/end-user/dashboard');
+      }
+      
+      setLoading(false);
+    });
 
-  const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading;
-  
-  // Define the set of URLs that are part of the onboarding process
-  const onboardingUrls = [
-    '/end-user/complete-profile',
-    '/end-user/waiver'
-  ];
+    return () => unsubscribe();
+  }, [auth, firestore, pathname, router]);
 
-  // Determine if content can be shown. It can if:
-  // 1. The user is fully onboarded (profile and waiver complete)
-  // 2. The user is currently on one of the onboarding pages
-  const isAllowedToSeeContent = (userData?.profileComplete && userData.waiverSigned) || onboardingUrls.includes(pathname);
+  const onboardingUrls = ['/end-user/complete-profile', '/end-user/waiver'];
+  const isAllowedToSeeContent = (userData?.profileComplete && userData?.waiverSigned) || onboardingUrls.includes(pathname);
 
-
-  // While we verify the user's state, or if they don't have the right data yet, show a loading skeleton.
-  if (isLoading || !userData || !isAllowedToSeeContent) {
+  if (loading || !isAllowedToSeeContent) {
     return (
       <DashboardLayout nav={<EndUserNav />} role="End User">
         <div className="space-y-4 p-4 md:p-6">

@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/dashboard-layout";
 import VendorAdminNav from "@/components/nav/vendor-admin-nav";
-import { useDoc, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useAuth, useFirestore } from "@/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import { Skeleton } from '@/components/ui/skeleton';
 import { getStripeAccountStatus } from '@/ai/flows/get-stripe-account-status-flow';
+import { onAuthStateChanged } from 'firebase/auth';
 
 type Vendor = {
   name: string;
@@ -23,77 +24,62 @@ export default function VendorAdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
+  const [vendorData, setVendorData] = useState<Vendor | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const vendorRef = useMemoFirebase(
-    () => (user && firestore ? doc(firestore, "vendors", user.uid) : null),
-    [user, firestore]
-  );
-  
-  const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
-  
   useEffect(() => {
-    // Don't run any logic until both user and vendor data have finished loading
-    if (isUserLoading || isVendorLoading) {
-      return; 
-    }
-
-    // If no user is logged in, redirect to login
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    
-    // If a user is logged in but they have no corresponding vendor document, they don't belong here.
-    if (!vendorData) {
-        router.replace('/login');
+    if (!auth || !firestore) {
         return;
     }
 
-    const checkOnboardingStatus = async () => {
-        const { profileComplete, agreementSigned, stripeAccountId } = vendorData;
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            router.replace('/login');
+            return;
+        }
 
-        // 1. Force profile completion
-        if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
-          router.replace('/vendor-admin/complete-profile');
-          return;
+        const vendorRef = doc(firestore, "vendors", user.uid);
+        const vendorSnap = await getDoc(vendorRef);
+
+        if (!vendorSnap.exists()) {
+            router.replace('/login');
+            return;
         }
         
-        // 2. Force agreement signing
-        if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
-          router.replace('/vendor-admin/master-agreement');
-          return;
-        }
+        const data = vendorSnap.data() as Vendor;
+        setVendorData(data);
+        
+        const { profileComplete, agreementSigned, stripeAccountId } = data;
 
-        // 3. Force Stripe onboarding
-        if (profileComplete && agreementSigned && stripeAccountId) {
+        // Onboarding flow enforcement
+        if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
+          router.replace('/vendor-admin/complete-profile');
+        } else if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
+          router.replace('/vendor-admin/master-agreement');
+        } else if (profileComplete && agreementSigned && stripeAccountId) {
             const status = await getStripeAccountStatus({ stripeAccountId });
-            if (!status.payouts_enabled) {
-                // If payouts are NOT enabled, force them to the onboarding page
-                if (pathname !== '/vendor-admin/stripe-onboarding') {
-                    router.replace('/vendor-admin/stripe-onboarding');
-                    return;
-                }
-            } else {
-                 // If payouts ARE enabled and they are on an onboarding page, send to dashboard.
-                 if (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement' || pathname === '/vendor-admin/stripe-onboarding') {
+            if (!status.payouts_enabled && pathname !== '/vendor-admin/stripe-onboarding') {
+                router.replace('/vendor-admin/stripe-onboarding');
+            } else if (status.payouts_enabled) {
+                const onboardingUrls = ['/vendor-admin/complete-profile', '/vendor-admin/master-agreement', '/vendor-admin/stripe-onboarding'];
+                if (onboardingUrls.includes(pathname)) {
                     router.replace('/vendor-admin/dashboard');
-                    return;
-                 }
+                }
             }
         }
-    }
-    
-    checkOnboardingStatus();
-    
-  }, [user, vendorData, isUserLoading, isVendorLoading, pathname, router]);
+        setLoading(false);
+    });
 
-  // Show a loading skeleton while we determine the user's state
-  // Or if they aren't a vendor
-  if (isUserLoading || isVendorLoading || !vendorData) {
+    return () => unsubscribe();
+  }, [auth, firestore, pathname, router]);
+
+
+  // While we verify the user's state, show a loading skeleton.
+  if (loading) {
      return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
         <div className="space-y-4 p-4 md:p-6">
@@ -103,29 +89,25 @@ export default function VendorAdminLayout({
       </DashboardLayout>
     );
   }
-
-  // Define the set of onboarding URLs
+  
   const onboardingUrls = [
       '/vendor-admin/complete-profile',
       '/vendor-admin/master-agreement',
       '/vendor-admin/stripe-onboarding'
   ];
-
-  // Determine if the user is allowed to see the content
-  // They are allowed if they have completed everything OR if they are on one of the onboarding pages.
-  const isFullyOnboarded = vendorData.profileComplete && vendorData.agreementSigned; // We check stripe status inside useEffect
+  
+  const isFullyOnboarded = vendorData?.profileComplete && vendorData?.agreementSigned;
   const isAllowedToSeeContent = isFullyOnboarded || onboardingUrls.includes(pathname);
-
-
+  
   if (!isAllowedToSeeContent) {
-    return (
-       <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
-        <div className="space-y-4 p-4 md:p-6">
-          <Skeleton className="h-8 w-1/4" />
-          <Skeleton className="h-64 w-full" />
-        </div>
-      </DashboardLayout>
-    );
+      return (
+           <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
+            <div className="space-y-4 p-4 md:p-6">
+              <Skeleton className="h-8 w-1/4" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+          </DashboardLayout>
+      )
   }
 
 
