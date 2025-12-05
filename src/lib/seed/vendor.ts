@@ -34,7 +34,9 @@ const seed = async () => {
         console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            console.log("Vendor already exists in Auth. Skipping Auth creation.");
+            console.log("Vendor already exists in Auth. Signing in to update Firestore...");
+            // Sign in to get an authenticated session
+            userCredential = await signInWithEmailAndPassword(auth, email, password);
         } else {
             throw error; // Re-throw other errors
         }

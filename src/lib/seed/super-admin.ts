@@ -20,40 +20,46 @@ const seed = async () => {
   const lastName = "Admin";
 
   try {
-    // Attempt to create the user. If they already exist, this will fail.
+    // Attempt to sign in first. If it fails, the user might not exist or be disabled.
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        if (userCredential.user.uid !== SUPER_ADMIN_ID) {
-            console.warn(`********************************************************************************`);
-            console.warn(`* Super Admin UID mismatch. Expected ${SUPER_ADMIN_ID}, but got ${userCredential.user.uid}. *`);
-            console.warn(`* The login will likely fail. You may need to delete the user from Auth and try again. *`);
-            console.warn(`********************************************************************************`);
-        }
-        console.log("Super Admin created successfully in Auth.");
-    } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-            console.log("Super Admin already exists in Auth. Skipping Auth creation.");
+        await signInWithEmailAndPassword(auth, email, password);
+        console.log("Super Admin already exists and is signed in. Proceeding to update Firestore.");
+    } catch (signInError: any) {
+        if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password') {
+            // If user doesn't exist, create them.
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+             if (userCredential.user.uid !== SUPER_ADMIN_ID) {
+                console.warn(`********************************************************************************`);
+                console.warn(`* Super Admin UID mismatch. Expected ${SUPER_ADMIN_ID}, but got ${userCredential.user.uid}. *`);
+                console.warn(`* The login will likely fail. You may need to delete the user from Auth and try again. *`);
+                console.warn(`********************************************************************************`);
+            }
+            console.log("Super Admin created successfully in Auth.");
+        } else if (signInError.code === 'auth/user-disabled') {
+            console.error("Super Admin user is disabled. Please enable this user in the Firebase Authentication console before running the seed script.");
+            throw signInError; // Stop the script if the user is disabled.
         } else {
-            // Re-throw other auth errors (like user-disabled)
-            throw error;
+             // For other sign-in errors, we re-throw them.
+            throw signInError;
         }
     }
 
+
     // Create the main profile document using the hardcoded UID
-    const superAdminRef = doc(db, "super_admins", SUPER_ADMIN_ID);
+    const superAdminRef = doc(db, "superAdmins", SUPER_ADMIN_ID);
     await setDoc(superAdminRef, {
       id: SUPER_ADMIN_ID,
       email: email,
       firstName: firstName,
       lastName: lastName,
-    });
+    }, { merge: true });
     console.log("Super Admin profile created/updated in Firestore.");
 
     // CRITICAL: Create the role document for security rules using the hardcoded UID
     const roleRef = doc(db, "roles_super_admin", SUPER_ADMIN_ID);
     await setDoc(roleRef, {
       active: true,
-    });
+    }, { merge: true });
     console.log("Super Admin role document created in Firestore. Login should now succeed.");
 
 

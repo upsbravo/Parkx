@@ -24,7 +24,7 @@ const seed = async () => {
         console.log('End user created successfully in Auth.');
     } catch (error: any) {
       if (error.code === 'auth/email-already-in-use') {
-        console.log('End user already exists in Auth. Signing in to get user object.');
+        console.log('End user already exists in Auth. Signing in to update Firestore...');
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } else {
         // Rethrow other auth errors
