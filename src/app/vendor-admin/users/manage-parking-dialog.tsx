@@ -11,13 +11,16 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { createStripeCheckout } from "@/ai/flows/create-stripe-checkout-flow";
+import { useRouter } from "next/navigation";
+
 
 type EndUser = {
   id: string;
@@ -25,7 +28,12 @@ type EndUser = {
   lastName: string;
   truckParkingSpots?: number;
   isRecurringPayment?: boolean;
+  stripeCustomerId?: string; // Assume user might have a Stripe Customer ID
 };
+
+// These should be stored in environment variables, but are here for simplicity.
+const MONTHLY_PRICE_ID = 'price_1PZYsCFOrzQHr7Jwc2N6Yx2A'; // Price for $350/month
+const QUARTERLY_PRICE_ID = 'price_1PZYsCFOrzQHr7JwaA8hI3lA'; // Price for $1050/quarter
 
 const MONTHLY_FEE = 350;
 const QUARTERLY_FEE = 1050;
@@ -42,6 +50,7 @@ export function ManageParkingDialog({
   const { toast } = useToast();
   const firestore = useFirestore();
   const { user: vendorAdmin } = useUser();
+  const router = useRouter();
   
   const [spots, setSpots] = useState(user.truckParkingSpots || 0);
   const [isRecurring, setIsRecurring] = useState(user.isRecurringPayment || false);
@@ -58,49 +67,61 @@ export function ManageParkingDialog({
   const handleSaveAndInvoice = async () => {
     if (!firestore || !vendorAdmin) return;
     setIsSaving(true);
-
-    const batch = writeBatch(firestore);
     
-    // 1. Update user document
+    // Update user document first
     const userRef = doc(firestore, "users", user.id);
-    batch.update(userRef, {
+    await updateDocumentNonBlocking(userRef, {
       truckParkingSpots: spots,
       isRecurringPayment: isRecurring,
     });
-
-    // 2. Create invoice if spots > 0
-    if (spots > 0) {
-        const invoicesRef = collection(firestore, "vendors", vendorAdmin.uid, "userInvoices");
-        const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + 30); // Due in 30 days
-        
-        batch.set(doc(invoicesRef), {
-            vendorId: vendorAdmin.uid,
-            userId: user.id,
-            userName: `${user.firstName} ${user.lastName}`,
-            amount: totalAmount,
-            dueDate: dueDate.toISOString(),
-            status: "Pending",
-            notes: `Invoice for ${spots} truck park(s) on a ${billingCycle} basis. Recurring: ${isRecurring ? 'Yes' : 'No'}.`,
-        });
+    
+    if (spots <= 0) {
+      toast({ title: "Parking Updated", description: "Truck parking spots have been set to zero." });
+      onOpenChange(false);
+      setIsSaving(false);
+      return;
     }
 
     try {
-        await batch.commit();
-        toast({
-            title: "Parking Updated",
-            description: `${user.firstName}'s truck parking spots and billing have been updated.`,
-        });
-        if (spots > 0) {
-            toast({
-                title: "Invoice Generated",
-                description: `An invoice for $${totalAmount} has been created.`,
-            });
+      const lineItems = [{
+        price: billingCycle === 'monthly' ? MONTHLY_PRICE_ID : QUARTERLY_PRICE_ID,
+        quantity: spots,
+      }];
+
+      const checkoutInput = {
+        mode: isRecurring ? 'subscription' : 'payment' as 'subscription' | 'payment',
+        line_items: lineItems,
+        successUrl: `${window.location.origin}/vendor-admin/users?payment=success`,
+        cancelUrl: window.location.origin + '/vendor-admin/users',
+        customer: user.stripeCustomerId,
+        metadata: {
+            userId: user.id,
+            vendorId: vendorAdmin.uid
         }
+      };
+
+      const result = await createStripeCheckout(checkoutInput);
+
+      if (result.url) {
+         toast({
+            title: "Checkout Link Generated",
+            description: "A secure payment link has been created. Share it with the user to complete payment.",
+            duration: 10000,
+            action: (
+              <div className="flex gap-2">
+                <Button onClick={() => navigator.clipboard.writeText(result.url || '')}>Copy</Button>
+                <Button variant="secondary" onClick={() => window.open(result.url, '_blank')}>Open</Button>
+              </div>
+            )
+        });
         onOpenChange(false);
-    } catch (e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: "Error", description: "Could not save parking details."});
+      } else {
+        throw new Error(result.error || "Failed to create checkout session.");
+      }
+
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: 'destructive', title: "Error", description: e.message || "Could not generate payment link."});
     } finally {
         setIsSaving(false);
     }
@@ -132,11 +153,11 @@ export function ManageParkingDialog({
                 <RadioGroup value={billingCycle} onValueChange={(value: "monthly" | "quarterly") => setBillingCycle(value)}>
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="monthly" id="monthly" />
-                        <Label htmlFor="monthly">Monthly ($350 per spot)</Label>
+                        <Label htmlFor="monthly">Monthly (${MONTHLY_FEE} per spot)</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="quarterly" id="quarterly" />
-                        <Label htmlFor="quarterly">Quarterly ($1050 per spot)</Label>
+                        <Label htmlFor="quarterly">Quarterly (${QUARTERLY_FEE} per spot)</Label>
                     </div>
                 </RadioGroup>
             </div>
@@ -170,7 +191,7 @@ export function ManageParkingDialog({
             Cancel
           </Button>
           <Button type="submit" onClick={handleSaveAndInvoice} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save & Invoice"}
+            {isSaving ? "Saving..." : "Save & Generate Link"}
           </Button>
         </DialogFooter>
       </DialogContent>

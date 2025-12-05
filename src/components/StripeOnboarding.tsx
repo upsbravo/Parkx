@@ -88,10 +88,10 @@ export default function StripeOnboarding() {
   if (clientSecret) {
     // This is how you render a web component in React.
     // TypeScript might complain about the custom element, so we cast to any.
-    const StripeConnectOnboarding = 'stripe-connect-account-onboarding' as any;
+    const StripeConnectAccountManagement = 'stripe-connect-account-management' as any;
     return (
         <div className="min-h-[500px]">
-            <StripeConnectOnboarding client-secret={clientSecret} />
+            <StripeConnectAccountManagement client-secret={clientSecret} />
         </div>
     );
   }

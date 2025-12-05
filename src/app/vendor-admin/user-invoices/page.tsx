@@ -398,11 +398,11 @@ Thank you for your business.
                                   </DialogTitle>
                                   <DialogDescription>Enter the user's card details to charge them directly.</DialogDescription>
                                 </DialogHeader>
-                                {isClient && stripeOptions && (
+                                {isClient && stripeOptions && vendorAdmin?.uid && (
                                   <Elements stripe={stripePromise} options={stripeOptions}>
                                     <CheckoutForm 
                                       invoiceId={selectedInvoice.id}
-                                      vendorId={vendorAdmin!.uid}
+                                      vendorId={vendorAdmin.uid}
                                       amount={selectedInvoice.amount}
                                       onSuccessfulPayment={handleSuccessfulPayment}
                                     />

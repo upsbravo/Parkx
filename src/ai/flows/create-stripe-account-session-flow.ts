@@ -49,6 +49,12 @@ const createStripeAccountSessionFlow = ai.defineFlow(
             account_onboarding: {
               enabled: true,
             },
+            payments: {
+                enabled: true,
+            },
+            payouts: {
+                enabled: true,
+            }
           },
         });
         
