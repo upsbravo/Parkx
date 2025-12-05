@@ -84,11 +84,11 @@ export default function StripePayouts() {
 
   if (clientSecret) {
     // This is how you render a web component in React.
-    // Use `stripe-connect-account-onboarding` to render the full Stripe Express Dashboard.
-    const StripeConnectAccountOnboarding = 'stripe-connect-account-onboarding' as any;
+    // Use `stripe-connect-dashboard` to render the full Stripe Express Dashboard.
+    const StripeConnectDashboard = 'stripe-connect-dashboard' as any;
     return (
         <div className="min-h-[500px]">
-            <StripeConnectAccountOnboarding client-secret={clientSecret} />
+            <StripeConnectDashboard client-secret={clientSecret} />
         </div>
     );
   }

@@ -43,12 +43,12 @@ const createStripeAccountSessionFlow = ai.defineFlow(
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-        // Request a session for the 'account_onboarding' component.
-        // This is the correct component to render the full Stripe Express Dashboard for connected accounts.
+        // Request a session for the 'dashboard' component.
+        // This is the correct component to render the full Stripe Express Dashboard.
         const accountSession = await stripe.accountSessions.create({
           account: accountId,
           components: {
-            account_onboarding: {
+            dashboard: {
                 enabled: true,
             },
           },
