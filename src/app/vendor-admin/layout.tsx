@@ -39,7 +39,7 @@ export default function VendorAdminLayout({
   useEffect(() => {
     const performChecks = async () => {
       if (isUserLoading || isVendorLoading) {
-        return;
+        return; // Wait for data to load
       }
       
       if (!isUserLoading && !user) {
@@ -80,8 +80,9 @@ export default function VendorAdminLayout({
             }
         }
         setIsStripeCheckComplete(true);
-      } else if (!isUserLoading && user && !vendorData) {
+      } else if (!isUserLoading && user && !isVendorLoading && !vendorData) {
         // Fallback for an authenticated user who is not a vendor
+        console.error("Access Denied: Authenticated user is not a vendor.");
         router.replace('/login');
       }
     };
@@ -91,7 +92,7 @@ export default function VendorAdminLayout({
 
   const isLoading = isUserLoading || isVendorLoading || !isStripeCheckComplete;
   
-  if (isLoading) {
+  if (isLoading || !user) {
      return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
         <div className="space-y-4 p-4 md:p-6">
