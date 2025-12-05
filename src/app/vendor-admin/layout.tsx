@@ -1,19 +1,21 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/dashboard-layout";
 import VendorAdminNav from "@/components/nav/vendor-admin-nav";
 import { useDoc, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { Skeleton } from '@/components/ui/skeleton';
+import { getStripeAccountStatus } from '@/ai/flows/get-stripe-account-status-flow';
 
 type Vendor = {
   name: string;
   logoUrl?: string;
-  status: string; // Keep as string for flexibility
+  status: string;
   profileComplete?: boolean;
   agreementSigned?: boolean;
   onboardingLink?: string;
+  stripeAccountId?: string;
 };
 
 export default function VendorAdminLayout({
@@ -25,6 +27,7 @@ export default function VendorAdminLayout({
   const firestore = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
+  const [isStripeCheckComplete, setIsStripeCheckComplete] = useState(false);
 
   const vendorRef = useMemoFirebase(
     () => (user && firestore ? doc(firestore, "vendors", user.uid) : null),
@@ -34,51 +37,62 @@ export default function VendorAdminLayout({
   const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
   
   useEffect(() => {
-    if (isUserLoading || isVendorLoading) {
-      return; // Wait for all data to load
-    }
-
-    // If auth state is resolved and there is no user, redirect to login
-    if (!isUserLoading && !user) {
-      router.replace('/login');
-      return;
-    }
-
-    if (user && vendorData) {
-      const { profileComplete, agreementSigned, onboardingLink, status } = vendorData;
-
-      // 1. If profile is not complete, force completion.
-      if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
-        router.replace('/vendor-admin/complete-profile');
+    const performChecks = async () => {
+      if (isUserLoading || isVendorLoading) {
         return;
       }
       
-      // 2. If profile complete, but agreement not signed, force agreement page.
-      if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
-        router.replace('/vendor-admin/master-agreement');
+      if (!isUserLoading && !user) {
+        router.replace('/login');
         return;
-      }
-      
-      // 3. If agreement is signed, but they haven't been sent to Stripe yet, redirect them.
-      if (profileComplete && agreementSigned && onboardingLink && pathname !== '/vendor-admin/stripe-onboarding') {
-         router.replace('/vendor-admin/stripe-onboarding');
-         return;
       }
 
-      // 4. If everything is complete, and they land on an onboarding page, redirect to dashboard.
-      if (profileComplete && agreementSigned && !onboardingLink &&
-          (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement' || pathname === '/vendor-admin/stripe-onboarding')) {
-        router.replace('/vendor-admin/dashboard');
-        return;
+      if (user && vendorData) {
+        const { profileComplete, agreementSigned, stripeAccountId } = vendorData;
+
+        // 1. If profile is not complete, force completion.
+        if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
+          router.replace('/vendor-admin/complete-profile');
+          return;
+        }
+        
+        // 2. If profile complete, but agreement not signed, force agreement page.
+        if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
+          router.replace('/vendor-admin/master-agreement');
+          return;
+        }
+
+        // 3. If everything is signed, check Stripe status
+        if (profileComplete && agreementSigned && stripeAccountId) {
+            const status = await getStripeAccountStatus({ stripeAccountId });
+            if (!status.payouts_enabled) {
+                // If payouts are NOT enabled, force them to the onboarding page
+                if (pathname !== '/vendor-admin/stripe-onboarding') {
+                    router.replace('/vendor-admin/stripe-onboarding');
+                    return;
+                }
+            } else {
+                 // If payouts ARE enabled and they are on an onboarding page, send to dashboard.
+                 if (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement' || pathname === '/vendor-admin/stripe-onboarding') {
+                    router.replace('/vendor-admin/dashboard');
+                    return;
+                 }
+            }
+        }
+        setIsStripeCheckComplete(true);
+      } else if (!isUserLoading && user && !vendorData) {
+        // Fallback for an authenticated user who is not a vendor
+        router.replace('/login');
       }
-    }
+    };
+    
+    performChecks();
   }, [user, vendorData, isUserLoading, isVendorLoading, pathname, router]);
 
-
-  const isLoading = isUserLoading || isVendorLoading;
+  const isLoading = isUserLoading || isVendorLoading || !isStripeCheckComplete;
   
-  if (isLoading || !user) {
-    return (
+  if (isLoading) {
+     return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
         <div className="space-y-4 p-4 md:p-6">
           <Skeleton className="h-8 w-1/4" />
