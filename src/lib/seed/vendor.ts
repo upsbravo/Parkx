@@ -59,7 +59,8 @@ const seed = async () => {
       spotLimit: 50,
       role: 'vendorAdmin',
       stripeCustomerId: 'cus_placeholder_12345', // Add placeholder Stripe Customer ID
-    });
+      stripeAccountId: 'acct_1Saqr52XSETIyMBx', // Manually added Stripe Account ID
+    }, { merge: true });
     console.log("Vendor profile created/updated in Firestore.");
   } catch (error) {
     console.error("Error seeding vendor:", error);
