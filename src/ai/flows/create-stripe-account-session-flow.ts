@@ -1,9 +1,9 @@
 
 'use server';
 /**
- * @fileOverview A server-side flow to securely create a Stripe Account Session for Connect Onboarding.
+ * @fileOverview A server-side flow to securely create a Stripe Account Session for the full Connect dashboard.
  *
- * - createStripeAccountSession - Creates a session for an embedded onboarding experience.
+ * - createStripeAccountSession - Creates a session for an embedded dashboard experience.
  * - CreateStripeAccountSessionInput - The input type for the function.
  * - CreateStripeAccountSessionOutput - The return type for the function.
  */
@@ -43,10 +43,12 @@ const createStripeAccountSessionFlow = ai.defineFlow(
         const { default: Stripe } = await import('stripe');
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+        // Request a session for the 'account_onboarding' component.
+        // This is the correct component to render the full Stripe Express Dashboard for connected accounts.
         const accountSession = await stripe.accountSessions.create({
           account: accountId,
           components: {
-            payouts: {
+            account_onboarding: {
                 enabled: true,
             },
           },
