@@ -20,21 +20,22 @@ const seed = async () => {
   const lastName = "Admin";
 
   try {
+    // Attempt to create the user. If they already exist, this will fail.
     try {
-        await signInWithEmailAndPassword(auth, email, password);
-        console.log("Super Admin already exists in Auth. Skipping Auth creation.");
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (userCredential.user.uid !== SUPER_ADMIN_ID) {
+            console.warn(`********************************************************************************`);
+            console.warn(`* Super Admin UID mismatch. Expected ${SUPER_ADMIN_ID}, but got ${userCredential.user.uid}. *`);
+            console.warn(`* The login will likely fail. You may need to delete the user from Auth and try again. *`);
+            console.warn(`********************************************************************************`);
+        }
+        console.log("Super Admin created successfully in Auth.");
     } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-             if (userCredential.user.uid !== SUPER_ADMIN_ID) {
-                console.warn(`********************************************************************************`);
-                console.warn(`* Super Admin UID mismatch. Expected ${SUPER_ADMIN_ID}, but got ${userCredential.user.uid}. *`);
-                console.warn(`* The login will likely fail. You may need to delete the user from Auth and try again. *`);
-                console.warn(`********************************************************************************`);
-            }
-            console.log("Super Admin created successfully in Auth.");
+        if (error.code === 'auth/email-already-in-use') {
+            console.log("Super Admin already exists in Auth. Skipping Auth creation.");
         } else {
-            throw error; // Re-throw other errors
+            // Re-throw other auth errors (like user-disabled)
+            throw error;
         }
     }
 
@@ -67,4 +68,3 @@ seed().then(() => {
     console.error(err);
     // process.exit(1);
 });
-

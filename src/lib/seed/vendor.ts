@@ -21,24 +21,20 @@ const seed = async () => {
   try {
     let userCredential;
     try {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
         if (userCredential.user.uid !== VENDOR_ID) {
-            console.error(`CRITICAL: Vendor user exists but UID does not match. Expected ${VENDOR_ID}, found ${userCredential.user.uid}. Seeding will likely fail.`);
+            console.warn(`********************************************************************************`);
+            console.warn(`* Vendor UID mismatch. Expected ${VENDOR_ID}, but got ${userCredential.user.uid}. *`);
+            console.warn(`* The end-user seed and login will likely fail.                                *`);
+            console.warn(`* To fix: update VENDOR_ID in src/lib/seed/vendor.ts to ${userCredential.user.uid} and re-run. *`);
+            console.warn(`********************************************************************************`);
+        } else {
+             await updateProfile(userCredential.user, { displayName: vendorName });
         }
-        console.log("Vendor already exists in Auth. Skipping creation.");
+        console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
     } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            if (userCredential.user.uid !== VENDOR_ID) {
-                console.warn(`********************************************************************************`);
-                console.warn(`* Vendor UID mismatch. Expected ${VENDOR_ID}, but got ${userCredential.user.uid}. *`);
-                console.warn(`* The end-user seed and login will likely fail.                                *`);
-                console.warn(`* To fix: update VENDOR_ID in src/lib/seed/vendor.ts to ${userCredential.user.uid} and re-run. *`);
-                console.warn(`********************************************************************************`);
-            } else {
-                 await updateProfile(userCredential.user, { displayName: vendorName });
-            }
-            console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
+        if (error.code === 'auth/email-already-in-use') {
+            console.log("Vendor already exists in Auth. Skipping Auth creation.");
         } else {
             throw error; // Re-throw other errors
         }

@@ -19,15 +19,13 @@ const seed = async () => {
   try {
     let userCredential;
     try {
-      // Check if user already exists in Auth by trying to sign in
-      userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('End user already exists in Auth. Skipping creation.');
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        // If user doesn't exist, create them
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: `${firstName} ${lastName}` });
         console.log('End user created successfully in Auth.');
+    } catch (error: any) {
+      if (error.code === 'auth/email-already-in-use') {
+        console.log('End user already exists in Auth. Signing in to get user object.');
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
       } else {
         // Rethrow other auth errors
         throw error;
@@ -51,7 +49,7 @@ const seed = async () => {
       waiverSigned: false, // Default to not signed
       waiverSignedDate: null,
       profileComplete: false, // Start with an incomplete profile
-    });
+    }, { merge: true });
     console.log('End User profile created/updated in Firestore /users collection.');
 
   } catch (error) {
@@ -65,7 +63,3 @@ seed().then(() => {
     console.error(err);
     // process.exit(1);
 });
-
-    
-
-    
