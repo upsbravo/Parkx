@@ -142,6 +142,11 @@
         "timeZone": {
           "type": "string",
           "description": "The vendor's time zone."
+        },
+        "onboardingLink": {
+          "type": "string",
+          "format": "uri",
+          "description": "A one-time URL for the vendor to complete Stripe onboarding."
         }
       },
       "required": [

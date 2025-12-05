@@ -55,6 +55,7 @@ import { resumeStripeSubscription } from "@/ai/flows/resume-stripe-subscription-
 import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PasscodeDialog } from "./passcode-dialog";
+import { deleteStripeAccount } from "@/ai/flows/delete-stripe-account-flow";
 
 
 type Vendor = {
@@ -68,6 +69,7 @@ type Vendor = {
   spotLimit: number;
   isPrivileged?: boolean;
   stripeSubscriptionId?: string;
+  stripeAccountId?: string;
 };
 
 
@@ -195,58 +197,76 @@ export default function VendorsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedVendor || !firestore) return;
-
-    const { id: vendorId, name: vendorName } = selectedVendor;
-
+  
+    const { id: vendorId, name: vendorName, stripeAccountId } = selectedVendor;
+  
     const deletingToast = toast({
       title: 'Deleting Vendor...',
-      description: `Finding all users associated with ${vendorName}.`,
+      description: `Starting deletion process for ${vendorName}.`,
     });
-
+  
     try {
-        // 1. Find all users for this vendor
-        const usersQuery = query(collection(firestore, 'users'), where('vendorId', '==', vendorId));
-        const usersSnapshot = await getDocs(usersQuery);
-        const userDocs = usersSnapshot.docs;
-
-        // 2. Create a batch write
-        const batch = writeBatch(firestore);
-
-        // 3. Add user deletions to the batch
-        userDocs.forEach(userDoc => {
-            batch.delete(userDoc.ref);
-        });
-        
+      // Step 1: Delete from Stripe if the account ID exists
+      if (stripeAccountId) {
         deletingToast.update({
-            id: deletingToast.id,
-            description: `Found ${userDocs.length} user(s). Preparing to delete...`,
+          id: deletingToast.id,
+          description: `Deleting Stripe Connected Account for ${vendorName}.`,
         });
-
-        // 4. Add the vendor deletion to the batch
-        const vendorRef = doc(firestore, 'vendors', vendorId);
-        batch.delete(vendorRef);
-        
-        // 5. Commit the batch
-        await batch.commit();
-
+        const stripeResult = await deleteStripeAccount({ stripeAccountId });
+        if (!stripeResult.success) {
+          // If Stripe deletion fails, we stop the entire process.
+          throw new Error(stripeResult.error || "Failed to delete from Stripe. Aborting deletion.");
+        }
         deletingToast.update({
-            id: deletingToast.id,
-            variant: 'destructive',
-            title: 'Vendor & Users Deleted',
-            description: `${vendorName} and all associated user records have been permanently deleted.`,
+          id: deletingToast.id,
+          description: `Stripe account deleted. Now deleting from application...`,
         });
-
+      }
+  
+      // Step 2: Find all users for this vendor
+      const usersQuery = query(collection(firestore, 'users'), where('vendorId', '==', vendorId));
+      const usersSnapshot = await getDocs(usersQuery);
+      const userDocs = usersSnapshot.docs;
+  
+      deletingToast.update({
+        id: deletingToast.id,
+        description: `Found ${userDocs.length} user(s). Preparing to delete...`,
+      });
+  
+      // Step 3: Create a batch write to delete Firestore data
+      const batch = writeBatch(firestore);
+  
+      // Add user deletions to the batch
+      userDocs.forEach(userDoc => {
+        batch.delete(userDoc.ref);
+      });
+  
+      // Add the vendor deletion to the batch
+      const vendorRef = doc(firestore, 'vendors', vendorId);
+      batch.delete(vendorRef);
+  
+      // Step 4: Commit the batch
+      await batch.commit();
+  
+      deletingToast.update({
+        id: deletingToast.id,
+        variant: 'destructive',
+        title: 'Vendor Deleted',
+        description: `${vendorName} and all associated records have been permanently deleted from Stripe and this application.`,
+      });
+  
     } catch (e: any) {
-        deletingToast.update({
-            id: deletingToast.id,
-            variant: 'destructive',
-            title: 'Deletion Failed',
-            description: e.message || 'An error occurred during the deletion process.',
-        });
-        console.error("Cascading delete failed:", e);
+      deletingToast.update({
+        id: deletingToast.id,
+        variant: 'destructive',
+        title: 'Deletion Failed',
+        description: e.message || 'An error occurred during the deletion process.',
+        duration: 10000,
+      });
+      console.error("Cascading delete failed:", e);
     } finally {
-        setDeleteAlertOpen(false);
-        setSelectedVendor(null);
+      setDeleteAlertOpen(false);
+      setSelectedVendor(null);
     }
   };
   
