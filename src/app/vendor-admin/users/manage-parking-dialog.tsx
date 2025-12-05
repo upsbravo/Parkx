@@ -88,9 +88,16 @@ export function ManageParkingDialog({
       };
 
       if (isRecurring) {
-        priceData.recurring = {
-          interval: billingCycle === 'monthly' ? 'month' : 'quarter',
-        };
+        if (billingCycle === 'quarterly') {
+          priceData.recurring = {
+            interval: 'month',
+            interval_count: 3,
+          };
+        } else {
+          priceData.recurring = {
+            interval: 'month',
+          };
+        }
       }
 
       const checkoutInput = {
