@@ -1,13 +1,12 @@
 
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { firebaseConfig } from "@/firebase/config";
 
-// This is the hardcoded UID for the seeded vendor 'vendor@acme.com'
-// This will be the result of the Firebase Auth creation, but we define it
-// here so other seed scripts can use it reliably.
-export const VENDOR_ID = 'YQadS5yQ5EXD2w5zmvqP';
+// This is the hardcoded UID for the seeded vendor 'vickdispatch3@gmail.com'
+// This ensures the seed script targets the correct account.
+export const VENDOR_ID = 'wS4cuADv5fVJHc76R2bZFCe32uZ2';
 
 const seed = async () => {
   console.log("Seeding Vendor...");
@@ -15,9 +14,9 @@ const seed = async () => {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  const email = "vendor@acme.com";
+  const email = "vickdispatch3@gmail.com";
   const password = "password";
-  const vendorName = "Acme Parking Inc.";
+  const vendorName = "Upender Sing";
 
   try {
     let userCredential;
@@ -29,9 +28,6 @@ const seed = async () => {
         console.log("Vendor already exists in Auth. Skipping creation.");
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            // For a demo, it's hard to guarantee a specific UID on creation client-side.
-            // This script assumes the UID will be VENDOR_ID. If it's not, you'd need a backend process
-            // or to adjust the ID after creation. For this project, we'll assume it works or log a big warning.
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             if (userCredential.user.uid !== VENDOR_ID) {
                 console.warn(`********************************************************************************`);
@@ -39,6 +35,8 @@ const seed = async () => {
                 console.warn(`* The end-user seed and login will likely fail.                                *`);
                 console.warn(`* To fix: update VENDOR_ID in src/lib/seed/vendor.ts to ${userCredential.user.uid} and re-run. *`);
                 console.warn(`********************************************************************************`);
+            } else {
+                 await updateProfile(userCredential.user, { displayName: vendorName });
             }
             console.log("Vendor created successfully in Auth with UID:", userCredential.user.uid);
         } else {
@@ -58,8 +56,8 @@ const seed = async () => {
       spotsUsed: 0,
       spotLimit: 50,
       role: 'vendorAdmin',
-      stripeCustomerId: 'cus_placeholder_12345', // Add placeholder Stripe Customer ID
-      stripeAccountId: 'acct_1Saqr52XSETIyMBx', // Manually added Stripe Account ID
+      stripeCustomerId: 'cus_placeholder_12345',
+      stripeAccountId: 'acct_1Saqr52XSETIyMBx',
     }, { merge: true });
     console.log("Vendor profile created/updated in Firestore.");
   } catch (error) {
