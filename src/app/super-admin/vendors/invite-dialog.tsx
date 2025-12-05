@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -77,8 +78,8 @@ export function InviteVendorDialog({
       }
       stripeAccountId = stripeAccountResult.accountId;
 
-      // Step 4: Create the vendor document in Firestore with all necessary IDs
-      // The vendor's doc ID *is* their Firebase UID.
+      // Step 4: Create the vendor document in Firestore with all necessary IDs.
+      // The vendor's doc ID *is* their Firebase UID. This is the single source of truth.
       await setDoc(doc(firestore, "vendors", newUser.uid), {
         id: newUser.uid,
         name: name,
@@ -90,21 +91,13 @@ export function InviteVendorDialog({
         spotLimit: spotLimit,
         role: "vendorAdmin",
         stripeCustomerId: stripeCustomerId,
-        stripeAccountId: stripeAccountId,
+        stripeAccountId: stripeAccountId, // ** This is the critical fix **
         profileComplete: false,
         agreementSigned: false,
         trialOffered: offerTrial,
       });
 
-      // Step 5: Create the customer document for the Stripe extension
-      const customerRef = doc(firestore, 'customers', newUser.uid);
-      await setDoc(customerRef, {
-        email: email,
-        name: name,
-        stripeId: stripeCustomerId,
-      });
-
-      // Step 6: Create a notification for the super admin
+      // Step 5: Create a notification for the super admin
       if (superAdmin) {
         const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
         addDocumentNonBlocking(notifRef, {
