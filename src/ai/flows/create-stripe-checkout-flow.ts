@@ -21,6 +21,10 @@ const LineItemSchema = z.object({
           name: z.string(),
       }),
       unit_amount: z.number().int(),
+      recurring: z.object({
+        interval: z.enum(['month', 'year', 'week', 'day']),
+        interval_count: z.number().int().optional(),
+      }).optional(),
   }).optional(),
 });
 

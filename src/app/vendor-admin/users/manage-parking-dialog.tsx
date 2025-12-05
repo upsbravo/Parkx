@@ -31,10 +31,6 @@ type EndUser = {
   stripeCustomerId?: string; // Assume user might have a Stripe Customer ID
 };
 
-// These should be stored in environment variables, but are here for simplicity.
-const MONTHLY_PRICE_ID = 'price_1PZYsCFOrzQHr7Jwc2N6Yx2A'; // Price for $350/month
-const QUARTERLY_PRICE_ID = 'price_1PZYsCFOrzQHr7JwaA8hI3lA'; // Price for $1050/quarter
-
 const MONTHLY_FEE = 350;
 const QUARTERLY_FEE = 1050;
 
@@ -83,14 +79,26 @@ export function ManageParkingDialog({
     }
 
     try {
-      const lineItems = [{
-        price: billingCycle === 'monthly' ? MONTHLY_PRICE_ID : QUARTERLY_PRICE_ID,
-        quantity: spots,
-      }];
+      const priceData: any = {
+        currency: 'usd',
+        product_data: {
+          name: `${billingCycle === 'monthly' ? 'Monthly' : 'Quarterly'} Truck Parking (${spots} spot/s)`,
+        },
+        unit_amount: (billingCycle === 'monthly' ? MONTHLY_FEE : QUARTERLY_FEE) * 100,
+      };
+
+      if (isRecurring) {
+        priceData.recurring = {
+          interval: billingCycle === 'monthly' ? 'month' : 'quarter',
+        };
+      }
 
       const checkoutInput = {
         mode: isRecurring ? 'subscription' : 'payment' as 'subscription' | 'payment',
-        line_items: lineItems,
+        line_items: [{
+            price_data: priceData,
+            quantity: spots,
+        }],
         successUrl: `${window.location.origin}/vendor-admin/users?payment=success`,
         cancelUrl: window.location.origin + '/vendor-admin/users',
         customer: user.stripeCustomerId,
