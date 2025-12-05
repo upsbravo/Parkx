@@ -38,6 +38,7 @@ const navItems = [
     label: "Accounting",
     icon: <BookCopy />,
     subItems: [
+      { href: "/vendor-admin/accounting/financial-summary", label: "Financial Summary" },
       { href: "/vendor-admin/user-invoices", label: "User Invoices" },
       { href: "/vendor-admin/invoices", label: "My Invoices" },
       { href: "/vendor-admin/payouts", label: "Payments & Payouts" },
