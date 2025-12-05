@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreditCard } from "lucide-react";
-import StripeOnboarding from '@/components/StripeOnboarding';
+import StripePayouts from '@/components/StripePayouts';
 
 export default function VendorPaymentsPage() {
 
@@ -27,11 +27,8 @@ export default function VendorPaymentsPage() {
 
       <Tabs defaultValue="account">
         <TabsList>
-          <TabsTrigger value="account">Account & Payouts</TabsTrigger>
+          <TabsTrigger value="account">Payouts Dashboard</TabsTrigger>
           <TabsTrigger value="transactions" disabled>Transactions</TabsTrigger>
-          <TabsTrigger value="readers" disabled>Readers</TabsTrigger>
-          <TabsTrigger value="ach" disabled>ACH</TabsTrigger>
-          <TabsTrigger value="bnpl" disabled>Buy Now Pay Later</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account" className="mt-6">
@@ -39,14 +36,14 @@ export default function VendorPaymentsPage() {
             <CardHeader>
                 <div className='flex items-center gap-2'>
                     <CreditCard className="h-5 w-5 text-muted-foreground" />
-                    <CardTitle>Stripe Account</CardTitle>
+                    <CardTitle>Stripe Payouts</CardTitle>
                 </div>
                 <CardDescription>
-                    Manage your Stripe account and update your bank details for payouts. This is required to receive money from your customers.
+                    Manage your bank details and see your payout history with Stripe. This is required to receive money from your customers.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <StripeOnboarding />
+                <StripePayouts />
             </CardContent>
         </Card>
         </TabsContent>

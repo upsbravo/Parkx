@@ -19,5 +19,6 @@ import '@/ai/flows/sync-stripe-invoices-flow.ts';
 import '@/ai/flows/create-stripe-account-flow.ts';
 import '@/ai/flows/send-sms-flow.ts';
 import '@/ai/flows/create-stripe-account-link-flow.ts';
+import '@/ai/flows/create-stripe-account-session-flow.ts';
     
     

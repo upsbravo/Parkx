@@ -46,15 +46,9 @@ const createStripeAccountSessionFlow = ai.defineFlow(
         const accountSession = await stripe.accountSessions.create({
           account: accountId,
           components: {
-            account_onboarding: {
-              enabled: true,
-            },
-            payments: {
-                enabled: true,
-            },
             payouts: {
                 enabled: true,
-            }
+            },
           },
         });
         

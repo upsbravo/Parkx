@@ -13,7 +13,7 @@ type Vendor = {
   stripeAccountId?: string;
 };
 
-export default function StripeOnboarding() {
+export default function StripePayouts() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function StripeOnboarding() {
         if (data.client_secret) {
           setClientSecret(data.client_secret);
         } else {
-          setError(data.error || 'Failed to initialize Stripe Onboarding. Please try again.');
+          setError(data.error || 'Failed to initialize Stripe Dashboard. Please try again.');
         }
       })
       .catch((e) => {
@@ -83,10 +83,11 @@ export default function StripeOnboarding() {
   }
 
   if (clientSecret) {
-    const StripeConnectAccountOnboarding = 'stripe-connect-account-onboarding' as any;
+    // This is how you render a web component in React.
+    const StripeConnectPayouts = 'stripe-connect-payouts' as any;
     return (
         <div className="min-h-[500px]">
-            <StripeConnectAccountOnboarding client-secret={clientSecret} />
+            <StripeConnectPayouts client-secret={clientSecret} />
         </div>
     );
   }
