@@ -54,7 +54,7 @@ export default function SuperAdminAccountPage() {
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
 
   const adminProfileRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'super_admins', user.uid) : null),
+    () => (user ? doc(firestore, 'superAdmins', user.uid) : null),
     [user, firestore]
   );
   const { data: adminProfile, isLoading: isAdminProfileLoading } = useDoc<SuperAdminProfile>(adminProfileRef);
@@ -100,7 +100,7 @@ export default function SuperAdminAccountPage() {
         await updateProfile(user, { displayName: fullName });
       }
 
-      const userRef = doc(firestore, 'super_admins', user.uid);
+      const userRef = doc(firestore, 'superAdmins', user.uid);
       await updateDoc(userRef, {
         firstName: firstName,
         lastName: lastName,
@@ -189,7 +189,7 @@ export default function SuperAdminAccountPage() {
       const [firstName, ...lastNameParts] = newAdminFullName.split(' ');
       const lastName = lastNameParts.join(' ');
       
-      const adminProfileRef = doc(firestore, 'super_admins', newAdminUser.uid);
+      const adminProfileRef = doc(firestore, 'superAdmins', newAdminUser.uid);
       await setDoc(adminProfileRef, {
         id: newAdminUser.uid,
         email: newAdminEmail,
