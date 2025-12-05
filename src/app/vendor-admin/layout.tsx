@@ -13,6 +13,7 @@ type Vendor = {
   status: string; // Keep as string for flexibility
   profileComplete?: boolean;
   agreementSigned?: boolean;
+  onboardingLink?: string;
 };
 
 export default function VendorAdminLayout({
@@ -44,34 +45,31 @@ export default function VendorAdminLayout({
     }
 
     if (user && vendorData) {
-      const { profileComplete, agreementSigned, status } = vendorData;
+      const { profileComplete, agreementSigned, onboardingLink, status } = vendorData;
 
-      // New Onboarding Flow
       // 1. If profile is not complete, force completion.
       if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
         router.replace('/vendor-admin/complete-profile');
         return;
       }
       
-      // 2. If profile is complete, but agreement not signed, force agreement.
-      if (profileComplete && !agreementSigned && status !== 'Trial' && status !== 'Active' && pathname !== '/vendor-admin/master-agreement') {
+      // 2. If profile complete, but agreement not signed, force agreement page.
+      if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
         router.replace('/vendor-admin/master-agreement');
         return;
       }
-
-      // After agreement is signed and subscription is set up, they land on stripe-onboarding page.
-      // We don't force them away from it.
-
-      // 3. If everything is complete, and they are on a setup page, redirect to dashboard.
-      if (profileComplete && agreementSigned && 
-          (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement')) {
-        router.replace('/vendor-admin/dashboard');
-        return;
+      
+      // 3. If agreement is signed, but they haven't been sent to Stripe yet, redirect them.
+      if (profileComplete && agreementSigned && onboardingLink && pathname !== '/vendor-admin/stripe-onboarding') {
+         router.replace('/vendor-admin/stripe-onboarding');
+         return;
       }
 
-      // Legacy flow for requires_payment_method
-      if (status === 'requires_payment_method' && pathname !== '/vendor-admin/invoices') {
-         router.replace('/vendor-admin/invoices');
+      // 4. If everything is complete, and they land on an onboarding page, redirect to dashboard.
+      if (profileComplete && agreementSigned && !onboardingLink &&
+          (pathname === '/vendor-admin/complete-profile' || pathname === '/vendor-admin/master-agreement' || pathname === '/vendor-admin/stripe-onboarding')) {
+        router.replace('/vendor-admin/dashboard');
+        return;
       }
     }
   }, [user, vendorData, isUserLoading, isVendorLoading, pathname, router]);
@@ -79,9 +77,6 @@ export default function VendorAdminLayout({
 
   const isLoading = isUserLoading || isVendorLoading;
   
-  // This layout should only render children if the user is authenticated and data is loaded.
-  // The useEffect above handles all redirection logic. If we're not loading and there's no user,
-  // we render a loading skeleton to prevent flashing content before the redirect completes.
   if (isLoading || !user) {
     return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
@@ -93,8 +88,6 @@ export default function VendorAdminLayout({
     );
   }
 
-  // At this point, user is authenticated and data is loaded, but we might still be on an onboarding page.
-  // The logic inside the child pages is what matters now.
   return (
     <DashboardLayout
       nav={<VendorAdminNav />}

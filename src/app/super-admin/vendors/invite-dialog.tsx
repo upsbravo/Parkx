@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
-import { doc, setDoc, serverTimestamp, collection } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, updateDoc } from "firebase/firestore";
 import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
@@ -22,6 +22,7 @@ import { firebaseConfig } from "@/firebase/config";
 import { createStripeCustomer } from "@/ai/flows/create-stripe-customer-flow";
 import { createStripeAccount } from "@/ai/flows/create-stripe-account-flow";
 import { Switch } from "@/components/ui/switch";
+import { createStripeAccountLink } from "@/ai/flows/create-stripe-account-link-flow";
 
 
 export function InviteVendorDialog({
@@ -77,10 +78,10 @@ export function InviteVendorDialog({
           throw new Error(stripeAccountResult.error || "Failed to create Stripe Connected Account.");
       }
       stripeAccountId = stripeAccountResult.accountId;
-
+      
       // Step 4: Create the vendor document in Firestore with all necessary IDs.
-      // This is the single source of truth for the new vendor's data.
-      await setDoc(doc(firestore, "vendors", newUser.uid), {
+      const vendorRef = doc(firestore, "vendors", newUser.uid);
+      await setDoc(vendorRef, {
         id: newUser.uid,
         name: name,
         email: email,
@@ -95,9 +96,24 @@ export function InviteVendorDialog({
         profileComplete: false,
         agreementSigned: false,
         trialOffered: offerTrial,
+        onboardingLink: null,
+      });
+      
+      // Step 5: Create the Stripe Account Link and add it to the document
+      const accountLinkResult = await createStripeAccountLink({
+          accountId: stripeAccountId,
+          refreshUrl: `${window.location.origin}/super-admin/vendors`,
+          returnUrl: `${window.location.origin}/vendor-admin/dashboard`,
       });
 
-      // Step 5: Create a notification for the super admin
+      if (accountLinkResult.error || !accountLinkResult.url) {
+          throw new Error(accountLinkResult.error || "Failed to create Stripe onboarding link.");
+      }
+      
+      await updateDoc(vendorRef, { onboardingLink: accountLinkResult.url });
+
+
+      // Step 6: Create a notification for the super admin
       if (superAdmin) {
         const notifRef = collection(firestore, 'superAdmins', superAdmin.uid, 'notifications');
         addDocumentNonBlocking(notifRef, {
