@@ -165,7 +165,7 @@ service cloud.firestore {
     // VENDOR INVOICES
     match /vendorInvoices/{invoiceId} {
       allow get: if isSuperAdmin() || (isVendorAdmin() && resource.data.vendorId == request.auth.uid);
-      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.where.vendorId == request.auth.uid);
+      allow list: if isSuperAdmin() || (isVendorAdmin() && request.query.vendorId == request.auth.uid);
       allow write: if isSuperAdmin() || request.auth == null;
     }
     
