@@ -1,11 +1,9 @@
 
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { firebaseConfig } from "@/firebase/config";
 
-// This is the hardcoded UID for the seeded super admin 'super@parkx.com'
-export const SUPER_ADMIN_ID = 'PH1p3JvXPSNh2CfiSxzOW2sjlDf1';
 
 const seed = async () => {
   console.log("Seeding Super Admin...");
@@ -13,54 +11,50 @@ const seed = async () => {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  const email = "super@parkx.com";
-  const password = "password";
-  const firstName = "Super";
-  const lastName = "Admin";
+  const email = "upendersingh1965@gmail.com";
+  const password = "Ups@1965";
+  const firstName = "Upender";
+  const lastName = "Singh";
 
   try {
     let userCredential;
     try {
-        // First, try to sign in.
+        // Attempt to sign in first to see if the user exists.
         userCredential = await signInWithEmailAndPassword(auth, email, password);
         console.log("Super Admin already exists. Signed in successfully.");
     } catch (signInError: any) {
         // If sign in fails because the user doesn't exist, create them.
-        if (signInError.code === 'auth/user-not-found') {
-            console.log("Super Admin not found, creating new user...");
+        if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
+            console.log("Super Admin not found or credential invalid, creating new user...");
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(userCredential.user, { displayName: `${firstName} ${lastName}` });
             console.log("Super Admin created successfully in Auth.");
         } else {
-            // For any other sign-in error (like wrong password, user disabled), re-throw it.
-            console.error("Failed to sign in and could not create user. Please check Firebase Auth for issues like a disabled account or wrong password.", signInError);
+            // For any other sign-in error (like user disabled), re-throw it.
+            console.error("Failed to sign in and could not create user. Please check Firebase Auth for issues.", signInError);
             throw signInError;
         }
     }
 
     const user = userCredential.user;
-    if (user.uid !== SUPER_ADMIN_ID) {
-        console.warn(`********************************************************************************`);
-        console.warn(`* Super Admin UID mismatch. Expected ${SUPER_ADMIN_ID}, but got ${user.uid}. *`);
-        console.warn(`* The login will likely fail. You may need to delete the user from Auth and try again. *`);
-        console.warn(`********************************************************************************`);
-    }
+    const dynamicSuperAdminId = user.uid;
+    
+    console.log(`Using UID: ${dynamicSuperAdminId} for Super Admin.`);
 
-    // Unconditionally create/update the necessary Firestore documents. This is the key fix.
-    // This ensures that even if the user existed in Auth, their required role documents are created.
+    // Unconditionally create/update the necessary Firestore documents with the dynamic UID.
     console.log("Ensuring Firestore documents exist for Super Admin...");
 
-    // Create the main profile document using the hardcoded UID
-    const superAdminRef = doc(db, "superAdmins", SUPER_ADMIN_ID);
+    const superAdminRef = doc(db, "superAdmins", dynamicSuperAdminId);
     await setDoc(superAdminRef, {
-      id: SUPER_ADMIN_ID,
+      id: dynamicSuperAdminId,
       email: email,
       firstName: firstName,
       lastName: lastName,
     }, { merge: true });
     console.log("Super Admin profile document created/updated in Firestore.");
 
-    // CRITICAL: Create the role document for security rules using the hardcoded UID
-    const roleRef = doc(db, "roles_super_admin", SUPER_ADMIN_ID);
+    // CRITICAL: Create the role document for security rules.
+    const roleRef = doc(db, "roles_super_admin", dynamicSuperAdminId);
     await setDoc(roleRef, {
       active: true,
     }, { merge: true });
@@ -73,8 +67,8 @@ const seed = async () => {
 };
 
 seed().then(() => {
-    // process.exit(0);
+    // In a script, you might want to exit the process, but in this context, we'll just log completion.
+    console.log('Seed script finished.');
 }).catch((err) => {
-    console.error(err);
-    // process.exit(1);
+    console.error('Seed script failed:', err);
 });
