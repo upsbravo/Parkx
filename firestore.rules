@@ -191,7 +191,10 @@ service cloud.firestore {
         allow write: if isSuperAdmin();
     }
 
-    match /roles_super_admin/{any} { allow get,list: if isSignedIn(); allow create: if isSuperAdmin(); }
+    match /roles_super_admin/{uid} {
+      allow read, list: if isSignedIn();
+      allow create: if isSuperAdmin();
+    }
 
     // Catch-all for other collections - restricted to Super Admin
     match /{path=**} {
