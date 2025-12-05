@@ -82,7 +82,6 @@ export default function VendorAdminLayout({
         setIsStripeCheckComplete(true);
       } else if (!isUserLoading && user && !isVendorLoading && !vendorData) {
         // Fallback for an authenticated user who is not a vendor
-        console.error("Access Denied: Authenticated user is not a vendor.");
         router.replace('/login');
       }
     };

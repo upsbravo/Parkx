@@ -55,7 +55,6 @@ export default function EndUserLayout({
 
     if (user && !isUserDataLoading && !userData) {
       // User is logged in, but not an end-user
-      console.error("Access Denied. Authenticated user is not an end-user.");
       router.replace('/login');
       return;
     }

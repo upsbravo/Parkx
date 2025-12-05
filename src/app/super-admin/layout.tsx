@@ -35,8 +35,7 @@ export default function SuperAdminLayout({
     }
 
     if (!userRole) {
-      // Logged in, but not a super admin
-      console.error("Access denied. User is not a super admin.");
+      // Logged in, but not a super admin. Silently redirect.
       router.replace('/login');
     }
   }, [user, userRole, isUserLoading, isRoleLoading, router]);
