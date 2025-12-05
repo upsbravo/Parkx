@@ -27,7 +27,6 @@ export default function VendorAdminLayout({
   const firestore = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
-  const [isStripeCheckComplete, setIsStripeCheckComplete] = useState(false);
 
   const vendorRef = useMemoFirebase(
     () => (user && firestore ? doc(firestore, "vendors", user.uid) : null),
@@ -37,32 +36,39 @@ export default function VendorAdminLayout({
   const { data: vendorData, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
   
   useEffect(() => {
-    const performChecks = async () => {
-      if (isUserLoading || isVendorLoading) {
-        return; // Wait for data to load
-      }
-      
-      if (!isUserLoading && !user) {
+    // Don't run any logic until both user and vendor data have finished loading
+    if (isUserLoading || isVendorLoading) {
+      return; 
+    }
+
+    // If no user is logged in, redirect to login
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    
+    // If a user is logged in but they have no corresponding vendor document, they don't belong here.
+    if (!vendorData) {
         router.replace('/login');
         return;
-      }
+    }
 
-      if (user && vendorData) {
+    const checkOnboardingStatus = async () => {
         const { profileComplete, agreementSigned, stripeAccountId } = vendorData;
 
-        // 1. If profile is not complete, force completion.
+        // 1. Force profile completion
         if (!profileComplete && pathname !== '/vendor-admin/complete-profile') {
           router.replace('/vendor-admin/complete-profile');
           return;
         }
         
-        // 2. If profile complete, but agreement not signed, force agreement page.
+        // 2. Force agreement signing
         if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
           router.replace('/vendor-admin/master-agreement');
           return;
         }
 
-        // 3. If everything is signed, check Stripe status
+        // 3. Force Stripe onboarding
         if (profileComplete && agreementSigned && stripeAccountId) {
             const status = await getStripeAccountStatus({ stripeAccountId });
             if (!status.payouts_enabled) {
@@ -79,19 +85,15 @@ export default function VendorAdminLayout({
                  }
             }
         }
-        setIsStripeCheckComplete(true);
-      } else if (!isUserLoading && user && !isVendorLoading && !vendorData) {
-        // Fallback for an authenticated user who is not a vendor
-        router.replace('/login');
-      }
-    };
+    }
     
-    performChecks();
+    checkOnboardingStatus();
+    
   }, [user, vendorData, isUserLoading, isVendorLoading, pathname, router]);
 
-  const isLoading = isUserLoading || isVendorLoading || !isStripeCheckComplete;
-  
-  if (isLoading || !user) {
+  // Show a loading skeleton while we determine the user's state
+  // Or if they aren't a vendor
+  if (isUserLoading || isVendorLoading || !vendorData) {
      return (
        <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
         <div className="space-y-4 p-4 md:p-6">
@@ -101,6 +103,31 @@ export default function VendorAdminLayout({
       </DashboardLayout>
     );
   }
+
+  // Define the set of onboarding URLs
+  const onboardingUrls = [
+      '/vendor-admin/complete-profile',
+      '/vendor-admin/master-agreement',
+      '/vendor-admin/stripe-onboarding'
+  ];
+
+  // Determine if the user is allowed to see the content
+  // They are allowed if they have completed everything OR if they are on one of the onboarding pages.
+  const isFullyOnboarded = vendorData.profileComplete && vendorData.agreementSigned; // We check stripe status inside useEffect
+  const isAllowedToSeeContent = isFullyOnboarded || onboardingUrls.includes(pathname);
+
+
+  if (!isAllowedToSeeContent) {
+    return (
+       <DashboardLayout nav={<VendorAdminNav />} role="Vendor Admin">
+        <div className="space-y-4 p-4 md:p-6">
+          <Skeleton className="h-8 w-1/4" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
 
   return (
     <DashboardLayout

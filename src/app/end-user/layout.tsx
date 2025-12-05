@@ -44,51 +44,58 @@ export default function EndUserLayout({
   const { data: vendorData, isLoading: isVendorDataLoading } = useDoc<Vendor>(vendorDocRef);
 
   useEffect(() => {
+    // Wait for all data to finish loading before making any decisions
     if (isUserLoading || isUserDataLoading) {
-      return; // Wait for data to load
+      return; 
     }
     
+    // If auth is done and there's no user, redirect to login
     if (!user) {
       router.replace('/login');
       return;
     }
 
-    if (user && !isUserDataLoading && !userData) {
-      // User is logged in, but not an end-user
+    // If auth is done and there's a user, but they have no user document, they don't belong here
+    if (!userData) {
       router.replace('/login');
       return;
     }
 
-    // If user is loaded and has a profile
-    if (user && userData) {
-      // 1. If profile is not complete, redirect to complete it
-      if (!userData.profileComplete && pathname !== '/end-user/complete-profile') {
-        router.replace('/end-user/complete-profile');
-        return;
-      }
-      // 2. If profile is complete but waiver is not signed, redirect to waiver
-      if (userData.profileComplete && !userData.waiverSigned && pathname !== '/end-user/waiver') {
-        router.replace('/end-user/waiver');
-        return;
-      }
-      // 3. If everything is complete, but they are on an onboarding page, redirect to dashboard
-      if (userData.profileComplete && userData.waiverSigned && (pathname === '/end-user/complete-profile' || pathname === '/end-user/waiver')) {
-        router.replace('/end-user/dashboard');
-        return;
-      }
+    // If user is loaded and has a profile, enforce the onboarding flow
+    // 1. If profile is not complete, redirect to complete it
+    if (!userData.profileComplete && pathname !== '/end-user/complete-profile') {
+      router.replace('/end-user/complete-profile');
+      return;
     }
+    // 2. If profile is complete but waiver is not signed, redirect to waiver
+    if (userData.profileComplete && !userData.waiverSigned && pathname !== '/end-user/waiver') {
+      router.replace('/end-user/waiver');
+      return;
+    }
+    // 3. If everything is complete, but they are on an onboarding page, redirect to dashboard
+    if (userData.profileComplete && userData.waiverSigned && (pathname === '/end-user/complete-profile' || pathname === '/end-user/waiver')) {
+      router.replace('/end-user/dashboard');
+      return;
+    }
+
   }, [user, userData, isUserLoading, isUserDataLoading, pathname, router]);
 
   const isLoading = isUserLoading || isUserDataLoading || isVendorDataLoading;
   
-  const isAllowedToSeeContent = user && userData && (
-    (pathname === '/end-user/complete-profile' && !userData.profileComplete) ||
-    (pathname === '/end-user/waiver' && userData.profileComplete && !userData.waiverSigned) ||
-    (userData.profileComplete && userData.waiverSigned)
-  );
+  // Define the set of URLs that are part of the onboarding process
+  const onboardingUrls = [
+    '/end-user/complete-profile',
+    '/end-user/waiver'
+  ];
 
-  // Show a loading skeleton while we determine the user's state
-  if (isLoading || !isAllowedToSeeContent) {
+  // Determine if content can be shown. It can if:
+  // 1. The user is fully onboarded (profile and waiver complete)
+  // 2. The user is currently on one of the onboarding pages
+  const isAllowedToSeeContent = (userData?.profileComplete && userData.waiverSigned) || onboardingUrls.includes(pathname);
+
+
+  // While we verify the user's state, or if they don't have the right data yet, show a loading skeleton.
+  if (isLoading || !userData || !isAllowedToSeeContent) {
     return (
       <DashboardLayout nav={<EndUserNav />} role="End User">
         <div className="space-y-4 p-4 md:p-6">

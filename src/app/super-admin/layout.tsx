@@ -24,21 +24,18 @@ export default function SuperAdminLayout({
   const { data: userRole, isLoading: isRoleLoading } = useDoc(userRoleRef);
 
   useEffect(() => {
-    // Wait until both authentication and role fetching are fully settled.
-    if (isUserLoading || isRoleLoading) {
-      return; 
-    }
-
-    // If, after everything has loaded, there is no user or no specific role, redirect.
-    if (!user || !userRole) {
-      router.replace('/login');
+    // Only perform redirects once all loading is complete
+    if (!isUserLoading && !isRoleLoading) {
+      if (!user || !userRole) {
+        router.replace('/login');
+      }
     }
   }, [user, userRole, isUserLoading, isRoleLoading, router]);
 
-  const isLoading = isUserLoading || isRoleLoading;
-  
   // While we verify the user's role, or if they don't have the role, show a loading skeleton.
   // This prevents any "flash" of content before the redirect in useEffect can occur.
+  const isLoading = isUserLoading || isRoleLoading;
+  
   if (isLoading || !userRole) {
     return (
       <DashboardLayout nav={<SuperAdminNav />} role="Super Admin">
