@@ -24,26 +24,29 @@ export default function SuperAdminLayout({
   const { data: userRole, isLoading: isRoleLoading } = useDoc(userRoleRef);
 
   useEffect(() => {
+    // While initial user or role data is loading, we don't do anything.
     if (isUserLoading || isRoleLoading) {
-      return; // Wait for auth and role data to load
+      return; 
     }
 
+    // After loading, if there's no authenticated user, redirect to login.
     if (!user) {
-      // Not logged in at all
       router.replace('/login');
       return;
     }
 
-    if (!userRole) {
-      // Logged in, but not a super admin. Silently redirect.
+    // If there IS a user but NO role document, it means they are not a super admin.
+    if (user && !userRole) {
       router.replace('/login');
     }
   }, [user, userRole, isUserLoading, isRoleLoading, router]);
 
   const isLoading = isUserLoading || isRoleLoading;
 
-  if (isLoading || !user || !userRole) {
-    // Show a loading skeleton while we verify the user's role
+  // While we verify the user's role, show a loading skeleton.
+  // Also, if the user is authenticated but does not have the `userRole`, we show the loading skeleton
+  // which prevents a "flash" of the real content before the redirect in the useEffect kicks in.
+  if (isLoading || !userRole) {
     return (
       <DashboardLayout nav={<SuperAdminNav />} role="Super Admin">
         <div className="space-y-4 p-4 md:p-6">
@@ -54,6 +57,7 @@ export default function SuperAdminLayout({
     );
   }
 
+  // Only render children if all checks pass
   return (
     <DashboardLayout nav={<SuperAdminNav />} role="Super Admin">
       {children}
