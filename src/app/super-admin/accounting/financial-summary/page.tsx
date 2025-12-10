@@ -22,7 +22,7 @@ import {
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, Calendar as CalendarIcon, DollarSign, FileDigit, Landmark } from 'lucide-react';
+import { Download, Calendar as CalendarIcon, DollarSign, FileDigit, Landmark, Percent } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -85,7 +85,6 @@ export default function FinancialSummaryPage() {
       if (!data[type]) {
         data[type] = { taxable: 0, nonTaxable: 0, platformFee: 0, net: 0, total: 0 };
       }
-      // For this report, we'll assume all revenue is taxable.
       data[type].taxable += tx.amount;
       data[type].platformFee += tx.fee || 0;
       data[type].net += tx.net || 0;
@@ -153,7 +152,7 @@ export default function FinancialSummaryPage() {
           </div>
       </div>
 
-       <div className="grid gap-4 md:grid-cols-3">
+       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
@@ -166,22 +165,32 @@ export default function FinancialSummaryPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stripe Fees</CardTitle>
-            <FileDigit className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Platform Fees</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-1/2"/> : <div className="text-2xl font-bold">{formatCurrency(reportData.totalFees)}</div>}
-            <p className="text-xs text-muted-foreground">Total fees paid to Stripe.</p>
+            <p className="text-xs text-muted-foreground">Your earnings from vendor transactions.</p>
           </CardContent>
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+            <CardTitle className="text-sm font-medium">Vendor Net Payout</CardTitle>
             <Landmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-1/2"/> : <div className="text-2xl font-bold">{formatCurrency(reportData.totalNet)}</div>}
-            <p className="text-xs text-muted-foreground">Gross Revenue minus Stripe Fees.</p>
+            <p className="text-xs text-muted-foreground">Total paid out to vendors.</p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Stripe Fees (Estimated)</CardTitle>
+            <FileDigit className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-8 w-1/2"/> : <div className="text-2xl font-bold text-muted-foreground">N/A</div>}
+            <p className="text-xs text-muted-foreground">Viewable in your Stripe Dashboard.</p>
           </CardContent>
         </Card>
       </div>
@@ -199,8 +208,8 @@ export default function FinancialSummaryPage() {
               <TableRow>
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Gross Revenue</TableHead>
-                <TableHead className="text-right">Stripe Fees</TableHead>
-                <TableHead className="text-right font-semibold">Net Income</TableHead>
+                <TableHead className="text-right">Platform Fees</TableHead>
+                <TableHead className="text-right font-semibold">Net Payout</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
