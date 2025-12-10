@@ -43,7 +43,7 @@ export function StripeExpressDashboardLink() {
       });
 
       if (result.url) {
-        window.location.href = result.url;
+        window.open(result.url, '_blank');
       } else {
         throw new Error(result.error || 'Failed to generate login link.');
       }
@@ -53,6 +53,7 @@ export function StripeExpressDashboardLink() {
         title: 'Error',
         description: e.message,
       });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -78,7 +79,7 @@ export function StripeExpressDashboardLink() {
       {isLoading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Redirecting to Stripe...
+          Generating Link...
         </>
       ) : (
         <>
