@@ -6,7 +6,7 @@ import VendorAdminNav from "@/components/nav/vendor-admin-nav";
 import { useAuth, useFirestore } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { Skeleton } from '@/components/ui/skeleton';
-import { getStripeAccountStatus } from '@/ai/flows/get-stripe-account-status-flow';
+import { getStripeAccountDetails } from '@/ai/flows/get-stripe-account-status-flow';
 import { onAuthStateChanged } from 'firebase/auth';
 
 type Vendor = {
@@ -61,7 +61,7 @@ export default function VendorAdminLayout({
         } else if (profileComplete && !agreementSigned && pathname !== '/vendor-admin/master-agreement') {
           router.replace('/vendor-admin/master-agreement');
         } else if (profileComplete && agreementSigned && stripeAccountId) {
-            const status = await getStripeAccountStatus({ stripeAccountId });
+            const status = await getStripeAccountDetails({ stripeAccountId });
             if (!status.payouts_enabled && pathname !== '/vendor-admin/stripe-onboarding') {
                 router.replace('/vendor-admin/stripe-onboarding');
             } else if (status.payouts_enabled) {
