@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { collection, doc, writeBatch } from "firebase/firestore";
+import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -106,28 +106,35 @@ export function ManageParkingDialog({
             price_data: priceData,
             quantity: spots,
         }],
-        successUrl: `${window.location.origin}/vendor-admin/users?payment=success`,
-        cancelUrl: window.location.origin + '/vendor-admin/users',
+        successUrl: `${window.location.origin}/end-user/invoices?payment=success`,
+        cancelUrl: window.location.origin + '/end-user/invoices',
         customer: user.stripeCustomerId,
         metadata: {
             userId: user.id,
-            vendorId: vendorAdmin.uid
+            vendorId: vendorAdmin.uid,
         }
       };
 
       const result = await createStripeCheckout(checkoutInput);
 
-      if (result.url) {
+      if (result.url && result.id) {
+          const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+          await addDocumentNonBlocking(invoiceCollectionRef, {
+              vendorId: vendorAdmin.uid,
+              userId: user.id,
+              userName: `${user.firstName} ${user.lastName}`,
+              amount: totalAmount,
+              dueDate: new Date().toISOString(),
+              status: 'Pending',
+              notes: `${spots} truck parking spot(s) - ${billingCycle} billing.`,
+              stripeCheckoutSessionId: result.id,
+              stripeReceiptUrl: result.url, // Storing the checkout URL here
+              createdAt: serverTimestamp(),
+          });
+
          toast({
-            title: "Checkout Link Generated",
-            description: "A secure payment link has been created. Share it with the user to complete payment.",
-            duration: 10000,
-            action: (
-              <div className="flex gap-2">
-                <Button onClick={() => navigator.clipboard.writeText(result.url || '')}>Copy</Button>
-                <Button variant="secondary" onClick={() => window.open(result.url, '_blank')}>Open</Button>
-              </div>
-            )
+            title: "Invoice Created",
+            description: `An invoice has been created and is now available in ${user.firstName}'s dashboard.`,
         });
         onOpenChange(false);
       } else {
@@ -206,7 +213,7 @@ export function ManageParkingDialog({
             Cancel
           </Button>
           <Button type="submit" onClick={handleSaveAndInvoice} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save & Generate Link"}
+            {isSaving ? "Saving..." : "Save & Create Invoice"}
           </Button>
         </DialogFooter>
       </DialogContent>

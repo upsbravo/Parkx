@@ -34,6 +34,7 @@ type UserInvoice = {
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
   userName: string;
+  stripeReceiptUrl?: string; // This can be the checkout URL or the final receipt URL
 };
 
 type EndUser = {
@@ -121,46 +122,15 @@ Thank you for your business.
   };
 
   const handlePayInvoice = async (invoice: UserInvoice) => {
-    if (!userProfile) {
-        toast({variant: 'destructive', title: 'Error', description: 'Could not find user profile.'});
-        return;
-    }
-    setIsPaying(invoice.id);
-    try {
-        const result = await createStripeCheckout({
-            mode: 'payment',
-            line_items: [{
-                price_data: {
-                    currency: 'usd',
-                    product_data: {
-                        name: invoice.notes || `Invoice #${invoice.id.substring(0, 8)}`,
-                    },
-                    unit_amount: Math.round(invoice.amount * 100),
-                },
-                quantity: 1,
-            }],
-            successUrl: `${window.location.href}?payment_success=true`,
-            cancelUrl: window.location.href,
-            customer: userProfile.stripeCustomerId,
-            metadata: {
-                userInvoiceId: invoice.id,
-                vendorId: invoice.vendorId,
-            }
-        });
-
-        if (result.url) {
-            window.location.href = result.url;
-        } else {
-            throw new Error(result.error || 'Failed to create payment session.');
-        }
-
-    } catch (e: any) {
+    if (invoice.stripeReceiptUrl) {
+        setIsPaying(invoice.id);
+        window.location.href = invoice.stripeReceiptUrl;
+    } else {
         toast({
             variant: 'destructive',
-            title: 'Payment Error',
-            description: e.message,
+            title: 'Payment Link Not Found',
+            description: 'A payment link for this invoice could not be found. Please contact your administrator.',
         });
-        setIsPaying(null);
     }
   };
 
