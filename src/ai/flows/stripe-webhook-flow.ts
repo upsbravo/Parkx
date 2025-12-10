@@ -245,7 +245,10 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     await updateDoc(vendorRef, { status: 'Active' });
 
     const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
-    await updateDoc(invoiceRef, { status: 'Paid', stripeInvoicePdfUrl: invoice.invoice_pdf });
+    await updateDoc(invoiceRef, { 
+        status: 'Paid', 
+        stripeInvoicePdfUrl: invoice.invoice_pdf 
+    });
 }
 
 
@@ -256,7 +259,10 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
     if (vendorId) {
         const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
-        await updateDoc(vendorInvoiceRef, { status: 'Paid', stripeInvoicePdfUrl: invoice.invoice_pdf });
+        await updateDoc(vendorInvoiceRef, { 
+            status: 'Paid', 
+            stripeInvoicePdfUrl: invoice.invoice_pdf 
+        });
         return;
     }
 

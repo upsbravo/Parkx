@@ -179,6 +179,7 @@ Thank you for your business.
       return;
     }
 
+    // Fallback to generating a text file if no PDF URL is available
     const textContent = generateInvoiceContent(invoice);
     const blob = new Blob([textContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
