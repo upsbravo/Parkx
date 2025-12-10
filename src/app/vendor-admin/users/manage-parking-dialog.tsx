@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
@@ -66,7 +66,7 @@ export function ManageParkingDialog({
     
     // Update user document first
     const userRef = doc(firestore, "users", user.id);
-    await updateDocumentNonBlocking(userRef, {
+    await addDocumentNonBlocking(userRef, {
       truckParkingSpots: spots,
       isRecurringPayment: isRecurring,
     });
@@ -131,10 +131,21 @@ export function ManageParkingDialog({
               stripeReceiptUrl: result.url, // Storing the checkout URL here
               createdAt: serverTimestamp(),
           });
+          
+          // Create notification for the end user
+          const notificationRef = collection(firestore, `users/${user.id}/notifications`);
+          await addDocumentNonBlocking(notificationRef, {
+            title: "New Invoice Created",
+            message: `You have a new invoice for ${totalAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}.`,
+            type: 'invoice',
+            isRead: false,
+            createdAt: serverTimestamp(),
+          });
+
 
          toast({
             title: "Invoice Created",
-            description: `An invoice has been created and is now available in ${user.firstName}'s dashboard.`,
+            description: `An invoice has been created and a notification has been sent to ${user.firstName}.`,
         });
         onOpenChange(false);
       } else {
