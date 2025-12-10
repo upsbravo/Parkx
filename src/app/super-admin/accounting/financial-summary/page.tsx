@@ -20,7 +20,7 @@ import {
   TableFooter,
 } from '@/components/ui/table';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Download, Calendar as CalendarIcon, DollarSign, FileDigit, Landmark } from 'lucide-react';
 import { DateRange } from 'react-day-picker';

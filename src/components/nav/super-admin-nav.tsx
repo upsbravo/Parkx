@@ -86,7 +86,7 @@ export default function SuperAdminNav() {
               </div>
             </Collapsible>
           ) : (
-            <SidebarMenuItem key={item.href}>
+            <SidebarMenuItem key={item.href!}>
               <SidebarMenuButton
                 asChild
                 isActive={pathname.startsWith(item.href!)}
