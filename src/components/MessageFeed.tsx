@@ -53,7 +53,7 @@ export function MessageFeed({ messages, isLoading, contactName, contactInitial, 
                             )}
                             <div className={`max-w-xs rounded-lg p-3 text-sm ${isSender ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                                 <p className="font-bold mb-1">{isSender ? 'You' : contactName}</p>
-                                <p>{msg.text}</p>
+                                <p className="break-words">{msg.text}</p>
                                 <p className="text-xs opacity-70 mt-2 text-right">{timestamp}</p>
                             </div>
                              {isSender && (
