@@ -54,20 +54,24 @@ export default function FinancialSummaryPage() {
   const { user } = useUser();
 
   const transactionsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
+    () => (firestore && user ? query(collection(firestore, 'transactions')) : null),
     [firestore, user]
   );
   const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
-    if (!date?.from) return transactions;
+    
+    // Sort transactions by date descending first
+    const sorted = [...transactions].sort((a, b) => b.created - a.created);
+
+    if (!date?.from) return sorted;
     
     // Set time to beginning of the day for 'from' and end of the day for 'to'
     const from = new Date(date.from.setHours(0, 0, 0, 0)).getTime() / 1000;
     const to = date.to ? new Date(date.to.setHours(23, 59, 59, 999)).getTime() / 1000 : new Date(date.from.setHours(23, 59, 59, 999)).getTime() / 1000;
 
-    return transactions.filter(tx => tx.created >= from && tx.created <= to);
+    return sorted.filter(tx => tx.created >= from && tx.created <= to);
   }, [transactions, date]);
 
   const reportData = useMemo(() => {
