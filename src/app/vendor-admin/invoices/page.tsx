@@ -181,6 +181,18 @@ export default function VendorInvoicesPage() {
   const isLoading = isUserLoading || areInvoicesLoading || isVendorLoading;
 
   const trialDaysLeft = vendorData?.trialEnds ? differenceInDays(new Date(vendorData.trialEnds), new Date()) : 0;
+  
+  const handlePayNow = (invoice: VendorInvoice) => {
+    if (invoice.stripeInvoicePdfUrl) { // The checkout URL is stored here for manual invoices
+      window.open(invoice.stripeInvoicePdfUrl, '_blank');
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Payment Link Not Found',
+        description: 'A payment link for this invoice is not available. Please contact support.',
+      });
+    }
+  };
 
 
   return (
@@ -274,25 +286,29 @@ export default function VendorInvoicesPage() {
                             </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                    aria-haspopup="true"
-                                    size="icon"
-                                    variant="ghost"
-                                    >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Toggle menu</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                    <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} disabled={!invoice.stripeInvoicePdfUrl}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>Download PDF</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            {invoice.status !== 'Paid' ? (
+                                <Button size="sm" onClick={() => handlePayNow(invoice)}>Pay Now</Button>
+                            ) : (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                        aria-haspopup="true"
+                                        size="icon"
+                                        variant="ghost"
+                                        >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Toggle menu</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} disabled={!invoice.stripeInvoicePdfUrl}>
+                                            <Download className="mr-2 h-4 w-4" />
+                                            <span>Download PDF</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </TableCell>
                     </TableRow>
                  ))

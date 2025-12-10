@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink, Send, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Ellipsis, Lock, ExternalLink, Send, RefreshCw, Download } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, query, where, serverTimestamp, collectionGroup } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -77,6 +77,7 @@ type VendorInvoice = {
   amount: number;
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
+  stripeInvoicePdfUrl?: string;
 };
 
 type Vendor = {
@@ -159,7 +160,7 @@ export default function VendorInvoicesPage() {
   const { data: vendor, isLoading: isVendorLoading, refetch: refetchVendor } = useDoc<Vendor>(vendorRef);
 
   const invoicesQuery = useMemoFirebase(
-    () => (firestore && vendorId ? query(collection(firestore, 'vendorInvoices'), where('vendorId', '==', vendorId)) : null),
+    () => (firestore && vendorId ? query(collection(firestore, 'vendors', vendorId, 'vendorInvoices')) : null),
     [firestore, vendorId]
   );
   const { data: vendorInvoices, isLoading: isInvoicesLoading, refetch: refetchInvoices } = useCollection<VendorInvoice>(invoicesQuery);
@@ -204,7 +205,7 @@ export default function VendorInvoicesPage() {
 
     const fullNote = `Paid ${formatCurrency(amount)} via ${method} on ${format(paymentDetails.date || new Date(), 'PPP')}. ${details} Note: "${paymentDetails.note}"`;
 
-    const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', selectedInvoice.id);
     const newStatus = 'Paid';
     const updatedNotes = `${fullNote} | ${selectedInvoice.notes || ''}`.trim();
 
@@ -221,7 +222,7 @@ export default function VendorInvoicesPage() {
 
   const handleMarkAsUnpaid = (invoice: VendorInvoice) => {
     if (!invoice || invoice.status !== 'Paid') return;
-    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
     updateDocumentNonBlocking(invoiceRef, { status: 'Pending' });
     toast({
       title: 'Invoice Updated',
@@ -236,7 +237,7 @@ export default function VendorInvoicesPage() {
 
   const handleVoidConfirm = () => {
     if (!selectedInvoice) return;
-    const invoiceRef = doc(firestore, 'vendorInvoices', selectedInvoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', selectedInvoice.id);
     deleteDocumentNonBlocking(invoiceRef);
     toast({
       variant: 'destructive',
@@ -270,17 +271,31 @@ export default function VendorInvoicesPage() {
                 },
                 quantity: 1,
             })),
-            successUrl: window.location.href,
+            successUrl: `${window.location.origin}/vendor-admin/invoices?payment=success`,
             cancelUrl: window.location.href,
         };
 
         const result = await createStripeCheckout(checkoutInput);
 
-        if (result.url) {
+        if (result.url && result.id) {
+            const invoiceCollectionRef = collection(firestore, 'vendors', vendorId, 'vendorInvoices');
+            const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
+            
+            await addDocumentNonBlocking(invoiceCollectionRef, {
+                vendorId: vendorId,
+                vendorName: vendor.name,
+                amount: totalAmount,
+                dueDate: new Date().toISOString(),
+                status: 'Pending',
+                notes: notes,
+                stripeCheckoutSessionId: result.id,
+                stripeInvoicePdfUrl: result.url, // Store checkout URL to be used as payment link
+                createdAt: serverTimestamp(),
+            });
+
             toast({
-                title: "Payment Link Generated",
-                description: "A one-time payment link has been created. Send this to the vendor.",
-                action: <Button onClick={() => window.open(result.url, '_blank')}>Open Link</Button>
+                title: "Invoice Created",
+                description: "A new pending invoice has been created and is now visible to the vendor.",
             });
              setCreateInvoiceOpen(false);
              setLineItems([{ description: '', amount: '' }]);
@@ -291,7 +306,7 @@ export default function VendorInvoicesPage() {
     } catch (e: any) {
         toast({
             variant: "destructive",
-            title: "Failed to Create Payment Link",
+            title: "Failed to Create Invoice",
             description: e.message || "Failed to create checkout session. Check server logs.",
         });
     } finally {
@@ -607,6 +622,10 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                             <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} disabled={!invoice.stripeInvoicePdfUrl}>
+                                <Download className="mr-2 h-4 w-4" />
+                                <span>Download PDF</span>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleSendPaymentLink(invoice)} disabled={isSubmitting}>
                                 <Send className="mr-2 h-4 w-4" />
                                 Send Payment Link
@@ -649,7 +668,7 @@ export default function VendorInvoicesPage() {
                 <DialogHeader>
                     <DialogTitle>Create One-Time Payment for {vendor?.name}</DialogTitle>
                     <DialogDescription>
-                        This will generate a secure Stripe payment link for a one-time charge.
+                        This will generate a secure Stripe payment link for a one-time charge. An invoice will be created and appear on the vendor's dashboard.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
@@ -695,7 +714,7 @@ export default function VendorInvoicesPage() {
                         Cancel
                     </Button>
                     <Button type="submit" onClick={handleCreateInvoice} disabled={isSubmitting}>
-                        {isSubmitting ? 'Generating Link...' : 'Generate Payment Link'}
+                        {isSubmitting ? 'Creating Invoice...' : 'Create Invoice'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
