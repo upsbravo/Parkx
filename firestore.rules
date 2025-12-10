@@ -42,7 +42,7 @@ service cloud.firestore {
 
     // VENDORS – self access + privileged read all + end-user read access
     match /vendors/{vendorId} {
-      allow get: if isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
+      allow get: if request.auth == null || isSuperAdmin() || request.auth.uid == vendorId || isPrivilegedVendor() || (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.vendorId == vendorId);
       allow list: if isSuperAdmin() || isPrivilegedVendor();
       allow write: if isSuperAdmin() || request.auth.uid == vendorId;
 
@@ -202,5 +202,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
