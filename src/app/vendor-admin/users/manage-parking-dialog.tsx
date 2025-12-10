@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
 import { collection, doc, serverTimestamp } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
@@ -66,7 +66,7 @@ export function ManageParkingDialog({
     
     // Update user document first
     const userRef = doc(firestore, "users", user.id);
-    await addDocumentNonBlocking(userRef, {
+    updateDocumentNonBlocking(userRef, {
       truckParkingSpots: spots,
       isRecurringPayment: isRecurring,
     });
