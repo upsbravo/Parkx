@@ -89,7 +89,7 @@ export default function VendorAdminNav() {
               </div>
             </Collapsible>
           ) : (
-            <SidebarMenuItem key={item.href}>
+            <SidebarMenuItem key={item.href!}>
               <SidebarMenuButton
                 asChild
                 isActive={pathname.startsWith(item.href!)}

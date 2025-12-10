@@ -98,7 +98,8 @@ const processStripePaymentFlow = ai.defineFlow(
         transfer_data: {
           destination: input.vendorId, // The vendor's Stripe Connected Account ID
         },
-        receipt_email: vendorAccount.email, // Send receipt to the vendor
+        // We don't send a receipt email from here, as the user may not have an email on file
+        // and invoices can be downloaded separately.
       });
 
       // Step 2: Handle the PaymentIntent status

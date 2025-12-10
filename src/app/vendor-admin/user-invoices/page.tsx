@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -19,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, Search, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Download } from 'lucide-react';
+import { MoreHorizontal, Search, ArrowLeft, Banknote, CreditCard, Landmark, Smartphone, Trash2, CalendarIcon, Download, PlusCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,12 +42,13 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
   } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useDoc } from '@/firebase';
-import { collection, doc, query } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, useDoc, addDocumentNonBlocking } from '@/firebase';
+import { collection, doc, query, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -60,6 +60,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { CheckoutForm } from '@/components/CheckoutForm';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type UserInvoice = {
   id: string;
@@ -71,6 +72,12 @@ type UserInvoice = {
   notes?: string;
   clientSecret?: string;
 };
+
+type EndUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
 
 type PaymentDetails = {
     amount: number | string;
@@ -90,6 +97,11 @@ type Vendor = {
   }
 }
 
+type InvoiceLineItem = {
+    description: string;
+    amount: number | '';
+};
+
 let stripePromise: Promise<Stripe | null>;
 if (typeof window !== 'undefined') {
   stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
@@ -98,11 +110,17 @@ if (typeof window !== 'undefined') {
 export default function UserInvoicesPage() {
   const [isClient, setIsClient] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isCreateInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [isRecordPaymentOpen, setRecordPaymentOpen] = useState(false);
   const [paymentView, setPaymentView] = useState('options');
   const [selectedInvoice, setSelectedInvoice] = useState<UserInvoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
 
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails>({
       amount: '',
@@ -131,6 +149,9 @@ export default function UserInvoicesPage() {
 
   const vendorRef = useMemoFirebase(() => vendorAdmin ? doc(firestore, 'vendors', vendorAdmin.uid) : null, [vendorAdmin, firestore]);
   const {data: vendorData} = useDoc<Vendor>(vendorRef);
+
+  const usersQuery = useMemoFirebase(() => vendorAdmin ? query(collection(firestore, 'users'), where('vendorId', '==', vendorAdmin.uid)) : null, [vendorAdmin, firestore]);
+  const { data: endUsers } = useCollection<EndUser>(usersQuery);
 
   const invoicesQuery = useMemoFirebase(
     () => (firestore && vendorAdmin ? collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices') : null),
@@ -207,6 +228,69 @@ export default function UserInvoicesPage() {
     setSelectedInvoice(null);
   };
 
+    const handleCreateInvoice = async () => {
+    if (!vendorAdmin || !selectedUserId) {
+        toast({ variant: "destructive", title: "Error", description: "Please select a user." });
+        return;
+    }
+
+    const totalAmount = lineItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+    if (totalAmount <= 0) {
+        toast({ variant: "destructive", title: "Error", description: "Invoice total must be greater than zero." });
+        return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        const selectedUser = endUsers?.find(u => u.id === selectedUserId);
+        const invoiceRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+        const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
+        
+        await addDocumentNonBlocking(invoiceRef, {
+            userId: selectedUserId,
+            userName: `${selectedUser?.firstName} ${selectedUser?.lastName}`,
+            vendorId: vendorAdmin.uid,
+            amount: totalAmount,
+            dueDate: dueDate?.toISOString(),
+            status: 'Pending',
+            notes: notes,
+            createdAt: serverTimestamp(),
+        });
+
+        toast({ title: "Invoice Created", description: `A new invoice for ${selectedUser?.firstName} has been created.` });
+        setCreateInvoiceOpen(false);
+        setLineItems([{ description: '', amount: '' }]);
+        setSelectedUserId(null);
+
+    } catch (e: any) {
+        toast({ variant: "destructive", title: "Failed to Create Invoice", description: e.message });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+
+  const handleLineItemChange = (index: number, field: keyof InvoiceLineItem, value: string | number) => {
+    const newLineItems = [...lineItems];
+    const item = newLineItems[index];
+    if (field === 'amount') {
+        newLineItems[index] = { ...item, [field]: value === '' ? '' : Number(value) };
+    } else {
+        newLineItems[index] = { ...item, [field]: value };
+    }
+    setLineItems(newLineItems);
+  };
+
+  const addLineItem = () => setLineItems([...lineItems, { description: '', amount: '' }]);
+  const removeLineItem = (index: number) => {
+    if (lineItems.length > 1) {
+        setLineItems(lineItems.filter((_, i) => i !== index));
+    }
+  };
+
+  const invoiceTotal = lineItems.reduce((acc, item) => acc + (Number(item.amount) || 0), 0);
+
+
   const formatDate = (dateString: string) => {
     if (!isClient || !dateString) return '...';
     return new Date(dateString).toLocaleDateString();
@@ -270,7 +354,6 @@ Thank you for your business.
     mode: 'payment',
     amount: Math.round(selectedInvoice.amount * 100),
     currency: 'usd',
-    // You could also pass a clientSecret here if you created the PaymentIntent on your server beforehand.
   } : undefined;
 
 
@@ -293,9 +376,15 @@ Thank you for your business.
   return (
     <>
       <div className="space-y-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Invoices</h1>
-          <p className="text-muted-foreground">Track and manage all invoices for your users.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">User Invoices</h1>
+            <p className="text-muted-foreground">Track and manage all invoices for your users.</p>
+          </div>
+           <Button onClick={() => setCreateInvoiceOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create Invoice
+            </Button>
         </div>
         <Card>
           <CardHeader>
@@ -368,6 +457,81 @@ Thank you for your business.
           </CardContent>
         </Card>
       </div>
+
+       <Dialog open={isCreateInvoiceOpen} onOpenChange={setCreateInvoiceOpen}>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Create Manual Invoice</DialogTitle>
+                    <DialogDescription>
+                        This will create an invoice for a user that they can pay via a link or you can record a payment for manually.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="user-select">User</Label>
+                        <Select onValueChange={setSelectedUserId} value={selectedUserId || undefined}>
+                            <SelectTrigger id="user-select"><SelectValue placeholder="Select a user..." /></SelectTrigger>
+                            <SelectContent>
+                                {endUsers?.map(user => (
+                                    <SelectItem key={user.id} value={user.id}>{user.firstName} {user.lastName}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Due Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dueDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dueDate} onSelect={setDueDate} initialFocus /></PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-4">
+                        <Label>Line Items</Label>
+                        {lineItems.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Description (e.g., Monthly Parking Fee)"
+                                    value={item.description}
+                                    onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
+                                    className="flex-grow"
+                                />
+                                <div className="relative">
+                                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">$</span>
+                                    <Input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={item.amount}
+                                        onChange={(e) => handleLineItemChange(index, 'amount', e.target.value)}
+                                        className="w-32 pl-7"
+                                    />
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => removeLineItem(index)} disabled={lineItems.length === 1}>
+                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </div>
+                        ))}
+                        <Button variant="outline" size="sm" onClick={addLineItem} className="mt-2">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Line Item
+                        </Button>
+                    </div>
+                    
+                    <div className="flex justify-between items-end gap-4">
+                        <div className="text-right flex-grow">
+                            <Label className="text-muted-foreground">Total Amount</Label>
+                            <p className="text-2xl font-bold">{formatCurrency(invoiceTotal)}</p>
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setCreateInvoiceOpen(false)} disabled={isSubmitting}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" onClick={handleCreateInvoice} disabled={isSubmitting}>
+                        {isSubmitting ? 'Creating...' : 'Create Invoice'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       
       {selectedInvoice && (
         <Dialog open={isRecordPaymentOpen} onOpenChange={setRecordPaymentOpen}>
