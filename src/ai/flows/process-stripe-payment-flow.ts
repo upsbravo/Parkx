@@ -4,15 +4,11 @@
  * @fileOverview A server-side flow to securely process a payment using a Stripe PaymentMethod ID.
  * This flow now supports taking an application fee for the platform.
  * It also verifies that the destination vendor account is capable of receiving payouts.
- *
- * - processStripePayment - A function that creates and confirms a Stripe PaymentIntent.
- * - ProcessStripePaymentInput - The input type for the function.
- * - ProcessStripePaymentOutput - The return type for the function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, collection, query, limit, getDocs } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
@@ -81,30 +77,37 @@ const processStripePaymentFlow = ai.defineFlow(
           }
       }
 
-      // Calculate the application fee (e.g., 5% platform fee)
-      const applicationFee = Math.round(input.amount * 0.05);
+      // Fetch the platform fee from the Super Admin's settings
+      const superAdminQuery = query(collection(firestore, 'superAdmins'), limit(1));
+      const superAdminSnap = await getDocs(superAdminQuery);
+      
+      let platformFeePercentage = 0.05; // Default to 5%
+      if (!superAdminSnap.empty) {
+          const superAdminData = superAdminSnap.docs[0].data();
+          if (typeof superAdminData.platformFeePercentage === 'number') {
+              platformFeePercentage = superAdminData.platformFeePercentage / 100;
+          }
+      }
+
+      // Calculate the application fee
+      const applicationFee = Math.round(input.amount * platformFeePercentage);
 
       // Step 1: Create a PaymentIntent with Stripe
-      // We perform the charge on behalf of the connected account (the vendor)
-      // and take an application fee.
       const paymentIntent = await stripe.paymentIntents.create({
         amount: input.amount,
         currency: input.currency,
         customer: input.customer,
         payment_method: input.paymentMethodId,
-        confirm: true, // This attempts to charge the card immediately
-        off_session: false, // Customer is on-session during checkout
+        confirm: true,
+        off_session: false,
         application_fee_amount: applicationFee,
         transfer_data: {
           destination: input.vendorId, // The vendor's Stripe Connected Account ID
         },
-        // We don't send a receipt email from here, as the user may not have an email on file
-        // and invoices can be downloaded separately.
       });
 
       // Step 2: Handle the PaymentIntent status
       if (paymentIntent.status === 'succeeded') {
-        // Payment was successful. Update the invoice in Firestore.
         const invoiceRef = doc(firestore, 'vendors', input.vendorId, 'userInvoices', input.invoiceId);
         await updateDoc(invoiceRef, {
           status: 'Paid',
@@ -113,14 +116,12 @@ const processStripePaymentFlow = ai.defineFlow(
 
         return { success: true, message: 'Payment successful!' };
       } else if (paymentIntent.status === 'requires_action') {
-        // Card requires 3D Secure or another authentication step
         return { 
           success: false, 
           message: 'Further authentication is required.',
           clientSecret: paymentIntent.client_secret,
         };
       } else {
-        // Payment failed for other reasons (e.g., insufficient funds)
         return { success: false, message: `Payment failed with status: ${paymentIntent.status}. Please try another card.` };
       }
     } catch (e: any) {

@@ -1,17 +1,18 @@
 
 'use client';
 
-import { useState, useMemo, ChangeEvent } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreditCard, DollarSign, Search, ExternalLink, RefreshCw } from "lucide-react";
+import { CreditCard, DollarSign, Search, ExternalLink, RefreshCw, Settings, Percent } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -22,12 +23,17 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
+type SuperAdmin = {
+    platformFeePercentage?: number;
+}
 
 type Transaction = {
   id: string;
@@ -48,12 +54,25 @@ export default function PlatformPaymentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const firestore = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
+
+  const [feePercentage, setFeePercentage] = useState<number | string>('');
+  const [isSavingFee, setIsSavingFee] = useState(false);
+
+  const superAdminRef = useMemoFirebase(() => (user ? doc(firestore, 'superAdmins', user.uid) : null), [user, firestore]);
+  const { data: superAdminData, isLoading: isSuperAdminLoading } = useDoc<SuperAdmin>(superAdminRef);
+
+  useEffect(() => {
+    if (superAdminData && typeof superAdminData.platformFeePercentage === 'number') {
+      setFeePercentage(superAdminData.platformFeePercentage);
+    }
+  }, [superAdminData]);
 
   const transactionsQuery = useMemoFirebase(
     () => (firestore && user ? query(collection(firestore, 'transactions'), orderBy('created', 'desc')) : null),
     [firestore, user]
   );
-  const { data: transactions, isLoading } = useCollection<Transaction>(transactionsQuery);
+  const { data: transactions, isLoading: areTransactionsLoading } = useCollection<Transaction>(transactionsQuery);
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
@@ -64,6 +83,35 @@ export default function PlatformPaymentsPage() {
         tx.vendorName.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [transactions, searchTerm]);
+
+  const handleFeeSave = async () => {
+    if (!superAdminRef || feePercentage === '') return;
+    const fee = Number(feePercentage);
+    if (isNaN(fee) || fee < 0 || fee > 100) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Percentage',
+        description: 'Please enter a valid percentage between 0 and 100.',
+      });
+      return;
+    }
+    setIsSavingFee(true);
+    try {
+      await updateDocumentNonBlocking(superAdminRef, { platformFeePercentage: fee });
+      toast({
+        title: 'Platform Fee Updated',
+        description: `The new platform fee is now ${fee}%.`,
+      });
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not save the new fee.',
+      });
+    } finally {
+      setIsSavingFee(false);
+    }
+  };
 
   const formatCurrency = (amountInCents: number | undefined, currency: string = 'usd') => {
     if (typeof amountInCents !== 'number') return '-';
@@ -84,6 +132,8 @@ export default function PlatformPaymentsPage() {
       subscription: <CreditCard className="h-4 w-4 text-muted-foreground" />,
       payment: <DollarSign className="h-4 w-4 text-muted-foreground" />
   }
+
+  const isLoading = areTransactionsLoading || isSuperAdminLoading;
 
   return (
     <div className="space-y-6">
@@ -205,6 +255,43 @@ export default function PlatformPaymentsPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                <CardTitle>Platform Fee Configuration</CardTitle>
+              </div>
+              <CardDescription>
+                Set the percentage fee your platform takes from each vendor transaction.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isSuperAdminLoading ? (
+                <Skeleton className="h-24 w-1/2" />
+              ) : (
+                <div className="max-w-xs space-y-2">
+                    <Label htmlFor="platform-fee">Platform Fee Percentage</Label>
+                    <div className="relative">
+                        <Input 
+                            id="platform-fee"
+                            type="number"
+                            value={feePercentage}
+                            onChange={(e) => setFeePercentage(e.target.value)}
+                            placeholder="e.g., 5"
+                            className="pr-8"
+                        />
+                        <Percent className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button onClick={handleFeeSave} disabled={isSavingFee || isSuperAdminLoading}>
+                {isSavingFee ? 'Saving...' : 'Save Fee'}
+              </Button>
+            </CardFooter>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
