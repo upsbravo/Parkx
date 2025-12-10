@@ -3,6 +3,12 @@ import { handleStripeWebhook } from "@/ai/flows/stripe-webhook-flow";
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from "next/server";
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
