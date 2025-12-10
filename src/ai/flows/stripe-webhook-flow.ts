@@ -223,7 +223,7 @@ async function handleInvoiceCreated(invoice: Stripe.Invoice) {
 
     const vendorName = vendorSnap.data().name;
     
-    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
     await setDoc(invoiceRef, {
         id: invoice.id,
         vendorId: vendorId,
@@ -244,7 +244,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     const vendorRef = doc(firestore, 'vendors', vendorId);
     await updateDoc(vendorRef, { status: 'Active' });
 
-    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
     await updateDoc(invoiceRef, { 
         status: 'Paid', 
         stripeInvoicePdfUrl: invoice.invoice_pdf 
@@ -258,7 +258,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     // Check if it's a vendor invoice (subscription)
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
     if (vendorId) {
-        const vendorInvoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+        const vendorInvoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
         await updateDoc(vendorInvoiceRef, { 
             status: 'Paid', 
             stripeInvoicePdfUrl: invoice.invoice_pdf 
@@ -284,7 +284,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     const vendorRef = doc(firestore, 'vendors', vendorId);
     await updateDoc(vendorRef, { status: 'Inactive' });
     
-    const invoiceRef = doc(firestore, 'vendorInvoices', invoice.id);
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
     await updateDoc(invoiceRef, { status: 'Overdue' });
 }
 
@@ -321,3 +321,5 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     });
   }
 }
+
+    

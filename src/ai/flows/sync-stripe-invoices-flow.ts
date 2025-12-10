@@ -87,7 +87,7 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       
       const batch = writeBatch(firestore);
       let newInvoiceCount = 0;
-      const vendorInvoicesRef = collection(firestore, 'vendorInvoices');
+      const vendorInvoicesRef = collection(firestore, 'vendors', vendorId, 'vendorInvoices');
 
       // 3. Loop through Stripe invoices and create them in Firestore if they don't exist.
       for (const invoice of stripeInvoices.data) {
@@ -130,3 +130,5 @@ const syncStripeInvoicesFlow = ai.defineFlow(
     }
   }
 );
+
+    
