@@ -195,8 +195,8 @@ export default function VendorFinancialSummaryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Gross Revenue</TableHead>
-                <TableHead>Platform Fee</TableHead>
+                <TableHead className="text-left">Gross Revenue</TableHead>
+                <TableHead className="text-left">Platform Fee</TableHead>
                 <TableHead className="text-right font-semibold">Net Payout</TableHead>
               </TableRow>
             </TableHeader>
@@ -209,8 +209,8 @@ export default function VendorFinancialSummaryPage() {
                 filteredTransactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell className="font-mono text-xs">{format(new Date(tx.created * 1000), 'PPp')}</TableCell>
-                    <TableCell className="font-medium">{formatCurrency(tx.amount)}</TableCell>
-                    <TableCell className="text-destructive">- {formatCurrency(tx.fee)}</TableCell>
+                    <TableCell className="font-medium text-left">{formatCurrency(tx.amount)}</TableCell>
+                    <TableCell className="text-destructive text-left">- {formatCurrency(tx.fee)}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(tx.net)}</TableCell>
                   </TableRow>
                 ))
@@ -225,8 +225,8 @@ export default function VendorFinancialSummaryPage() {
             <TableFooter>
                 <TableRow>
                     <TableCell className="font-bold">Totals</TableCell>
-                    <TableCell className="text-right font-bold">{formatCurrency(reportData.totalGross)}</TableCell>
-                    <TableCell className="text-right font-bold text-destructive">- {formatCurrency(reportData.totalFees)}</TableCell>
+                    <TableCell className="text-left font-bold">{formatCurrency(reportData.totalGross)}</TableCell>
+                    <TableCell className="text-left font-bold text-destructive">- {formatCurrency(reportData.totalFees)}</TableCell>
                     <TableCell className="text-right font-bold text-lg">{formatCurrency(reportData.totalNet)}</TableCell>
                 </TableRow>
             </TableFooter>
