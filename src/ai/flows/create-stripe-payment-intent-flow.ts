@@ -51,6 +51,7 @@ const createStripePaymentIntentFlow = ai.defineFlow(
         currency,
         customer,
         application_fee_amount: applicationFeeAmount,
+        on_behalf_of: vendorId, // This is the crucial part for the statement descriptor
         transfer_data: {
           destination: vendorId,
         },

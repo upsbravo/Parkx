@@ -3,11 +3,7 @@ import { handleStripeWebhook } from "@/ai/flows/stripe-webhook-flow";
 import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from "next/server";
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,5 +31,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
-    
