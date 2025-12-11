@@ -199,6 +199,7 @@ Thank you for your business.
 
   const stripeOptions: StripeElementsOptions | undefined = clientSecret ? {
     clientSecret,
+    paymentMethodCreation: 'manual',
     appearance: { theme: 'stripe' },
   } : undefined;
 
