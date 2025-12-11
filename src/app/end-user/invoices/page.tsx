@@ -23,8 +23,12 @@ import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
+import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
+import { CheckoutForm } from '@/components/CheckoutForm';
 
 type UserInvoice = {
   id: string;
@@ -34,7 +38,7 @@ type UserInvoice = {
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
   userName: string;
-  stripeReceiptUrl?: string; // This can be the checkout URL or the final receipt URL
+  stripeReceiptUrl?: string;
 };
 
 type EndUser = {
@@ -42,9 +46,15 @@ type EndUser = {
     stripeCustomerId?: string;
 }
 
+let stripePromise: Promise<Stripe | null>;
+if (typeof window !== 'undefined') {
+  stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
+}
+
 export default function InvoicesPage() {
   const [isClient, setIsClient] = useState(false);
-  const [isPaying, setIsPaying] = useState<string | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<UserInvoice | null>(null);
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -57,13 +67,13 @@ export default function InvoicesPage() {
       () => (user ? doc(firestore, 'users', user.uid) : null),
       [user, firestore]
   );
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<EndUser>(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading, refetch: refetchUserProfile } = useDoc<EndUser>(userDocRef);
 
   const invoicesQuery = useMemoFirebase(
     () => (firestore && userProfile?.vendorId && user ? query(collection(firestore, `vendors/${userProfile.vendorId}/userInvoices`), where('userId', '==', user.uid)) : null),
     [firestore, user, userProfile]
   );
-  const { data: invoices, isLoading: areInvoicesLoading } = useCollection<UserInvoice>(invoicesQuery);
+  const { data: invoices, isLoading: areInvoicesLoading, refetch: refetchInvoices } = useCollection<UserInvoice>(invoicesQuery);
 
   const isLoading = isUserLoading || isProfileLoading || areInvoicesLoading;
 
@@ -121,107 +131,136 @@ Thank you for your business.
     URL.revokeObjectURL(url);
   };
 
-  const handlePayInvoice = async (invoice: UserInvoice) => {
-    if (invoice.stripeReceiptUrl) {
-        setIsPaying(invoice.id);
-        window.location.href = invoice.stripeReceiptUrl;
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Payment Link Not Found',
-            description: 'A payment link for this invoice could not be found. Please contact your administrator.',
-        });
-    }
+  const handlePayInvoice = (invoice: UserInvoice) => {
+    setSelectedInvoice(invoice);
+    setIsPaying(true);
+  };
+  
+  const onPaymentSuccess = () => {
+    refetchInvoices?.();
+    refetchUserProfile?.();
+    setIsPaying(false);
+    setSelectedInvoice(null);
   };
 
+  const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
+    mode: 'payment',
+    amount: Math.round(selectedInvoice.amount * 100),
+    currency: 'usd',
+  } : undefined;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Invoices & Statements
-        </h1>
-        <p className="text-muted-foreground">
-          Review your billing history and download invoices for your records.
-        </p>
-      </div>
+    <>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Invoices & Statements
+          </h1>
+          <p className="text-muted-foreground">
+            Review your billing history and download invoices for your records.
+          </p>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoice History</CardTitle>
-          <CardDescription>A list of your recent payments.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice ID</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-20" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-16" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-6 w-20 rounded-full" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Skeleton className="h-8 w-24 inline-block" />
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : invoices && invoices.length > 0 ? (
-                invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell className="font-mono text-xs">{invoice.id}</TableCell>
-                    <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                    <TableCell>{formatCurrency(invoice.amount)}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[invoice.status]}>
-                        {invoice.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">{invoice.notes}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                        {invoice.status !== 'Paid' && (
-                            <Button size="sm" onClick={() => handlePayInvoice(invoice)} disabled={isPaying === invoice.id}>
-                                {isPaying === invoice.id ? 'Redirecting...' : 'Pay Now'}
-                            </Button>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={() => handleDownloadInvoice(invoice)}>
-                            <Download className="h-4 w-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice History</CardTitle>
+            <CardDescription>A list of your recent payments.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    No invoices found.
-                  </TableCell>
+                  <TableHead>Invoice ID</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-4 w-24" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-20" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-16" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-6 w-20 rounded-full" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-32" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-8 w-24 inline-block" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : invoices && invoices.length > 0 ? (
+                  invoices.map((invoice) => (
+                    <TableRow key={invoice.id}>
+                      <TableCell className="font-mono text-xs">{invoice.id}</TableCell>
+                      <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                      <TableCell>{formatCurrency(invoice.amount)}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[invoice.status]}>
+                          {invoice.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">{invoice.notes}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                          {invoice.status !== 'Paid' && (
+                              <Button size="sm" onClick={() => handlePayInvoice(invoice)}>
+                                  Pay Now
+                              </Button>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => handleDownloadInvoice(invoice)}>
+                              <Download className="h-4 w-4" />
+                          </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No invoices found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Dialog open={isPaying && !!selectedInvoice} onOpenChange={(open) => { if (!open) { setIsPaying(false); setSelectedInvoice(null); }}}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Pay Invoice</DialogTitle>
+                <DialogDescription>
+                    Complete the payment for invoice #{selectedInvoice?.id.substring(0, 6)} for {formatCurrency(selectedInvoice?.amount || 0)}.
+                </DialogDescription>
+            </DialogHeader>
+             {isClient && stripePromise && selectedInvoice && userProfile && stripeOptions && (
+              <Elements stripe={stripePromise} options={stripeOptions}>
+                <CheckoutForm
+                  invoiceId={selectedInvoice.id}
+                  vendorId={userProfile.vendorId}
+                  stripeCustomerId={userProfile.stripeCustomerId}
+                  amount={selectedInvoice.amount}
+                  onSuccessfulPayment={onPaymentSuccess}
+                />
+              </Elements>
+            )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
+
