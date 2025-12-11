@@ -57,6 +57,7 @@ type VendorNotification = {
     title: string;
     message: string;
     createdAt: any;
+    type: 'new_user' | 'spot_request' | 'cancellation' | 'payment_received';
 }
 
 

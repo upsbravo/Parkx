@@ -8,6 +8,7 @@ import {
   ParkingSquare,
   BadgeCheck,
   CreditCard,
+  Building,
 } from 'lucide-react';
 import {
   Popover,
