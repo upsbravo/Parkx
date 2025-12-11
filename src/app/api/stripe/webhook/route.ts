@@ -1,7 +1,7 @@
 
 import { handleStripeWebhook } from "@/ai/flows/stripe-webhook-flow";
 import { headers } from 'next/headers';
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 /**
  * This route handler is responsible for receiving and processing webhooks from Stripe.
