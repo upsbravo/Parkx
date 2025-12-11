@@ -56,6 +56,7 @@ export default function AccountSettingsPage() {
   
   const [isVinScannerOpen, setIsVinScannerOpen] = useState(false);
   const [isTagScannerOpen, setIsTagScannerOpen] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Image handling states
   const truckImageInputRef = useRef<HTMLInputElement>(null);
@@ -126,7 +127,13 @@ export default function AccountSettingsPage() {
         setTagImageFile(file);
         setTagImagePreview(URL.createObjectURL(file));
       }
+      setIsDirty(true);
     }
+  };
+  
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setter(e.target.value);
+    setIsDirty(true);
   };
 
   const uploadImage = (file: File, path: string, onProgress: (progress: number) => void): Promise<string> => {
@@ -159,7 +166,7 @@ export default function AccountSettingsPage() {
     
     try {
         const [firstName, ...lastName] = fullName.split(' ');
-        const updatedData: Partial<EndUser> = {
+        const updatedData: Partial<Omit<EndUser, 'id' | 'vendorId' | 'email'>> = {
             firstName,
             lastName: lastName.join(' '),
             phone,
@@ -196,6 +203,7 @@ export default function AccountSettingsPage() {
         setUploadProgress({});
         setTruckImageFile(null);
         setTagImageFile(null);
+        setIsDirty(false);
 
     } catch (error: any) {
         console.error('Failed to save changes:', error);
@@ -244,6 +252,7 @@ export default function AccountSettingsPage() {
       setIsTagScannerOpen(false);
       toast({title: 'Tag Scanned', description: `Tag set to ${cleanedText}`})
     }
+    setIsDirty(true);
   }
 
   const isLoading = isUserLoading || isProfileLoading;
@@ -280,7 +289,7 @@ export default function AccountSettingsPage() {
                   <>
                       <div className="space-y-2">
                           <Label htmlFor="full-name">Full Name</Label>
-                          <Input id="full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                          <Input id="full-name" value={fullName} onChange={handleInputChange(setFullName)} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="email">Email Address</Label>
@@ -288,7 +297,7 @@ export default function AccountSettingsPage() {
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="phone">Phone Number</Label>
-                          <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                          <Input id="phone" type="tel" value={phone} onChange={handleInputChange(setPhone)} />
                       </div>
                   </>
               )}
@@ -317,20 +326,20 @@ export default function AccountSettingsPage() {
                   <>
                       <div className="space-y-2">
                           <Label htmlFor="street-address">Street Address</Label>
-                          <Input id="street-address" value={street} onChange={(e) => setStreet(e.target.value)} />
+                          <Input id="street-address" value={street} onChange={handleInputChange(setStreet)} />
                       </div>
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                           <div className="space-y-2">
                               <Label htmlFor="city">City</Label>
-                              <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+                              <Input id="city" value={city} onChange={handleInputChange(setCity)} />
                           </div>
                           <div className="space-y-2">
                               <Label htmlFor="state">State / Province</Label>
-                              <Input id="state" value={state} onChange={(e) => setState(e.target.value)} />
+                              <Input id="state" value={state} onChange={handleInputChange(setState)} />
                           </div>
                           <div className="space-y-2">
                               <Label htmlFor="zip">Zip / Postal Code</Label>
-                              <Input id="zip" value={zip} onChange={(e) => setZip(e.target.value)} />
+                              <Input id="zip" value={zip} onChange={handleInputChange(setZip)} />
                           </div>
                       </div>
                   </>
@@ -358,11 +367,11 @@ export default function AccountSettingsPage() {
                   <>
                       <div className="space-y-2">
                           <Label htmlFor="emergency-name">Contact Name</Label>
-                          <Input id="emergency-name" value={emergencyName} onChange={(e) => setEmergencyName(e.target.value)} />
+                          <Input id="emergency-name" value={emergencyName} onChange={handleInputChange(setEmergencyName)} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="emergency-phone">Contact Phone</Label>
-                          <Input id="emergency-phone" type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} />
+                          <Input id="emergency-phone" type="tel" value={emergencyPhone} onChange={handleInputChange(setEmergencyPhone)} />
                       </div>
                   </>
               )}
@@ -382,23 +391,23 @@ export default function AccountSettingsPage() {
             <CardContent className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                   <Label htmlFor="truck-company">Truck Company Name</Label>
-                  <Input id="truck-company" value={truckCompanyName} onChange={(e) => setTruckCompanyName(e.target.value)} />
+                  <Input id="truck-company" value={truckCompanyName} onChange={handleInputChange(setTruckCompanyName)} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="truck-unit">Truck Unit Number</Label>
-                  <Input id="truck-unit" value={truckUnitNumber} onChange={(e) => setTruckUnitNumber(e.target.value)} />
+                  <Input id="truck-unit" value={truckUnitNumber} onChange={handleInputChange(setTruckUnitNumber)} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="vin-number">VIN Number</Label>
                   <div className="flex gap-2">
-                    <Input id="vin-number" value={vinNumber} onChange={(e) => setVinNumber(e.target.value)} />
+                    <Input id="vin-number" value={vinNumber} onChange={handleInputChange(setVinNumber)} />
                     <Button variant="outline" size="icon" onClick={() => setIsVinScannerOpen(true)}><ScanLine className="h-4 w-4"/></Button>
                   </div>
               </div>
               <div className="space-y-2">
                   <Label htmlFor="tag-number">Tag Number</Label>
                    <div className="flex gap-2">
-                    <Input id="tag-number" value={tagNumber} onChange={(e) => setTagNumber(e.target.value)} />
+                    <Input id="tag-number" value={tagNumber} onChange={handleInputChange(setTagNumber)} />
                     <Button variant="outline" size="icon" onClick={() => setIsTagScannerOpen(true)}><ScanLine className="h-4 w-4"/></Button>
                   </div>
               </div>
@@ -509,7 +518,7 @@ export default function AccountSettingsPage() {
           </Card>
 
           <div className="flex justify-end">
-            <Button size="lg" onClick={handleSaveChanges}>Save All Changes</Button>
+            <Button size="lg" onClick={handleSaveChanges} disabled={!isDirty}>Save All Changes</Button>
           </div>
         </div>
       </div>
@@ -528,3 +537,5 @@ export default function AccountSettingsPage() {
     </>
   );
 }
+
+    
