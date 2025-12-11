@@ -1,6 +1,14 @@
 [
   {
-    "origin": ["*"],
+    "origin": [
+      "http://localhost:9002",
+      "https://*.google.com",
+      "https://*.firebase.com",
+      "https://*.firebaseapp.com",
+      "https://*.web.app",
+      "https://*.cloud.goog",
+      "https://*.cluster-fo5feun3fzf2etidpi3ckpp6te.cloudworkstations.dev"
+    ],
     "method": ["GET", "HEAD", "POST", "PUT"],
     "responseHeader": ["Content-Type", "Content-Length"],
     "maxAgeSeconds": 3600
