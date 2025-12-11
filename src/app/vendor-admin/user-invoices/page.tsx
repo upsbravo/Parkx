@@ -63,6 +63,7 @@ import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { CheckoutForm } from '@/components/CheckoutForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
+import { DateRange } from 'react-day-picker';
 
 type UserInvoice = {
   id: string;
@@ -141,6 +142,8 @@ export default function UserInvoicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filterUserId, setFilterUserId] = useState<string>('all');
+  const [filterDateRange, setFilterDateRange] = useState<DateRange | undefined>();
 
   const [lineItems, setLineItems] = useState<InvoiceLineItem[]>([{ description: '', amount: '' }]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -185,11 +188,23 @@ export default function UserInvoicesPage() {
 
   const filteredInvoices = useMemo(() => {
     if (!userInvoices) return [];
-    if (!searchTerm) return userInvoices;
-    return userInvoices.filter(invoice =>
-      invoice.userName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [userInvoices, searchTerm]);
+    
+    return userInvoices.filter(invoice => {
+      const searchTermMatch = !searchTerm || invoice.userName.toLowerCase().includes(searchTerm.toLowerCase());
+      const userMatch = filterUserId === 'all' || invoice.userId === filterUserId;
+      
+      let dateMatch = true;
+      if (filterDateRange?.from) {
+        const from = new Date(filterDateRange.from.setHours(0, 0, 0, 0));
+        const to = filterDateRange.to ? new Date(filterDateRange.to.setHours(23, 59, 59, 999)) : new Date(filterDateRange.from.setHours(23, 59, 59, 999));
+        const invoiceDate = new Date(invoice.dueDate);
+        dateMatch = invoiceDate >= from && invoiceDate <= to;
+      }
+
+      return searchTermMatch && userMatch && dateMatch;
+    });
+  }, [userInvoices, searchTerm, filterUserId, filterDateRange]);
+
 
   const handlePaymentDetailChange = (field: keyof PaymentDetails, value: any) => {
     setPaymentDetails(prev => ({...prev, [field]: value}));
@@ -405,6 +420,34 @@ Thank you for your business.
     setSelectedInvoice(null);
     refetchInvoices?.(); // Refetch invoices to show the updated status
   }
+
+  const handleExport = () => {
+    if (filteredInvoices.length === 0) {
+      toast({ variant: 'destructive', title: 'No Data to Export' });
+      return;
+    }
+    const headers = ['Invoice ID', 'User Name', 'Due Date', 'Amount', 'Status', 'Notes'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredInvoices.map(inv => [
+        `"${inv.id}"`,
+        `"${inv.userName}"`,
+        `"${formatDate(inv.dueDate)}"`,
+        inv.amount,
+        inv.status,
+        `"${(inv.notes || '').replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.setAttribute('download', `user_invoices_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
   
   const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
     mode: 'payment',
@@ -431,11 +474,61 @@ Thank you for your business.
             <CardDescription>A list of all invoices generated for your users.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <div className="relative">
+            <div className="flex flex-col md:flex-row gap-2 mb-4">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search by user name..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
+              <Select value={filterUserId} onValueChange={setFilterUserId}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="Filter by user" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {endUsers?.map(user => (
+                        <SelectItem key={user.id} value={user.id}>{user.firstName} {user.lastName}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full md:w-[240px] justify-start text-left font-normal",
+                      !filterDateRange && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filterDateRange?.from ? (
+                      filterDateRange.to ? (
+                        <>
+                          {format(filterDateRange.from, "LLL dd, y")} -{" "}
+                          {format(filterDateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(filterDateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Filter by date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={filterDateRange?.from}
+                    selected={filterDateRange}
+                    onSelect={setFilterDateRange}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+               <Button onClick={handleExport} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
             </div>
             <Table>
               <TableHeader>
@@ -684,3 +777,4 @@ Thank you for your business.
     </>
   );
 }
+
