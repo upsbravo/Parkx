@@ -37,33 +37,38 @@ export function CheckoutForm({ onSuccessfulPayment, clientSecret }: CheckoutForm
     setIsLoading(true);
     setErrorMessage(null);
 
-    const { error } = await stripe.confirmPayment({
+    // Step 1: Trigger form validation and wallet collection
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setErrorMessage(submitError.message || 'An unexpected error occurred during form submission.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Step 2: Confirm the payment with the client secret
+    const { error: confirmError } = await stripe.confirmPayment({
       elements,
       clientSecret,
       confirmParams: {
-        // Make sure to change this to your payment completion page
         return_url: `${window.location.origin}/end-user/invoices?payment_status=success`,
       },
-      redirect: 'if_required' // This prevents a full-page redirect for cards that don't require 3D Secure
+      redirect: 'if_required',
     });
 
-    if (error) {
-      if (error.type === "card_error" || error.type === "validation_error") {
-        setErrorMessage(error.message || 'An unexpected error occurred.');
+    if (confirmError) {
+      if (confirmError.type === "card_error" || confirmError.type === "validation_error") {
+        setErrorMessage(confirmError.message || 'An unexpected error occurred.');
       } else {
         setErrorMessage("An unexpected error occurred.");
       }
       setIsLoading(false);
     } else {
-        // The payment has been processed successfully or is awaiting authentication.
-        // If `redirect` is 'if_required', and no redirect is needed, the promise resolves.
-        // We can then call our success handler.
-        toast({
-            title: 'Payment Successful!',
-            description: 'The invoice has been paid.',
-        });
-        onSuccessfulPayment();
-        setIsLoading(false);
+      toast({
+          title: 'Payment Successful!',
+          description: 'The invoice has been paid.',
+      });
+      onSuccessfulPayment();
+      setIsLoading(false);
     }
   };
 
