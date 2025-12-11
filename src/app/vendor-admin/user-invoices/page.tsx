@@ -111,6 +111,26 @@ if (typeof window !== 'undefined') {
   stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
 }
 
+const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => {
+  const [paymentView, setPaymentView] = useState('options');
+  return (
+    <div className="space-y-4">
+        <DialogHeader>
+          <DialogTitle>
+            <Button variant="ghost" onClick={() => setPaymentView('options')} className="h-auto p-0 justify-start mb-4">
+                <ArrowLeft className="h-4 w-4 mr-2"/>
+                Receive a {method.toLowerCase()}
+            </Button>
+          </DialogTitle>
+          <DialogDescription>Record a manual payment for this invoice.</DialogDescription>
+        </DialogHeader>
+        {children}
+        <Button className="w-full" onClick={onRecord}>Record</Button>
+    </div>
+  )
+};
+
+
 export default function UserInvoicesPage() {
   const [isClient, setIsClient] = useState(false);
   const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -171,9 +191,9 @@ export default function UserInvoicesPage() {
     );
   }, [userInvoices, searchTerm]);
 
-  const handlePaymentDetailChange = useCallback(<K extends keyof PaymentDetails>(field: K, value: PaymentDetails[K]) => {
-      setPaymentDetails(prev => ({...prev, [field]: value}));
-  }, []);
+  const handlePaymentDetailChange = (field: keyof PaymentDetails, value: any) => {
+    setPaymentDetails(prev => ({...prev, [field]: value}));
+  };
 
   const statusVariant = { Paid: 'default', Pending: 'secondary', Overdue: 'destructive' } as const;
   
@@ -391,23 +411,6 @@ Thank you for your business.
     amount: Math.round(selectedInvoice.amount * 100),
     currency: 'usd',
   } : undefined;
-
-
-  const PaymentMethodForm = ({method, children, onRecord}: {method: string, children: React.ReactNode, onRecord: () => void}) => (
-    <div className="space-y-4">
-        <DialogHeader>
-          <DialogTitle>
-            <Button variant="ghost" onClick={() => setPaymentView('options')} className="h-auto p-0 justify-start mb-4">
-                <ArrowLeft className="h-4 w-4 mr-2"/>
-                Receive a {method.toLowerCase()}
-            </Button>
-          </DialogTitle>
-          <DialogDescription>Record a manual payment for this invoice.</DialogDescription>
-        </DialogHeader>
-        {children}
-        <Button className="w-full" onClick={onRecord}>Record</Button>
-    </div>
-  );
 
   return (
     <>
