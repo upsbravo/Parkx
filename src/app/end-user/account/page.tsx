@@ -12,13 +12,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, MapPin, HeartPulse, Truck, Camera, Upload, Lock, ScanLine } from 'lucide-react';
-import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { useState, useEffect } from 'react';
+import { useUser, useFirestore, useMemoFirebase, useDoc, useStorage } from '@/firebase';
+import { useState, useEffect, useRef } from 'react';
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TextScanner } from '@/components/text-scanner';
+import Image from 'next/image';
+import { Progress } from '@/components/ui/progress';
 
 type EndUser = {
   id: string;
@@ -41,15 +44,27 @@ type EndUser = {
   truckUnitNumber?: string;
   vinNumber?: string;
   tagNumber?: string;
+  truckImageUrl?: string;
+  tagImageUrl?: string;
 };
 
 export default function AccountSettingsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
   
   const [isVinScannerOpen, setIsVinScannerOpen] = useState(false);
   const [isTagScannerOpen, setIsTagScannerOpen] = useState(false);
+
+  // Image handling states
+  const truckImageInputRef = useRef<HTMLInputElement>(null);
+  const tagImageInputRef = useRef<HTMLInputElement>(null);
+  const [truckImageFile, setTruckImageFile] = useState<File | null>(null);
+  const [tagImageFile, setTagImageFile] = useState<File | null>(null);
+  const [truckImagePreview, setTruckImagePreview] = useState<string | null>(null);
+  const [tagImagePreview, setTagImagePreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{truck?: number; tag?: number}>({});
   
   // Form states initialized to empty strings to be controlled
   const [fullName, setFullName] = useState('');
@@ -93,11 +108,48 @@ export default function AccountSettingsPage() {
         setTruckUnitNumber(userProfile.truckUnitNumber || '');
         setVinNumber(userProfile.vinNumber || '');
         setTagNumber(userProfile.tagNumber || '');
+        setTruckImagePreview(userProfile.truckImageUrl || null);
+        setTagImagePreview(userProfile.tagImageUrl || null);
     } else if (user) {
         setFullName(user.displayName || '');
         setEmail(user.email || '');
     }
   }, [userProfile, user]);
+
+   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'truck' | 'tag') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (type === 'truck') {
+        setTruckImageFile(file);
+        setTruckImagePreview(URL.createObjectURL(file));
+      } else {
+        setTagImageFile(file);
+        setTagImagePreview(URL.createObjectURL(file));
+      }
+    }
+  };
+
+  const uploadImage = (file: File, path: string, onProgress: (progress: number) => void): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const imageRef = storageRef(storage, path);
+        const uploadTask = uploadBytesResumable(imageRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                onProgress(progress);
+            },
+            (error) => {
+                console.error("Upload failed:", error);
+                reject(error);
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(downloadURL);
+            }
+        );
+    });
+  };
 
   const handleSaveChanges = async () => {
     if (!user || !userDocRef) {
@@ -107,7 +159,7 @@ export default function AccountSettingsPage() {
     
     try {
         const [firstName, ...lastName] = fullName.split(' ');
-        const updatedData = {
+        const updatedData: Partial<EndUser> = {
             firstName,
             lastName: lastName.join(' '),
             phone,
@@ -119,6 +171,21 @@ export default function AccountSettingsPage() {
             tagNumber,
         };
 
+        if (truckImageFile) {
+            updatedData.truckImageUrl = await uploadImage(
+                truckImageFile, 
+                `users/${user.uid}/images/truck.jpg`,
+                (p) => setUploadProgress(prev => ({...prev, truck: p}))
+            );
+        }
+        if (tagImageFile) {
+            updatedData.tagImageUrl = await uploadImage(
+                tagImageFile, 
+                `users/${user.uid}/images/tag.jpg`,
+                (p) => setUploadProgress(prev => ({...prev, tag: p}))
+            );
+        }
+
         await updateDoc(userDocRef, updatedData);
 
         if(user.displayName !== fullName) {
@@ -126,6 +193,9 @@ export default function AccountSettingsPage() {
         }
 
         toast({ title: 'Success', description: 'Your changes have been saved.' });
+        setUploadProgress({});
+        setTruckImageFile(null);
+        setTagImageFile(null);
 
     } catch (error: any) {
         console.error('Failed to save changes:', error);
@@ -237,7 +307,6 @@ export default function AccountSettingsPage() {
               {isLoading ? (
                   <div className="space-y-4">
                       <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
-                      <div className="space-y-2"><Skeleton className="h-4 w-1/4" /><Skeleton className="h-10 w-full" /></div>
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                           <div className="space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-10 w-full" /></div>
                           <div className="space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-10 w-full" /></div>
@@ -346,29 +415,47 @@ export default function AccountSettingsPage() {
             <CardContent className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Truck Picture</Label>
-                <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed">
-                  <div className="text-center text-muted-foreground">
-                    <Camera className="mx-auto h-8 w-8" />
-                    <p className="mt-2 text-sm">No Image</p>
-                  </div>
+                 <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed relative overflow-hidden">
+                  {truckImagePreview ? (
+                    <Image src={truckImagePreview} alt="Truck Preview" fill className="object-cover" />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Camera className="mx-auto h-8 w-8" />
+                      <p className="mt-2 text-sm">No Image</p>
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" className="w-full">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Picture
-                </Button>
+                {uploadProgress.truck && uploadProgress.truck < 100 ? (
+                    <Progress value={uploadProgress.truck} />
+                ) : (
+                    <Button variant="outline" className="w-full" onClick={() => truckImageInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {truckImageFile ? 'Change Picture' : 'Upload Picture'}
+                    </Button>
+                )}
+                <Input type="file" ref={truckImageInputRef} onChange={(e) => handleFileChange(e, 'truck')} className="hidden" accept="image/*" />
               </div>
               <div className="space-y-2">
                 <Label>Truck Tag / Unit Picture</Label>
-                <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed">
-                  <div className="text-center text-muted-foreground">
-                    <Camera className="mx-auto h-8 w-8" />
-                    <p className="mt-2 text-sm">No Image</p>
-                  </div>
+                <div className="flex h-48 w-full items-center justify-center rounded-lg border-2 border-dashed relative overflow-hidden">
+                  {tagImagePreview ? (
+                    <Image src={tagImagePreview} alt="Tag Preview" fill className="object-cover" />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Camera className="mx-auto h-8 w-8" />
+                      <p className="mt-2 text-sm">No Image</p>
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" className="w-full">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Tag Picture
-                </Button>
+                 {uploadProgress.tag && uploadProgress.tag < 100 ? (
+                    <Progress value={uploadProgress.tag} />
+                ) : (
+                    <Button variant="outline" className="w-full" onClick={() => tagImageInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        {tagImageFile ? 'Change Picture' : 'Upload Tag Picture'}
+                    </Button>
+                 )}
+                <Input type="file" ref={tagImageInputRef} onChange={(e) => handleFileChange(e, 'tag')} className="hidden" accept="image/*" />
               </div>
             </CardContent>
           </Card>

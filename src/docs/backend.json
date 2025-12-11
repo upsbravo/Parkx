@@ -307,6 +307,16 @@
           "type": "array",
           "description": "A list of VendorAnnouncement IDs that the user has acknowledged.",
           "items": { "type": "string" }
+        },
+        "truckImageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL of the user's truck image."
+        },
+        "tagImageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the user's tag/unit image."
         }
       },
       "required": [
