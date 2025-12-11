@@ -62,6 +62,7 @@ import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { CheckoutForm } from '@/components/CheckoutForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { createStripeCheckout } from '@/ai/flows/create-stripe-checkout-flow';
 
 type UserInvoice = {
   id: string;
@@ -72,12 +73,14 @@ type UserInvoice = {
   status: 'Paid' | 'Pending' | 'Overdue';
   notes?: string;
   clientSecret?: string;
+  stripeReceiptUrl?: string;
 };
 
 type EndUser = {
   id: string;
   firstName: string;
   lastName: string;
+  stripeCustomerId?: string;
 }
 
 type PaymentDetails = {
@@ -229,7 +232,7 @@ export default function UserInvoicesPage() {
     setSelectedInvoice(null);
   };
 
-    const handleCreateInvoice = async () => {
+  const handleCreateInvoice = async () => {
     if (!vendorAdmin || !selectedUserId) {
         toast({ variant: "destructive", title: "Error", description: "Please select a user." });
         return;
@@ -240,29 +243,61 @@ export default function UserInvoicesPage() {
         toast({ variant: "destructive", title: "Error", description: "Invoice total must be greater than zero." });
         return;
     }
+    
+    const selectedUser = endUsers?.find(u => u.id === selectedUserId);
+    if (!selectedUser) {
+        toast({ variant: "destructive", title: "Error", description: "Selected user not found." });
+        return;
+    }
 
     setIsSubmitting(true);
     try {
-        const selectedUser = endUsers?.find(u => u.id === selectedUserId);
-        const invoiceRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
-        const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
-        
-        await addDocumentNonBlocking(invoiceRef, {
-            userId: selectedUserId,
-            userName: `${selectedUser?.firstName} ${selectedUser?.lastName}`,
-            vendorId: vendorAdmin.uid,
-            amount: totalAmount,
-            dueDate: dueDate?.toISOString(),
-            status: 'Pending',
-            notes: notes,
-            createdAt: serverTimestamp(),
-        });
+        const checkoutInput = {
+            mode: 'payment' as const,
+            customer: selectedUser.stripeCustomerId,
+            line_items: lineItems.map(item => ({
+                price_data: {
+                    currency: 'usd',
+                    product_data: { name: item.description },
+                    unit_amount: Math.round(Number(item.amount) * 100),
+                },
+                quantity: 1,
+            })),
+            successUrl: `${window.location.origin}/end-user/invoices?payment=success`,
+            cancelUrl: window.location.href,
+            metadata: {
+                userId: selectedUserId,
+                vendorId: vendorAdmin.uid,
+            }
+        };
 
-        toast({ title: "Invoice Created", description: `A new invoice for ${selectedUser?.firstName} has been created.` });
-        setCreateInvoiceOpen(false);
-        setLineItems([{ description: '', amount: '' }]);
-        setSelectedUserId(null);
+        const result = await createStripeCheckout(checkoutInput);
 
+        if (result.url && result.id) {
+            const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+            const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
+            
+            await addDocumentNonBlocking(invoiceCollectionRef, {
+                userId: selectedUserId,
+                userName: `${selectedUser.firstName} ${selectedUser.lastName}`,
+                vendorId: vendorAdmin.uid,
+                amount: totalAmount,
+                dueDate: dueDate?.toISOString(),
+                status: 'Pending',
+                notes: notes,
+                stripeCheckoutSessionId: result.id,
+                stripeReceiptUrl: result.url,
+                createdAt: serverTimestamp(),
+            });
+            
+            toast({ title: "Invoice Created", description: `A new invoice for ${selectedUser.firstName} has been created.` });
+            setCreateInvoiceOpen(false);
+            setLineItems([{ description: '', amount: '' }]);
+            setSelectedUserId(null);
+
+        } else {
+            throw new Error(result.error || "Failed to create checkout session.");
+        }
     } catch (e: any) {
         toast({ variant: "destructive", title: "Failed to Create Invoice", description: e.message });
     } finally {
@@ -646,3 +681,4 @@ Thank you for your business.
     </>
   );
 }
+
