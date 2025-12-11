@@ -54,13 +54,16 @@ const stripeWebhookFlow = ai.defineFlow(
     
     let event: Stripe.Event;
     try {
-      // Use the raw payload string directly for verification
+      // Use the raw payload string directly for verification.
+      // This is the critical step that fixes the signature error.
       event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
     } catch (err: any) {
+      console.error(`Webhook signature verification failed: ${err.message}`);
+      // Throw the error so the route handler can return a 400 status.
       throw new Error(`Webhook signature verification failed: ${err.message}`);
     }
     
-    console.log(`Received Stripe event: ${event.type}`);
+    console.log(`✅ Stripe event verified: ${event.type}`);
 
     // Route event to the appropriate handler
     switch (event.type) {

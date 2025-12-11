@@ -3,22 +3,9 @@ import { handleStripeWebhook } from "@/ai/flows/stripe-webhook-flow";
 import { headers } from 'next/headers';
 import { NextResponse } from "next/server";
 
-/**
- * This route handler is responsible for receiving and processing webhooks from Stripe.
- *
- * It is CRITICAL that we disable the default body parser for this route.
- * Stripe requires the raw, unmodified request body to verify the webhook signature.
- * By disabling bodyParser, we can read the raw request body as a string.
- */
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 export async function POST(req: Request) {
   try {
-    // Read the raw request body as a string.
+    // Read the raw request body as a string. This is critical for signature verification.
     const bodyText = await req.text();
     const signature = headers().get('stripe-signature') as string;
 
@@ -30,13 +17,15 @@ export async function POST(req: Request) {
     const { received, error } = await handleStripeWebhook(bodyText, signature);
 
     if (error) {
+      // It's important to return a 400 status code for signature verification errors.
       return NextResponse.json({ error: `Webhook Error: ${error}` }, { status: 400 });
     }
     
     if (received) {
       return NextResponse.json({ received: true });
     } else {
-      return NextResponse.json({ error: 'Webhook processing failed.' }, { status: 500 });
+      // For other processing errors, a 500 status might be more appropriate.
+      return NextResponse.json({ error: 'Webhook processing failed after verification.' }, { status: 500 });
     }
 
   } catch (err: any) {
