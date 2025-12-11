@@ -8,7 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, updateDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
@@ -267,11 +267,18 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     }
 
     // Check if it's a user invoice (one-time payment)
-    const userInvoiceId = invoice.metadata?.userInvoiceId;
-    const userInvoiceVendorId = invoice.metadata?.vendorId;
-    if (userInvoiceId && userInvoiceVendorId) {
-        const userInvoiceRef = doc(firestore, `vendors/${userInvoiceVendorId}/userInvoices`, userInvoiceId);
-        await updateDoc(userInvoiceRef, { status: 'Paid', stripeReceiptUrl: invoice.hosted_invoice_url });
+    const checkoutSessionId = invoice.checkout_session;
+    if (!checkoutSessionId) return;
+
+    const q = query(collectionGroup(firestore, 'userInvoices'), where('stripeCheckoutSessionId', '==', checkoutSessionId));
+    const snapshot = await getDocs(q);
+
+    if (!snapshot.empty) {
+        const userInvoiceDoc = snapshot.docs[0];
+        await updateDoc(userInvoiceDoc.ref, {
+            status: 'Paid',
+            stripeReceiptUrl: invoice.hosted_invoice_url,
+        });
     }
 }
 
@@ -310,16 +317,17 @@ async function handlePayoutPaid(payout: Stripe.Payout) {
 
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  const firestore = getWebhookFirestore();
-  const vendorId = session.metadata?.uid; // The vendor's Firebase UID
-
-  if (session.mode === 'subscription' && session.subscription && vendorId) {
-    const vendorRef = doc(firestore, 'vendors', vendorId);
-    await updateDoc(vendorRef, {
-      stripeSubscriptionId: session.subscription,
-      status: 'Active', 
-    });
-  }
+    if (session.mode === 'subscription' && session.subscription) {
+        const firestore = getWebhookFirestore();
+        const vendorId = await getVendorIdByCustomerId(session.customer as string);
+        if (vendorId) {
+            const vendorRef = doc(firestore, 'vendors', vendorId);
+            await updateDoc(vendorRef, {
+                stripeSubscriptionId: session.subscription,
+                status: 'Active',
+            });
+        }
+    }
 }
 
-    
+  

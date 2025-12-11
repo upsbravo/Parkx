@@ -263,7 +263,7 @@ export default function UserInvoicesPage() {
                 },
                 quantity: 1,
             })),
-            successUrl: `${window.location.origin}/end-user/invoices?payment=success`,
+            successUrl: `${window.location.origin}/end-user/invoices?payment=success&invoice_id={CHECKOUT_SESSION_ID}`,
             cancelUrl: window.location.href,
             metadata: {
                 userId: selectedUserId,
@@ -682,3 +682,4 @@ Thank you for your business.
   );
 }
 
+  
