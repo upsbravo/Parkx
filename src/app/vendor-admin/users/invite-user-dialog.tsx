@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -19,6 +20,7 @@ import { useState } from "react";
 import { getAuth, createUserWithEmailAndPassword, deleteUser, updateProfile } from "firebase/auth";
 import { initializeApp, deleteApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function InviteUserDialog({
   open,
@@ -35,6 +37,7 @@ export function InviteUserDialog({
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState("due_on_receipt");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCreateUser = async () => {
@@ -83,6 +86,7 @@ export function InviteUserDialog({
         role: "endUser",
         profileComplete: false, // <-- New field
         waiverSigned: false, // <-- New field
+        paymentTerms: paymentTerms,
       });
 
       // 3. (Optional but good practice) Notify Super Admin
@@ -100,6 +104,7 @@ export function InviteUserDialog({
       setLastName("");
       setEmail("");
       setPassword("");
+      setPaymentTerms("due_on_receipt");
 
     } catch (error: any) {
       console.error("Error creating user: ", error);
@@ -173,6 +178,20 @@ export function InviteUserDialog({
               onChange={(e) => setPassword(e.target.value)}
               disabled={isLoading}
             />
+          </div>
+          <div className="space-y-2">
+              <Label htmlFor="payment-terms">Default Payment Terms</Label>
+              <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+                <SelectTrigger id="payment-terms">
+                    <SelectValue placeholder="Select terms..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="due_on_receipt">Due on receipt</SelectItem>
+                    <SelectItem value="net_15">Net 15</SelectItem>
+                    <SelectItem value="net_30">Net 30</SelectItem>
+                    <SelectItem value="net_60">Net 60</SelectItem>
+                </SelectContent>
+              </Select>
           </div>
         </div>
         <DialogFooter>
