@@ -305,8 +305,8 @@ Thank you for your business.
                 clientSecret ? (
                     <Elements stripe={stripePromise} options={stripeOptions}>
                         <CheckoutForm
-                            clientSecret={clientSecret}
                             onSuccessfulPayment={onPaymentSuccess}
+                            clientSecret={clientSecret}
                         />
                     </Elements>
                 ) : paymentIntentError ? (

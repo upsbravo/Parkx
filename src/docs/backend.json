@@ -195,6 +195,10 @@
           "description": "Default payment terms for the user's invoices.",
           "enum": ["due_on_receipt", "net_15", "net_30", "net_60"]
         },
+        "stripeCustomerId": {
+          "type": "string",
+          "description": "The ID of the customer object in Stripe for this user."
+        },
         "assignedSpotIds": {
           "type": "array",
           "description": "An array of ParkingSpot IDs assigned to this user.",

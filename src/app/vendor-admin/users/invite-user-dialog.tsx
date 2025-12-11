@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import {
@@ -21,6 +20,7 @@ import { getAuth, createUserWithEmailAndPassword, deleteUser, updateProfile } fr
 import { initializeApp, deleteApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createStripeCustomer } from "@/ai/flows/create-stripe-customer-flow";
 
 export function InviteUserDialog({
   open,
@@ -63,6 +63,7 @@ export function InviteUserDialog({
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let newUser;
+    let stripeCustomerId;
 
 
     try {
@@ -72,8 +73,19 @@ export function InviteUserDialog({
       
       await updateProfile(newUser, { displayName: `${firstName} ${lastName}` });
 
+      // 2. Create a corresponding customer in Stripe
+      const stripeCustomerResult = await createStripeCustomer({
+          email: email,
+          name: `${firstName} ${lastName}`,
+      });
 
-      // 2. Create the user document in the top-level /users collection
+      if (stripeCustomerResult.error || !stripeCustomerResult.customerId) {
+          throw new Error(stripeCustomerResult.error || "Failed to create Stripe customer.");
+      }
+      stripeCustomerId = stripeCustomerResult.customerId;
+
+
+      // 3. Create the user document in the top-level /users collection
       const userDocRef = doc(firestore, "users", newUser.uid);
       await setDoc(userDocRef, {
         id: newUser.uid,
@@ -82,14 +94,17 @@ export function InviteUserDialog({
         lastName: lastName,
         email: email,
         status: "Active",
-        assignedSpotId: null,
+        assignedSpotIds: [],
+        cancellationRequested: false,
         role: "endUser",
-        profileComplete: false, // <-- New field
-        waiverSigned: false, // <-- New field
+        waiverSigned: false, // Default to not signed
+        waiverSignedDate: null,
+        profileComplete: false, // Start with an incomplete profile
         paymentTerms: paymentTerms,
+        stripeCustomerId: stripeCustomerId,
       });
 
-      // 3. (Optional but good practice) Notify Super Admin
+      // 4. (Optional but good practice) Notify Super Admin
       // This requires knowing the super admin's UID or having a dedicated notifications collection.
       // For now, we'll skip this to avoid complexity, but it could be added.
 
