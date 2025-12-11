@@ -8,7 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where, collectionGroup } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
@@ -129,7 +129,7 @@ async function getVendorIdByStripeAccountId(accountId: string): Promise<string |
 
 async function handleChargeSucceeded(charge: Stripe.Charge) {
     const firestore = getWebhookFirestore();
-    const vendorId = charge.destination ? await getVendorIdByStripeAccountId(charge.destination as string) : null;
+    const vendorId = charge.transfer_data?.destination ? await getVendorIdByStripeAccountId(charge.transfer_data.destination as string) : null;
 
     if (!vendorId) {
         console.log(`Charge ${charge.id} succeeded but could not find matching vendor.`);
@@ -266,19 +266,21 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         return;
     }
 
-    // Check if it's a user invoice (one-time payment)
-    const checkoutSessionId = invoice.checkout_session;
-    if (!checkoutSessionId) return;
+    // Check if it's a user invoice (one-time payment via a Checkout Session)
+    if (invoice.checkout_session) {
+        const q = query(collectionGroup(firestore, 'userInvoices'), where('stripeCheckoutSessionId', '==', invoice.checkout_session));
+        const snapshot = await getDocs(q);
 
-    const q = query(collectionGroup(firestore, 'userInvoices'), where('stripeCheckoutSessionId', '==', checkoutSessionId));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-        const userInvoiceDoc = snapshot.docs[0];
-        await updateDoc(userInvoiceDoc.ref, {
-            status: 'Paid',
-            stripeReceiptUrl: invoice.hosted_invoice_url,
-        });
+        if (!snapshot.empty) {
+            const userInvoiceDoc = snapshot.docs[0];
+            await updateDoc(userInvoiceDoc.ref, {
+                status: 'Paid',
+                stripeReceiptUrl: invoice.hosted_invoice_url,
+            });
+            console.log(`Updated user invoice ${userInvoiceDoc.id} to Paid.`);
+        } else {
+            console.log(`Could not find user invoice for checkout session ${invoice.checkout_session}`);
+        }
     }
 }
 
@@ -329,5 +331,3 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         }
     }
 }
-
-  
