@@ -47,7 +47,7 @@ const createStripeCustomerFlow = ai.defineFlow(
       const customer = await stripe.customers.create({
         email,
         name,
-        description: 'Vendor account on ParkX',
+        description: 'End-user on ParkX',
       });
 
       return { customerId: customer.id };

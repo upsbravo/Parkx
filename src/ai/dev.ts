@@ -23,5 +23,6 @@ import '@/ai/flows/delete-stripe-account-flow.ts';
 import '@/ai/flows/get-stripe-account-status-flow.ts';
 import '@/ai/flows/update-stripe-account-details-flow.ts';
 import '@/ai/flows/create-stripe-payment-intent-flow.ts';
+import '@/ai/flows/create-stripe-customer-flow.ts';
 
   
