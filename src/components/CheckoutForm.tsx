@@ -12,17 +12,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { StripePaymentElementOptions } from '@stripe/stripe-js';
 import { useToast } from '@/hooks/use-toast';
-import { processStripePayment } from '@/ai/flows/process-stripe-payment-flow';
 
 type CheckoutFormProps = {
-  invoiceId: string;
-  vendorId: string;
-  stripeCustomerId?: string;
-  amount: number; // in dollars
   onSuccessfulPayment: () => void;
+  clientSecret: string;
 };
 
-export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, onSuccessfulPayment }: CheckoutFormProps) {
+export function CheckoutForm({ onSuccessfulPayment, clientSecret }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const { toast } = useToast();
@@ -41,69 +37,34 @@ export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, on
     setIsLoading(true);
     setErrorMessage(null);
 
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setErrorMessage(submitError.message || 'An unexpected error occurred.');
+    const { error } = await stripe.confirmPayment({
+      elements,
+      clientSecret,
+      confirmParams: {
+        // Make sure to change this to your payment completion page
+        return_url: `${window.location.origin}/end-user/invoices?payment_status=success`,
+      },
+      redirect: 'if_required' // This prevents a full-page redirect for cards that don't require 3D Secure
+    });
+
+    if (error) {
+      if (error.type === "card_error" || error.type === "validation_error") {
+        setErrorMessage(error.message || 'An unexpected error occurred.');
+      } else {
+        setErrorMessage("An unexpected error occurred.");
+      }
       setIsLoading(false);
-      return;
-    }
-
-    try {
-        const {error: paymentMethodError, paymentMethod} = await stripe.createPaymentMethod({
-            elements,
+    } else {
+        // The payment has been processed successfully or is awaiting authentication.
+        // If `redirect` is 'if_required', and no redirect is needed, the promise resolves.
+        // We can then call our success handler.
+        toast({
+            title: 'Payment Successful!',
+            description: 'The invoice has been paid.',
         });
-
-        if(paymentMethodError) {
-            setErrorMessage(paymentMethodError.message || 'An unexpected error occurred.');
-            setIsLoading(false);
-            return;
-        }
-
-        const result = await processStripePayment({
-            paymentMethodId: paymentMethod.id,
-            invoiceId,
-            vendorId,
-            amount: Math.round(amount * 100),
-            currency: 'usd',
-            customer: stripeCustomerId,
-        });
-
-        if (result.success) {
-            toast({
-                title: 'Payment Successful!',
-                description: 'The invoice has been paid.',
-            });
-            onSuccessfulPayment();
-        } else if (result.clientSecret) {
-            // Needs 3D secure authentication
-            const { error: confirmError } = await stripe.confirmPayment({
-                clientSecret: result.clientSecret,
-                confirmParams: {
-                    return_url: window.location.href, // Or a dedicated success page
-                },
-                redirect: 'if_required' // Handle redirect within the page
-            });
-
-            if (confirmError) {
-                setErrorMessage(confirmError.message || 'Could not confirm payment.');
-            } else {
-                 toast({
-                    title: 'Payment Successful!',
-                    description: 'The invoice has been paid after authentication.',
-                });
-                onSuccessfulPayment();
-            }
-        }
-        else {
-            setErrorMessage(result.message || 'Payment processing failed.');
-        }
-
-    } catch (e: any) {
-        setErrorMessage(e.message || 'An unexpected error occurred during payment.');
+        onSuccessfulPayment();
+        setIsLoading(false);
     }
-    
-
-    setIsLoading(false);
   };
 
   const paymentElementOptions: StripePaymentElementOptions = {
@@ -115,7 +76,7 @@ export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, on
       <PaymentElement id="payment-element" options={paymentElementOptions} />
       <Button disabled={isLoading || !stripe || !elements} id="submit" className="w-full mt-6">
         <span id="button-text">
-          {isLoading ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
+          {isLoading ? 'Processing...' : 'Pay Now'}
         </span>
       </Button>
       
@@ -129,5 +90,3 @@ export function CheckoutForm({ invoiceId, vendorId, stripeCustomerId, amount, on
     </form>
   );
 }
-
-  

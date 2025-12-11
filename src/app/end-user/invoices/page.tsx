@@ -22,13 +22,16 @@ import { collection, query, where, doc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe, Stripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe-config';
 import { CheckoutForm } from '@/components/CheckoutForm';
+import { createStripePaymentIntent } from '@/ai/flows/create-stripe-payment-intent-flow';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 type UserInvoice = {
   id: string;
@@ -40,6 +43,10 @@ type UserInvoice = {
   userName: string;
   stripeReceiptUrl?: string;
 };
+
+type Vendor = {
+  stripeAccountId?: string;
+}
 
 type EndUser = {
     vendorId: string;
@@ -55,6 +62,9 @@ export default function InvoicesPage() {
   const [isClient, setIsClient] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<UserInvoice | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentError, setPaymentIntentError] = useState<string | null>(null);
+  
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -68,6 +78,12 @@ export default function InvoicesPage() {
       [user, firestore]
   );
   const { data: userProfile, isLoading: isProfileLoading, refetch: refetchUserProfile } = useDoc<EndUser>(userDocRef);
+  
+  const vendorDocRef = useMemoFirebase(
+      () => (firestore && userProfile?.vendorId ? doc(firestore, 'vendors', userProfile.vendorId) : null),
+      [firestore, userProfile?.vendorId]
+  );
+  const { data: vendor, isLoading: isVendorLoading } = useDoc<Vendor>(vendorDocRef);
 
   const invoicesQuery = useMemoFirebase(
     () => (firestore && userProfile?.vendorId && user ? query(collection(firestore, `vendors/${userProfile.vendorId}/userInvoices`), where('userId', '==', user.uid)) : null),
@@ -75,7 +91,7 @@ export default function InvoicesPage() {
   );
   const { data: invoices, isLoading: areInvoicesLoading, refetch: refetchInvoices } = useCollection<UserInvoice>(invoicesQuery);
 
-  const isLoading = isUserLoading || isProfileLoading || areInvoicesLoading;
+  const isLoading = isUserLoading || isProfileLoading || areInvoicesLoading || isVendorLoading;
 
   const statusVariant = {
     Paid: 'default',
@@ -131,9 +147,36 @@ Thank you for your business.
     URL.revokeObjectURL(url);
   };
 
-  const handlePayInvoice = (invoice: UserInvoice) => {
+  const handlePayInvoice = async (invoice: UserInvoice) => {
+    if (!vendor?.stripeAccountId) {
+      toast({
+        variant: 'destructive',
+        title: 'Payment Error',
+        description: 'The vendor is not set up to receive payments. Please contact support.',
+      });
+      return;
+    }
     setSelectedInvoice(invoice);
     setIsPaying(true);
+    setPaymentIntentError(null);
+    setClientSecret(null);
+
+    try {
+      const result = await createStripePaymentIntent({
+        amount: Math.round(invoice.amount * 100),
+        currency: 'usd',
+        customer: userProfile?.stripeCustomerId,
+        vendorId: vendor.stripeAccountId,
+      });
+
+      if (result.clientSecret) {
+        setClientSecret(result.clientSecret);
+      } else {
+        throw new Error(result.error || 'Failed to initialize payment.');
+      }
+    } catch (e: any) {
+      setPaymentIntentError(e.message || 'Could not prepare payment. Please try again.');
+    }
   };
   
   const onPaymentSuccess = () => {
@@ -141,13 +184,22 @@ Thank you for your business.
     refetchUserProfile?.();
     setIsPaying(false);
     setSelectedInvoice(null);
+    setClientSecret(null);
+  };
+  
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setIsPaying(false);
+      setSelectedInvoice(null);
+      setClientSecret(null);
+      setPaymentIntentError(null);
+    }
   };
 
-  const stripeOptions: StripeElementsOptions | undefined = selectedInvoice ? {
-    mode: 'payment',
-    amount: Math.round(selectedInvoice.amount * 100),
-    currency: 'usd',
-    paymentMethodCreation: 'manual',
+
+  const stripeOptions: StripeElementsOptions | undefined = clientSecret ? {
+    clientSecret,
+    appearance: { theme: 'stripe' },
   } : undefined;
 
   return (
@@ -240,7 +292,7 @@ Thank you for your business.
         </Card>
       </div>
       
-      <Dialog open={isPaying && !!selectedInvoice} onOpenChange={(open) => { if (!open) { setIsPaying(false); setSelectedInvoice(null); }}}>
+      <Dialog open={isPaying && !!selectedInvoice} onOpenChange={handleDialogClose}>
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Pay Invoice</DialogTitle>
@@ -248,17 +300,26 @@ Thank you for your business.
                     Complete the payment for invoice #{selectedInvoice?.id.substring(0, 6)} for {formatCurrency(selectedInvoice?.amount || 0)}.
                 </DialogDescription>
             </DialogHeader>
-             {isClient && stripePromise && selectedInvoice && userProfile && stripeOptions && (
-              <Elements stripe={stripePromise} options={stripeOptions}>
-                <CheckoutForm
-                  invoiceId={selectedInvoice.id}
-                  vendorId={userProfile.vendorId}
-                  stripeCustomerId={userProfile.stripeCustomerId}
-                  amount={selectedInvoice.amount}
-                  onSuccessfulPayment={onPaymentSuccess}
-                />
-              </Elements>
-            )}
+             {isClient && stripePromise && selectedInvoice ? (
+                clientSecret ? (
+                    <Elements stripe={stripePromise} options={stripeOptions}>
+                        <CheckoutForm
+                            clientSecret={clientSecret}
+                            onSuccessfulPayment={onPaymentSuccess}
+                        />
+                    </Elements>
+                ) : paymentIntentError ? (
+                    <Alert variant="destructive">
+                        <Terminal className="h-4 w-4" />
+                        <AlertTitle>Could Not Initialize Payment</AlertTitle>
+                        <AlertDescription>{paymentIntentError}</AlertDescription>
+                    </Alert>
+                ) : (
+                    <div className="flex items-center justify-center p-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                )
+            ) : null}
         </DialogContent>
       </Dialog>
     </>
