@@ -147,6 +147,7 @@ Thank you for your business.
     mode: 'payment',
     amount: Math.round(selectedInvoice.amount * 100),
     currency: 'usd',
+    paymentMethodCreation: 'manual',
   } : undefined;
 
   return (
@@ -263,4 +264,3 @@ Thank you for your business.
     </>
   );
 }
-
