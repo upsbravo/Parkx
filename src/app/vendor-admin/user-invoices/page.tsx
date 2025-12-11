@@ -359,7 +359,7 @@ export default function UserInvoicesPage() {
   
   const generateInvoiceContent = (invoice: UserInvoice): string => {
     const vendorAddress = vendorData?.address ? `${vendorData.address.street1 || ''}\n${vendorData.address.city || ''}, ${vendorData.address.state || ''} ${vendorData.address.zip || ''}` : '';
-    return \`
+    return `
 INVOICE
 ---------------------
 Invoice ID: ${invoice.id}
@@ -384,7 +384,7 @@ ${formatCurrency(invoice.amount)}
 Total Due: ${formatCurrency(invoice.amount)}
 
 Thank you for your business.
-    \`.trim();
+    `.trim();
   };
 
   const handleDownloadInvoice = (invoice: UserInvoice) => {
@@ -393,7 +393,7 @@ Thank you for your business.
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = \`Invoice_${invoice.userName.replace(/\s+/g, '_')}_${invoice.id.substring(0, 6)}.txt\`;
+    a.download = `Invoice_${invoice.userName.replace(/\s+/g, '_')}_${invoice.id.substring(0, 6)}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -684,3 +684,5 @@ Thank you for your business.
     </>
   );
 }
+
+    
