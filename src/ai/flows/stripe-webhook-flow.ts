@@ -14,7 +14,7 @@ import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
 
 const StripeWebhookInputSchema = z.object({
-  payload: z.string(), // Raw request body from Stripe
+  payload: z.string(), // Raw request body as a string from Stripe
   signature: z.string(), // The stripe-signature header
 });
 
@@ -54,6 +54,7 @@ const stripeWebhookFlow = ai.defineFlow(
     
     let event: Stripe.Event;
     try {
+      // Use the raw payload string directly for verification
       event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
     } catch (err: any) {
       throw new Error(`Webhook signature verification failed: ${err.message}`);

@@ -51,7 +51,10 @@ const createStripePaymentIntentFlow = ai.defineFlow(
         currency,
         customer,
         application_fee_amount: applicationFeeAmount,
-        on_behalf_of: vendorId, // This is the crucial part for the statement descriptor
+        // The `on_behalf_of` parameter is crucial. It makes the charge appear
+        // as if it came directly from the connected account (the vendor), so their
+        // business name and information show up on the end-user's statement.
+        on_behalf_of: vendorId,
         transfer_data: {
           destination: vendorId,
         },
