@@ -12,7 +12,6 @@ import type Stripe from 'stripe';
 
 const UpdateStripeSubscriptionInputSchema = z.object({
   subscriptionId: z.string().describe("The ID of the Stripe Subscription to update."),
-  priceId: z.string().optional().describe("The ID of the Price object for the subscription item to update. This is for the 'additional spots' product."),
   quantity: z.number().int().min(0).optional().describe("The new quantity for the 'additional spots' item."),
   endTrial: z.boolean().optional().describe("Set to true to end the subscription's trial immediately."),
 });
