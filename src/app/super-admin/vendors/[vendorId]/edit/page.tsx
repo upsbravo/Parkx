@@ -76,18 +76,17 @@ export default function EditVendorPage() {
     if (!vendorRef || !vendorData?.stripeCustomerId) return;
     setIsSaving(true);
     
-    const { email, ...updateData } = formData;
-
+    // Save all fields to Firestore
     try {
-      await updateDocumentNonBlocking(vendorRef, updateData);
+      await updateDocumentNonBlocking(vendorRef, formData);
       toast({
         title: 'Vendor Updated',
         description: `${formData.name}'s profile has been successfully saved.`,
       });
 
-      // Now, sync with Stripe
+      // Sync relevant fields to Stripe
       const stripeUpdateResult = await updateStripeCustomer({
-          customerId: vendorData.stripeCustomerId,
+          customerId: formData.stripeCustomerId!, // We've already checked this exists
           name: formData.name,
           email: formData.email, 
       });
@@ -230,11 +229,20 @@ export default function EditVendorPage() {
                 <CardTitle>Stripe Details</CardTitle>
             </div>
             <CardDescription>
-                Manually link this vendor to their Stripe subscription. This is only needed if the automated webhook failed.
+                Manually link this vendor to their Stripe subscription and customer objects. This is only needed if the automated webhook failed.
             </CardDescription>
         </CardHeader>
-        <CardContent>
-             <div className="space-y-2 max-w-lg">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-2">
+                <Label htmlFor="stripe-customer-id">Stripe Customer ID</Label>
+                <Input 
+                    id="stripe-customer-id" 
+                    value={formData.stripeCustomerId || ''} 
+                    onChange={e => handleInputChange('stripeCustomerId', e.target.value)} 
+                    placeholder="cus_..."
+                    disabled={isActionDisabled}/>
+            </div>
+             <div className="space-y-2">
                 <Label htmlFor="stripe-sub-id">Stripe Subscription ID</Label>
                 <Input 
                     id="stripe-sub-id" 

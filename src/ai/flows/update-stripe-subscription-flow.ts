@@ -54,19 +54,20 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-      const updatePayload: Stripe.SubscriptionUpdateParams = {};
+      // 1. Retrieve the current subscription to get its items and status.
+      // Use the correct 'sub_...' ID here.
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
       
+      const updatePayload: Stripe.SubscriptionUpdateParams = {};
+
       // Logic to end a trial immediately.
       if (endTrial) {
         updatePayload.trial_end = 'now';
       }
 
-      // 1. Retrieve the current subscription to get its items and status.
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
-      
       // Logic for updating the quantity of the 'additional spots' item.
       if (typeof quantity === 'number') {
-        // 2. Find the existing 'additional spots' item on the subscription.
+        // 2. Find the existing 'additional spots' item on the subscription. This is a SubscriptionItem (`si_...`)
         const existingSpotItem = subscription.items.data.find(item => item.price.id === ADDITIONAL_SPOT_PRICE_ID);
         
         const items: Stripe.SubscriptionUpdateParams.Item[] = [];
@@ -81,7 +82,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         // 4. Handle the 'additional spots' item based on the new quantity.
         if (quantity > 0) {
             if (existingSpotItem) {
-                // If the item exists, we update its quantity by passing its ID.
+                // If the item exists, we update its quantity by passing its SubscriptionItem ID (`si_...`).
                 items.push({ id: existingSpotItem.id, quantity: quantity });
             } else {
                 // If it's a new item, we add it by passing the price ID.
@@ -97,7 +98,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         // CRITICAL FIX FOR TRIAL PERIOD:
         // When updating a subscription in trial, we must explicitly preserve the trial end
         // and set the proration behavior to 'none' to ensure the changes are reflected
-        // in the upcoming post-trial invoice.
+        // in the upcoming post-trial invoice without an immediate charge.
         if (subscription.status === 'trialing' && !endTrial) {
             updatePayload.proration_behavior = 'none';
             if (subscription.trial_end) {
