@@ -10,11 +10,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, collection, doc, getDoc, writeBatch } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
-import {getAuth} from 'firebase-admin/auth';
-import {initFirebaseAdminApp} from '@/firebase/admin';
+import { getFirestore, doc, getDoc, writeBatch, collection } from 'firebase-admin/firestore';
+import { initFirebaseAdminApp } from '@/firebase/admin';
 
 // This flow now uses an authenticated context to perform Firestore operations.
 
@@ -37,12 +34,6 @@ export async function syncStripeInvoices(
   return syncStripeInvoicesFlow(input);
 }
 
-// Helper to get a Firestore instance. This is now simplified as we assume admin context.
-const getFlowFirestore = () => {
-    initFirebaseAdminApp();
-    const { getFirestore } = require('firebase-admin/firestore');
-    return getFirestore();
-}
 
 const syncStripeInvoicesFlow = ai.defineFlow(
   {
@@ -60,7 +51,9 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       };
     }
 
-    const firestore = getFlowFirestore();
+    // Correctly initialize the Firebase Admin app before using its services.
+    initFirebaseAdminApp();
+    const firestore = getFirestore();
 
     try {
       const { default: Stripe } = await import('stripe');
