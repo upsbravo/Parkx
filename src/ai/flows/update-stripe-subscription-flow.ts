@@ -79,11 +79,10 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         
         updatePayload.items = items;
         
-        // CRITICAL FIX: Only set proration_behavior if ending the trial.
-        // For simple item updates during a trial, this parameter is invalid.
-        if (endTrial) {
-            updatePayload.proration_behavior = 'none';
-        }
+        // When updating items, especially during a trial, it's best practice to
+        // set proration behavior to 'none' to avoid immediate charges.
+        // The new total will be reflected on the next regular invoice.
+        updatePayload.proration_behavior = 'none';
       }
       
       // If there's anything to update, make the API call.
