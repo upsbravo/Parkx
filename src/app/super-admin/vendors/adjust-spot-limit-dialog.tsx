@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { useFirestore, updateDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
+import { doc, collection, serverTimestamp } from "firebase/firestore";
 import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Info } from "lucide-react";
@@ -63,16 +63,9 @@ export function AdjustSpotLimitDialog({
     
     setIsSaving(true);
     
-    // First, update the spot limit in Firestore optimistically
     const vendorRef = doc(firestore, "vendors", vendor.id);
-    updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
     
-    toast({
-      title: "Spot Limit Updated",
-      description: `${vendor.name}'s spot limit has been changed to ${limit}. Now updating subscription...`,
-    });
-
-    // If the vendor is on a trial or active subscription, update Stripe
+    // Step 1: Update Stripe first. If this fails, we don't touch our database.
     if ((vendor.status === 'Trial' || vendor.status === 'Active') && vendor.stripeSubscriptionId) {
         const additionalSpots = Math.max(0, limit - 20);
 
@@ -84,28 +77,46 @@ export function AdjustSpotLimitDialog({
             });
 
             if (!result.success) {
-                throw new Error(result.error || "Unknown Stripe error.");
+                // This will catch errors returned from the backend flow
+                throw new Error(result.error || "An unknown error occurred while updating the subscription in Stripe.");
             }
 
             toast({
-                title: "Subscription Updated",
-                description: `Recurring billing for ${vendor.name} has been adjusted for the new spot limit.`,
+                title: "Stripe Subscription Updated",
+                description: `Recurring billing for ${vendor.name} has been adjusted.`,
             });
+            
+            // On success, create a notification for the vendor
+            const notifRef = collection(firestore, 'vendors', vendor.id, 'notifications');
+            addDocumentNonBlocking(notifRef, {
+                title: "Subscription Updated",
+                message: `Your spot limit has been adjusted to ${limit}. Your billing has been updated accordingly.`,
+                type: 'payment_received', // Using a generic type for now
+                isRead: false,
+                createdAt: serverTimestamp(),
+            });
+
 
         } catch (error: any) {
             console.error("Stripe subscription update failed:", error);
             toast({
                 variant: "destructive",
                 title: "Stripe Update Failed",
-                description: `Could not update the Stripe subscription. Please check Stripe dashboard. Error: ${error.message}`,
+                description: `Could not update the Stripe subscription. Error: ${error.message}`,
                 duration: 10000,
             });
-            // Revert the limit in Firestore if Stripe fails
-            updateDocumentNonBlocking(vendorRef, { spotLimit: vendor.spotLimit });
             setIsSaving(false);
-            return;
+            return; // Stop execution if Stripe update fails
         }
     }
+
+    // Step 2: If Stripe update was successful (or not needed), update Firestore.
+    await updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
+    
+    toast({
+      title: "Spot Limit Updated",
+      description: `${vendor.name}'s spot limit has been changed to ${limit} in the database.`,
+    });
 
     setIsSaving(false);
     onOpenChange(false);
@@ -138,7 +149,7 @@ export function AdjustSpotLimitDialog({
               <Info className="h-4 w-4" />
               <AlertTitle>Billing Information</AlertTitle>
               <AlertDescription>
-                This will update the vendor's recurring subscription. Prorated charges or credits will be handled by Stripe on their next invoice.
+                This will update the vendor's recurring subscription in Stripe. Prorated charges or credits will be handled on their next invoice.
               </AlertDescription>
             </Alert>
           )}

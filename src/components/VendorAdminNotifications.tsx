@@ -82,7 +82,7 @@ export function VendorAdminNotifications() {
   const getFormattedDate = (timestamp: any) => {
     if (!timestamp) return '...';
     // Check if it's a Firestore Timestamp and convert
-    if (timestamp.toDate) {
+    if (timestamp?.toDate) {
       return formatDistanceToNow(timestamp.toDate(), { addSuffix: true });
     }
     // Otherwise, assume it's a string or a Date object
@@ -123,7 +123,7 @@ export function VendorAdminNotifications() {
                             !notif.isRead && "bg-blue-500/5"
                         )}
                     >
-                         <div className="mt-1">{typeIcons[notif.type]}</div>
+                         <div className="mt-1">{typeIcons[notif.type] || <Building className="h-4 w-4" />}</div>
                         <div className="flex-1 space-y-1">
                             <p className="text-sm font-medium">{notif.title}</p>
                             <p className="text-sm text-muted-foreground">{notif.message}</p>
