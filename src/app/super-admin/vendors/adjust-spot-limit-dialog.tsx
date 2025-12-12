@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFirestore, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
 import { doc, collection, serverTimestamp } from "firebase/firestore";
 import { updateStripeSubscription } from "@/ai/flows/update-stripe-subscription-flow";
@@ -29,9 +29,6 @@ type Vendor = {
   stripeSubscriptionId?: string;
 };
 
-// Hardcoded Price ID for additional spots
-const ADDITIONAL_SPOT_PRICE_ID = 'price_1SYZeTFOrzQHr7Jw6MFDflI4';
-
 export function AdjustSpotLimitDialog({
   vendor,
   open,
@@ -45,6 +42,14 @@ export function AdjustSpotLimitDialog({
   const firestore = useFirestore();
   const [limit, setLimit] = useState(vendor.spotLimit);
   const [isSaving, setIsSaving] = useState(false);
+
+  // When the dialog opens or the vendor changes, reset the limit state
+  useEffect(() => {
+    if (open) {
+      setLimit(vendor.spotLimit);
+    }
+  }, [open, vendor.spotLimit]);
+
 
   const handleSave = async () => {
     if (!firestore) {
@@ -70,7 +75,6 @@ export function AdjustSpotLimitDialog({
         try {
             const result = await updateStripeSubscription({
                 subscriptionId: vendor.stripeSubscriptionId,
-                priceId: ADDITIONAL_SPOT_PRICE_ID,
                 quantity: additionalSpots,
             });
 
@@ -89,7 +93,7 @@ export function AdjustSpotLimitDialog({
             addDocumentNonBlocking(notifRef, {
                 title: "Subscription Updated",
                 message: `Your spot limit has been adjusted to ${limit}. Your billing has been updated accordingly.`,
-                type: 'payment_received', // Using a generic type for now
+                type: 'payment_received',
                 isRead: false,
                 createdAt: serverTimestamp(),
             });
@@ -110,7 +114,11 @@ export function AdjustSpotLimitDialog({
 
     // Step 2: If Stripe update was successful (or not needed), update Firestore.
     const vendorRef = doc(firestore, "vendors", vendor.id);
-    await updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
+    await updateDocumentNonBlocking(vendorRef, { 
+        spotLimit: limit,
+        spotLimitIncreaseRequested: false, // Also reset the request flag
+        spotLimitRequestDate: null,
+    });
     
     toast({
       title: "Spot Limit Updated",
@@ -148,7 +156,7 @@ export function AdjustSpotLimitDialog({
               <Info className="h-4 w-4" />
               <AlertTitle>Billing Information</AlertTitle>
               <AlertDescription>
-                This will update the vendor's recurring subscription in Stripe. Prorated charges or credits will be handled on their next invoice.
+                This will update the vendor's recurring subscription in Stripe. The next invoice will reflect the new total.
               </AlertDescription>
             </Alert>
           )}
