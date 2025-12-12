@@ -32,7 +32,7 @@ import {
 import { InviteVendorDialog } from "./invite-dialog";
 import { AdjustSpotLimitDialog } from "./adjust-spot-limit-dialog";
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, useAuth, deleteDocumentNonBlocking, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc, serverTimestamp, query, where, getDocs, writeBatch } from "firebase/firestore";
+import { collection, doc, serverTimestamp, query, where, getDocs, writeBatch, collectionGroup } from "firebase/firestore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
