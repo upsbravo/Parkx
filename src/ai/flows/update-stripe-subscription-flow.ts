@@ -103,7 +103,9 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
             updatePayload.billing_cycle_anchor = 'unchanged';
             // THIS IS THE KEY: We must explicitly pass the trial_end timestamp back
             // to tell Stripe to bake the changes into the post-trial invoice.
-            updatePayload.trial_end = subscription.trial_end;
+            if(subscription.trial_end) {
+              updatePayload.trial_end = subscription.trial_end;
+            }
         }
       }
       
