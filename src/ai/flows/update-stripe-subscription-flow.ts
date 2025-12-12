@@ -94,7 +94,10 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         
         updatePayload.items = items;
         
-        // CRITICAL FIX FOR TRIAL PERIOD
+        // CRITICAL FIX FOR TRIAL PERIOD:
+        // When updating a subscription in trial, we must explicitly preserve the trial end
+        // and set the proration behavior to 'none' to ensure the changes are reflected
+        // in the upcoming post-trial invoice.
         if (subscription.status === 'trialing' && !endTrial) {
             updatePayload.proration_behavior = 'none';
             updatePayload.billing_cycle_anchor = 'unchanged';
@@ -110,6 +113,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       }
       
       // Verification Step: Preview the upcoming invoice to confirm the new total.
+      // This is crucial because the Stripe Dashboard UI can have caching delays.
       let upcomingAmount: number | undefined = undefined;
       try {
           const preview = await stripe.invoices.retrieveUpcoming({
