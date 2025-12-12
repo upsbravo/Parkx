@@ -72,6 +72,10 @@ type Vendor = {
   stripeAccountId?: string;
 };
 
+type ParkingSpot = {
+    id: string;
+    isAvailable: boolean;
+};
 
 export default function VendorsPage() {
   const [isInviteOpen, setInviteOpen] = useState(false);
@@ -101,15 +105,44 @@ export default function VendorsPage() {
   }, [firestore, superAdmin, isUserLoading]);
   const { data: vendors, isLoading } = useCollection<Vendor>(vendorsQuery);
 
+  const spotsQuery = useMemoFirebase(() => {
+      if(!firestore || !superAdmin) return null;
+      // Use a collection group query to get all parking spots across all vendors
+      return query(collectionGroup(firestore, 'parkingSpots'));
+  }, [firestore, superAdmin]);
+  const { data: allParkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(spotsQuery);
+
+
+  const vendorsWithSpotsUsed = useMemo(() => {
+    if (!vendors || !allParkingSpots) return vendors;
+
+    const spotsByVendor = allParkingSpots.reduce((acc, spot) => {
+        const vendorId = spot.id.split('/parkingSpots/')[0].split('vendors/')[1];
+        if (!acc[vendorId]) {
+            acc[vendorId] = { used: 0, total: 0 };
+        }
+        if (!spot.isAvailable) {
+            acc[vendorId].used += 1;
+        }
+        return acc;
+    }, {} as Record<string, {used: number}>);
+
+    return vendors.map(vendor => ({
+        ...vendor,
+        spotsUsed: spotsByVendor[vendor.id]?.used || 0
+    }));
+  }, [vendors, allParkingSpots]);
+
+
   const filteredVendors = useMemo(() => {
-    if (!vendors) return [];
-    return vendors.filter(vendor => {
+    if (!vendorsWithSpotsUsed) return [];
+    return vendorsWithSpotsUsed.filter(vendor => {
       const searchMatch = vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           vendor.email.toLowerCase().includes(searchTerm.toLowerCase());
       const statusMatch = statusFilter === 'All' || vendor.status === statusFilter;
       return searchMatch && statusMatch;
     });
-  }, [vendors, searchTerm, statusFilter]);
+  }, [vendorsWithSpotsUsed, searchTerm, statusFilter]);
 
   const statusVariant = {
     Active: "default",
@@ -377,7 +410,7 @@ export default function VendorsPage() {
     return null;
   }
 
-  const pageIsLoading = isLoading || isUserLoading;
+  const pageIsLoading = isLoading || isUserLoading || areSpotsLoading;
 
   return (
     <>
