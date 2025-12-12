@@ -75,6 +75,7 @@ type Vendor = {
 type ParkingSpot = {
     id: string;
     isAvailable: boolean;
+    vendorId: string; // This needs to be part of the spot data
 };
 
 export default function VendorsPage() {
@@ -107,29 +108,34 @@ export default function VendorsPage() {
 
   const spotsQuery = useMemoFirebase(() => {
       if(!firestore || !superAdmin) return null;
-      // Use a collection group query to get all parking spots across all vendors
       return query(collectionGroup(firestore, 'parkingSpots'));
   }, [firestore, superAdmin]);
   const { data: allParkingSpots, isLoading: areSpotsLoading } = useCollection<ParkingSpot>(spotsQuery);
 
 
   const vendorsWithSpotsUsed = useMemo(() => {
-    if (!vendors || !allParkingSpots) return vendors;
+    if (!vendors) return [];
+    if (!allParkingSpots) return vendors.map(v => ({ ...v, spotsUsed: v.spotsUsed || 0 }));
 
     const spotsByVendor = allParkingSpots.reduce((acc, spot) => {
-        const vendorId = spot.id.split('/parkingSpots/')[0].split('vendors/')[1];
+        // The path of a doc in a collection group is 'collection/docId/subCollection/subDocId'
+        // We need to extract the vendorId from the path.
+        const pathSegments = spot.id.split('/');
+        const vendorIdIndex = pathSegments.indexOf('vendors') + 1;
+        const vendorId = pathSegments[vendorIdIndex];
+        
         if (!acc[vendorId]) {
-            acc[vendorId] = { used: 0, total: 0 };
+            acc[vendorId] = 0;
         }
         if (!spot.isAvailable) {
-            acc[vendorId].used += 1;
+            acc[vendorId]++;
         }
         return acc;
-    }, {} as Record<string, {used: number}>);
+    }, {} as Record<string, number>);
 
     return vendors.map(vendor => ({
         ...vendor,
-        spotsUsed: spotsByVendor[vendor.id]?.used || 0
+        spotsUsed: spotsByVendor[vendor.id] || 0
     }));
   }, [vendors, allParkingSpots]);
 

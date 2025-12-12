@@ -56,6 +56,7 @@ const seed = async () => {
       role: 'vendorAdmin',
       stripeCustomerId: 'cus_placeholder_12345',
       stripeAccountId: 'acct_1Saqr52XSETIyMBx',
+      stripeSubscriptionId: null, // Set to null initially, to be populated by webhook
     }, { merge: true });
     console.log("Vendor profile created/updated in Firestore.");
   } catch (error) {
