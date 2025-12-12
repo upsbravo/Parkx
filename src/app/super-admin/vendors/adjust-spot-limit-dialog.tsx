@@ -99,6 +99,19 @@ export function AdjustSpotLimitDialog({
                 createdAt: serverTimestamp(),
             });
 
+            // Step 2: If Stripe update was successful, update Firestore.
+            const vendorRef = doc(firestore, "vendors", vendor.id);
+            await updateDocumentNonBlocking(vendorRef, { 
+                spotLimit: limit,
+                spotLimitIncreaseRequested: false, // Also reset the request flag
+                spotLimitRequestDate: null,
+            });
+            
+            toast({
+              title: "Spot Limit Updated",
+              description: `${vendor.name}'s spot limit has been changed to ${limit} in the database.`,
+            });
+
 
         } catch (error: any) {
             console.error("Stripe subscription update failed:", error);
@@ -116,20 +129,15 @@ export function AdjustSpotLimitDialog({
             title: "Database Only Update",
             description: "No Stripe subscription found for this vendor. Updating database record only.",
         });
+        // If no stripe ID, just update firestore
+        const vendorRef = doc(firestore, "vendors", vendor.id);
+        await updateDocumentNonBlocking(vendorRef, { 
+            spotLimit: limit,
+            spotLimitIncreaseRequested: false, // Also reset the request flag
+            spotLimitRequestDate: null,
+        });
     }
 
-    // Step 2: If Stripe update was successful (or not needed), update Firestore.
-    const vendorRef = doc(firestore, "vendors", vendor.id);
-    await updateDocumentNonBlocking(vendorRef, { 
-        spotLimit: limit,
-        spotLimitIncreaseRequested: false, // Also reset the request flag
-        spotLimitRequestDate: null,
-    });
-    
-    toast({
-      title: "Spot Limit Updated",
-      description: `${vendor.name}'s spot limit has been changed to ${limit} in the database.`,
-    });
 
     setIsSaving(false);
     onOpenChange(false);
