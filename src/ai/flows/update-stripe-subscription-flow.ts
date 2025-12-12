@@ -8,6 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type Stripe from 'stripe';
 
 const UpdateStripeSubscriptionInputSchema = z.object({
   subscriptionId: z.string().describe("The ID of the Stripe Subscription to update."),
@@ -73,7 +74,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         // 3. Preserve all other existing subscription items that we are not touching.
         subscription.items.data.forEach(item => {
             if (item.price.id !== ADDITIONAL_SPOT_PRICE_ID) {
-                items.push({ id: item.id });
+                items.push({ id: item.id, quantity: item.quantity });
             }
         });
 
