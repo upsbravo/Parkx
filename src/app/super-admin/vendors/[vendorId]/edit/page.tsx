@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CreditCard } from 'lucide-react';
 import { updateStripeCustomer } from '@/ai/flows/update-stripe-customer-flow';
 
 type Vendor = {
@@ -39,6 +39,7 @@ type Vendor = {
   };
   timeZone?: string;
   stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
 };
 
 export default function EditVendorPage() {
@@ -75,7 +76,6 @@ export default function EditVendorPage() {
     if (!vendorRef || !vendorData?.stripeCustomerId) return;
     setIsSaving(true);
     
-    // We don't update the email as it's the login identifier and requires re-authentication.
     const { email, ...updateData } = formData;
 
     try {
@@ -89,7 +89,7 @@ export default function EditVendorPage() {
       const stripeUpdateResult = await updateStripeCustomer({
           customerId: vendorData.stripeCustomerId,
           name: formData.name,
-          email: formData.email, // Email can be updated on Stripe even if not in our Auth
+          email: formData.email, 
       });
 
       if (stripeUpdateResult.success) {
@@ -221,7 +221,33 @@ export default function EditVendorPage() {
             </div>
           )}
         </CardContent>
-        <CardFooter>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <div className='flex items-center gap-2'>
+                <CreditCard className="h-5 w-5" />
+                <CardTitle>Stripe Details</CardTitle>
+            </div>
+            <CardDescription>
+                Manually link this vendor to their Stripe subscription. This is only needed if the automated webhook failed.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+             <div className="space-y-2 max-w-lg">
+                <Label htmlFor="stripe-sub-id">Stripe Subscription ID</Label>
+                <Input 
+                    id="stripe-sub-id" 
+                    value={formData.stripeSubscriptionId || ''} 
+                    onChange={e => handleInputChange('stripeSubscriptionId', e.target.value)} 
+                    placeholder="sub_..."
+                    disabled={isActionDisabled}/>
+            </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardFooter className="flex justify-end border-t pt-6">
           <Button onClick={handleSaveChanges} disabled={isActionDisabled}>
             {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
