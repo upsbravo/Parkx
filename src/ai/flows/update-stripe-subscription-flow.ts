@@ -19,6 +19,7 @@ export type UpdateStripeSubscriptionInput = z.infer<typeof UpdateStripeSubscript
 
 const UpdateStripeSubscriptionOutputSchema = z.object({
   success: z.boolean(),
+  upcomingAmount: z.number().optional().describe("The calculated amount of the next invoice after changes, in dollars."),
   error: z.string().optional().describe('An error message if the update failed.'),
 });
 export type UpdateStripeSubscriptionOutput = z.infer<typeof UpdateStripeSubscriptionOutputSchema>;
@@ -60,11 +61,11 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         updatePayload.trial_end = 'now';
       }
 
+      // 1. Retrieve the current subscription to get its items and status.
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
+      
       // Logic for updating the quantity of the 'additional spots' item.
       if (typeof quantity === 'number') {
-        // 1. Retrieve the current subscription to get its items.
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
-        
         // 2. Find the existing 'additional spots' item on the subscription.
         const existingSpotItem = subscription.items.data.find(item => item.price.id === ADDITIONAL_SPOT_PRICE_ID);
         
@@ -97,7 +98,9 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         if (subscription.status === 'trialing' && !endTrial) {
             updatePayload.proration_behavior = 'none';
             updatePayload.billing_cycle_anchor = 'unchanged';
-            updatePayload.trial_end = subscription.trial_end; // preserve trial
+            // THIS IS THE KEY: We must explicitly pass the trial_end timestamp back
+            // to tell Stripe to bake the changes into the post-trial invoice.
+            updatePayload.trial_end = subscription.trial_end;
         }
       }
       
@@ -106,7 +109,20 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         await stripe.subscriptions.update(subscriptionId, updatePayload);
       }
       
-      return { success: true };
+      // Verification Step: Preview the upcoming invoice to confirm the new total.
+      let upcomingAmount: number | undefined = undefined;
+      try {
+          const preview = await stripe.invoices.retrieveUpcoming({
+              subscription: subscriptionId,
+              customer: subscription.customer as string,
+          });
+          upcomingAmount = preview.amount_due / 100; // convert cents to dollars
+          console.log(`SUCCESS: Post-trial preview for sub ${subscriptionId} is $${upcomingAmount} (includes ${quantity || 'current'} extra spots)`);
+      } catch (previewErr: any) {
+          console.error(`Preview failed (non-blocking, update was successful): ${previewErr.message}`);
+      }
+
+      return { success: true, upcomingAmount };
 
     } catch (e: any) {
       console.error('Error updating Stripe subscription:', e);
