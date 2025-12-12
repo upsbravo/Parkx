@@ -96,7 +96,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         
         // 5. When updating items during a trial, Stripe recommends setting proration_behavior to 'none'
         // to avoid immediate charges and ensure the next invoice is correct.
-        if (subscription.status === 'trialing') {
+        if (subscription.status === 'trialing' && !endTrial) {
           updatePayload.proration_behavior = 'none';
         }
       }
