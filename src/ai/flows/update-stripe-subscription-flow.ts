@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A server-side flow to securely update a Stripe subscription,
@@ -65,7 +66,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
 
         if (!itemToUpdate) {
           if (quantity > 0) {
-            // If the item doesn't exist, create it.
+            // If the item doesn't exist, create it. This is the key fix.
             await stripe.subscriptionItems.create({
               subscription: subscriptionId,
               price: priceId,
