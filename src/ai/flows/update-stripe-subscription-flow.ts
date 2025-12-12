@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A server-side flow to securely update a Stripe subscription,
@@ -58,35 +57,43 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         updatePayload.trial_end = 'now';
       }
 
+      // This is the robust way to handle quantity changes.
+      // We rebuild the `items` array to tell Stripe the exact desired final state.
       if (typeof quantity === 'number' && priceId) {
-        // Retrieve the current subscription to get all its items.
+        // 1. Retrieve the current subscription to get all its items.
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         
-        // Find the existing item for additional spots, if it exists.
+        // 2. Find the existing item for additional spots, if it exists.
         const existingItem = subscription.items.data.find(item => item.price.id === priceId);
 
-        // Prepare the items array for the update call.
-        // We must include all items we want to keep.
+        // 3. Prepare the new `items` array for the update call.
+        // We must include all items we want to keep on the subscription.
         const items: Stripe.SubscriptionUpdateParams.Item[] = subscription.items.data
-          .filter(item => item.price.id !== priceId) // Keep all items except the one we're managing
-          .map(item => ({ id: item.id })); // Map them to the format Stripe expects
+          // Filter out the "additional spots" item because we will re-add it with the correct quantity.
+          .filter(item => item.price.id !== priceId)
+          .map(item => ({ id: item.id })); // Map existing items we want to keep.
 
+        // 4. Conditionally add/update the "additional spots" item.
         if (quantity > 0) {
           // If we need additional spots, we either update the existing item or add a new one.
           if (existingItem) {
+            // Update the quantity of the existing item.
             items.push({ id: existingItem.id, quantity: quantity });
           } else {
+            // Add the "additional spots" item as a new line item.
             items.push({ price: priceId, quantity: quantity });
           }
         } else if (existingItem) {
-          // If quantity is 0 and the item exists, we mark it for deletion.
+          // If quantity is 0 (or less) and the item exists on the subscription,
+          // we mark it for deletion. This removes it from the subscription.
           items.push({ id: existingItem.id, deleted: true });
         }
         
         updatePayload.items = items;
-        // This setting ensures that if a trial is active and we add a new item,
-        // it doesn't immediately create a prorated charge. The new item will be billed
-        // at the end of the trial.
+        
+        // This setting is crucial for trials. It prevents Stripe from creating an immediate
+        // prorated invoice when a new item is added during a trial period. The new item
+        // will only be billed when the trial ends and the first real invoice is generated.
         updatePayload.proration_behavior = 'none';
       }
       
