@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -68,8 +67,8 @@ export function AdjustSpotLimitDialog({
     
     setIsSaving(true);
     
-    // Step 1: Update Stripe first. If this fails, we don't touch our database.
-    if ((vendor.status === 'Trial' || vendor.status === 'Active') && vendor.stripeSubscriptionId) {
+    // Step 1: Update Stripe first if a subscription ID exists.
+    if (vendor.stripeSubscriptionId) {
         const additionalSpots = Math.max(0, limit - 20);
 
         try {
