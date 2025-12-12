@@ -397,6 +397,49 @@ export default function VendorInvoicesPage() {
     }).format(amount);
   };
 
+    const generateInvoiceContent = (invoice: VendorInvoice): string => {
+    return `
+INVOICE FROM PARKX
+---------------------
+Invoice ID: ${invoice.id}
+Date Due: ${formatDate(invoice.dueDate)}
+Status: ${invoice.status}
+
+BILLED TO:
+${invoice.vendorName}
+
+---------------------
+DESCRIPTION
+${invoice.notes || 'Subscription Fee'}
+
+AMOUNT
+${formatCurrency(invoice.amount)}
+---------------------
+
+Total Due: ${formatCurrency(invoice.amount)}
+
+Thank you for your business.
+    `.trim();
+  };
+  
+  const handleDownloadInvoice = (invoice: VendorInvoice) => {
+    if (invoice.stripeInvoicePdfUrl) {
+      window.open(invoice.stripeInvoicePdfUrl, '_blank');
+      return;
+    }
+
+    const textContent = generateInvoiceContent(invoice);
+    const blob = new Blob([textContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice_${invoice.vendorName.replace(/\s+/g, '_')}_${invoice.id.substring(0, 6)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleManageBilling = async () => {
     if (isSubmitting || !vendor || !vendor.stripeCustomerId) {
         toast({
@@ -622,7 +665,7 @@ export default function VendorInvoicesPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                             <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)} disabled={!invoice.stripeInvoicePdfUrl}>
+                             <DropdownMenuItem onClick={() => handleDownloadInvoice(invoice)}>
                                 <Download className="mr-2 h-4 w-4" />
                                 <span>Download PDF</span>
                             </DropdownMenuItem>
