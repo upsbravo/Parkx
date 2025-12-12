@@ -3,7 +3,8 @@
 /**
  * @fileOverview A server-side flow to securely update a Stripe subscription,
  * specifically for changing the quantity of a subscription item or ending a trial.
- * This version contains the definitive fix for updating items during a trial period.
+ * This version contains the definitive fix for updating items during a trial period
+ * and correctly handles receiving either a Subscription ID or a Subscription Item ID.
  */
 
 import { ai } from '@/ai/genkit';
@@ -11,7 +12,7 @@ import { z } from 'genkit';
 import type Stripe from 'stripe';
 
 const UpdateStripeSubscriptionInputSchema = z.object({
-  subscriptionId: z.string().describe("The ID of the Stripe Subscription to update."),
+  subscriptionId: z.string().describe("The ID of the Stripe Subscription (`sub_...`) or a Subscription Item (`si_...`) to update."),
   quantity: z.number().int().min(0).optional().describe("The new quantity for the 'additional spots' item."),
   endTrial: z.boolean().optional().describe("Set to true to end the subscription's trial immediately."),
 });
@@ -54,9 +55,15 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       const { default: Stripe } = await import('stripe');
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+      let actualSubscriptionId = subscriptionId;
+      // CORRECTIVE LOGIC: If we got a Subscription Item ID (si_...), get the parent Subscription ID (sub_...)
+      if (subscriptionId.startsWith('si_')) {
+        const item = await stripe.subscriptionItems.retrieve(subscriptionId);
+        actualSubscriptionId = item.subscription as string;
+      }
+      
       // 1. Retrieve the current subscription to get its items and status.
-      // Use the correct 'sub_...' ID here.
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
+      const subscription = await stripe.subscriptions.retrieve(actualSubscriptionId, { expand: ['items'] });
       
       const updatePayload: Stripe.SubscriptionUpdateParams = {};
 
@@ -109,18 +116,18 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       
       // If there's anything to update, make the API call.
       if (Object.keys(updatePayload).length > 0) {
-        await stripe.subscriptions.update(subscriptionId, updatePayload);
+        await stripe.subscriptions.update(actualSubscriptionId, updatePayload);
       }
       
       // Verification Step: Preview the upcoming invoice to confirm the new total.
       let upcomingAmount: number | undefined = undefined;
       try {
           const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-              subscription: subscriptionId,
+              subscription: actualSubscriptionId,
               customer: subscription.customer as string,
           });
           upcomingAmount = upcomingInvoice.amount_due / 100; // convert cents to dollars
-          console.log(`SUCCESS: Post-trial preview for sub ${subscriptionId} is $${upcomingAmount}`);
+          console.log(`SUCCESS: Post-trial preview for sub ${actualSubscriptionId} is $${upcomingAmount}`);
       } catch (previewErr: any) {
           console.error(`Preview failed (non-blocking, update may have succeeded): ${previewErr.message}`);
       }
