@@ -10,10 +10,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, doc, getDoc, writeBatch, collection } from 'firebase-admin/firestore';
-import { initFirebaseAdminApp } from '@/firebase/admin';
-
-// This flow now uses an authenticated context to perform Firestore operations.
+import { getFirestore, doc, getDoc, writeBatch, collection } from 'firebase/firestore';
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 const SyncStripeInvoicesInputSchema = z.object({
   stripeCustomerId: z.string().describe("The ID of the Stripe Customer whose invoices should be synced."),
@@ -27,6 +26,17 @@ const SyncStripeInvoicesOutputSchema = z.object({
   error: z.string().optional().describe('An error message if the sync failed.'),
 });
 export type SyncStripeInvoicesOutput = z.infer<typeof SyncStripeInvoicesOutputSchema>;
+
+// Helper to get a Firestore instance specifically for this flow
+const getFlowFirestore = () => {
+    const appName = 'sync-stripe-invoices-flow-app';
+    if (getApps().some(app => app.name === appName)) {
+        return getFirestore(getApp(appName));
+    }
+    const app = initializeApp(firebaseConfig, appName);
+    return getFirestore(app);
+};
+
 
 export async function syncStripeInvoices(
   input: SyncStripeInvoicesInput
@@ -51,9 +61,7 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       };
     }
 
-    // Correctly initialize the Firebase Admin app before using its services.
-    initFirebaseAdminApp();
-    const firestore = getFirestore();
+    const firestore = getFlowFirestore();
 
     try {
       const { default: Stripe } = await import('stripe');
