@@ -150,7 +150,7 @@ export function AdjustSpotLimitDialog({
               className="col-span-3"
             />
           </div>
-          {(vendor.status === 'Trial' || vendor.status === 'Active') && (
+          {vendor.stripeSubscriptionId && (
             <Alert>
               <Info className="h-4 w-4" />
               <AlertTitle>Billing Information</AlertTitle>
