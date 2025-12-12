@@ -63,8 +63,6 @@ export function AdjustSpotLimitDialog({
     
     setIsSaving(true);
     
-    const vendorRef = doc(firestore, "vendors", vendor.id);
-    
     // Step 1: Update Stripe first. If this fails, we don't touch our database.
     if ((vendor.status === 'Trial' || vendor.status === 'Active') && vendor.stripeSubscriptionId) {
         const additionalSpots = Math.max(0, limit - 20);
@@ -111,6 +109,7 @@ export function AdjustSpotLimitDialog({
     }
 
     // Step 2: If Stripe update was successful (or not needed), update Firestore.
+    const vendorRef = doc(firestore, "vendors", vendor.id);
     await updateDocumentNonBlocking(vendorRef, { spotLimit: limit });
     
     toast({
