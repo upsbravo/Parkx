@@ -3,10 +3,7 @@
 /**
  * @fileOverview A server-side flow to securely update a Stripe subscription,
  * specifically for changing the quantity of a subscription item or ending a trial.
- *
- * - updateStripeSubscription - A function that updates an item's quantity or ends a trial in a Stripe subscription.
- * - UpdateStripeSubscriptionInput - The input type for the function.
- * - UpdateStripeSubscriptionOutput - The return type for the function.
+ * This version contains the definitive fix for updating items during a trial period.
  */
 
 import { ai } from '@/ai/genkit';
@@ -26,6 +23,10 @@ const UpdateStripeSubscriptionOutputSchema = z.object({
 });
 export type UpdateStripeSubscriptionOutput = z.infer<typeof UpdateStripeSubscriptionOutputSchema>;
 
+// Price ID for the additional spots product.
+const ADDITIONAL_SPOT_PRICE_ID = 'price_1SYZeTFOrzQHr7Jw6MFDflI4';
+
+
 // This function is exported and can be called from the client.
 export async function updateStripeSubscription(
   input: UpdateStripeSubscriptionInput
@@ -39,7 +40,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
     inputSchema: UpdateStripeSubscriptionInputSchema,
     outputSchema: UpdateStripeSubscriptionOutputSchema,
   },
-  async ({ subscriptionId, priceId, quantity, endTrial }) => {
+  async ({ subscriptionId, quantity, endTrial }) => {
     if (!process.env.STRIPE_SECRET_KEY) {
       console.error('STRIPE_SECRET_KEY environment variable not set.');
       return {
@@ -53,37 +54,50 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
       const updatePayload: Stripe.SubscriptionUpdateParams = {};
-
-      // This logic is for ending a trial.
+      
+      // Logic to end a trial immediately.
       if (endTrial) {
         updatePayload.trial_end = 'now';
       }
 
-      // This logic is for changing the quantity of an item.
-      if (typeof quantity === 'number' && priceId) {
+      // Logic for updating the quantity of the 'additional spots' item.
+      if (typeof quantity === 'number') {
+        // 1. Retrieve the current subscription to get its items.
         const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items'] });
-        const existingItem = subscription.items.data.find(item => item.price.id === priceId);
         
-        const items: Stripe.SubscriptionUpdateParams.Item[] = subscription.items.data
-          .filter(item => item.price.id !== priceId)
-          .map(item => ({ id: item.id }));
+        // 2. Find the existing 'additional spots' item on the subscription.
+        const existingSpotItem = subscription.items.data.find(item => item.price.id === ADDITIONAL_SPOT_PRICE_ID);
+        
+        const items: Stripe.SubscriptionUpdateParams.Item[] = [];
 
+        // 3. Preserve all other existing subscription items that we are not touching.
+        subscription.items.data.forEach(item => {
+            if (item.price.id !== ADDITIONAL_SPOT_PRICE_ID) {
+                items.push({ id: item.id });
+            }
+        });
+
+        // 4. Handle the 'additional spots' item based on the new quantity.
         if (quantity > 0) {
-          items.push({ 
-            id: existingItem?.id, // Will be undefined if new, which is correct
-            price: existingItem ? undefined : priceId, // Provide priceId only for new items
-            quantity: quantity 
-          });
-        } else if (existingItem) {
-          items.push({ id: existingItem.id, deleted: true });
+            if (existingSpotItem) {
+                // If the item exists, we update its quantity by passing its ID.
+                items.push({ id: existingSpotItem.id, quantity: quantity });
+            } else {
+                // If it's a new item, we add it by passing the price ID.
+                items.push({ price: ADDITIONAL_SPOT_PRICE_ID, quantity: quantity });
+            }
+        } else if (existingSpotItem) {
+            // If quantity is 0 and the item exists, we mark it for deletion.
+            items.push({ id: existingSpotItem.id, deleted: true });
         }
         
         updatePayload.items = items;
         
-        // When updating items, especially during a trial, it's best practice to
-        // set proration behavior to 'none' to avoid immediate charges.
-        // The new total will be reflected on the next regular invoice.
-        updatePayload.proration_behavior = 'none';
+        // 5. When updating items during a trial, Stripe recommends setting proration_behavior to 'none'
+        // to avoid immediate charges and ensure the next invoice is correct.
+        if (subscription.status === 'trialing') {
+          updatePayload.proration_behavior = 'none';
+        }
       }
       
       // If there's anything to update, make the API call.
