@@ -85,7 +85,8 @@ export function AdjustSpotLimitDialog({
 
             toast({
                 title: "Stripe Subscription Updated",
-                description: `Recurring billing for ${vendor.name} has been adjusted.`,
+                description: `Recurring billing for ${vendor.name} has been adjusted. Upcoming invoice total is ${result.upcomingAmount ? '$' + result.upcomingAmount.toFixed(2) : 'N/A'}.`,
+                duration: 10000,
             });
             
             // On success, create a notification for the vendor
@@ -110,6 +111,11 @@ export function AdjustSpotLimitDialog({
             setIsSaving(false);
             return; // Stop execution if Stripe update fails
         }
+    } else {
+        toast({
+            title: "Database Only Update",
+            description: "No Stripe subscription found for this vendor. Updating database record only.",
+        });
     }
 
     // Step 2: If Stripe update was successful (or not needed), update Firestore.
