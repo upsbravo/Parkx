@@ -164,7 +164,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   if (!vendorId) return;
 
   const vendorRef = doc(firestore, 'vendors', vendorId);
-  const newStatus = (subscription.status === 'active' || subscription.status === 'trialing') ? 'Active' : 'Inactive';
+  // The status from the subscription object is the source of truth.
+  const newStatus = (subscription.status === 'active' || subscription.status === 'trialing') 
+    ? (subscription.status === 'trialing' ? 'Trial' : 'Active') 
+    : 'Inactive';
   
   await updateDoc(vendorRef, { 
       status: newStatus,
@@ -298,15 +301,26 @@ async function handlePayoutPaid(payout: Stripe.Payout) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-    if (session.mode === 'subscription' && session.subscription) {
+    // This event fires when a customer completes a checkout session.
+    // We are interested in when it's for a *subscription* creation.
+    if (session.mode === 'subscription' && session.subscription && session.customer) {
         const firestore = getWebhookFirestore();
-        const vendorId = await getVendorIdByCustomerId(session.customer as string);
+        const customerId = session.customer as string;
+        
+        // Find the vendor associated with this Stripe Customer ID
+        const vendorId = await getVendorIdByCustomerId(customerId);
+        
         if (vendorId) {
             const vendorRef = doc(firestore, 'vendors', vendorId);
+            // Now we have the subscription ID, save it to the vendor's document.
             await updateDoc(vendorRef, {
                 stripeSubscriptionId: session.subscription,
-                status: 'Active',
+                // The status will be handled by the `customer.subscription.created` event,
+                // which fires moments after this one and has more details (like trial status).
             });
+            console.log(`Webhook: Saved subscription ID ${session.subscription} to vendor ${vendorId}.`);
+        } else {
+            console.warn(`Webhook: Received checkout.session.completed for customer ${customerId}, but no matching vendor found.`);
         }
     }
 }
