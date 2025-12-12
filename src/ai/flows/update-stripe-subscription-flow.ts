@@ -24,7 +24,7 @@ const UpdateStripeSubscriptionOutputSchema = z.object({
 });
 export type UpdateStripeSubscriptionOutput = z.infer<typeof UpdateStripeSubscriptionOutputSchema>;
 
-// Price ID for the additional spots product.
+// This MUST correspond to a real Price ID in your Stripe account for the "Additional Spot" product.
 const ADDITIONAL_SPOT_PRICE_ID = 'price_1SYZeTFOrzQHr7Jw6MFDflI4';
 
 
@@ -100,10 +100,7 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
         // in the upcoming post-trial invoice.
         if (subscription.status === 'trialing' && !endTrial) {
             updatePayload.proration_behavior = 'none';
-            updatePayload.billing_cycle_anchor = 'unchanged';
-            // THIS IS THE KEY: We must explicitly pass the trial_end timestamp back
-            // to tell Stripe to bake the changes into the post-trial invoice.
-            if(subscription.trial_end) {
+            if (subscription.trial_end) {
               updatePayload.trial_end = subscription.trial_end;
             }
         }
@@ -115,17 +112,16 @@ const updateStripeSubscriptionFlow = ai.defineFlow(
       }
       
       // Verification Step: Preview the upcoming invoice to confirm the new total.
-      // This is crucial because the Stripe Dashboard UI can have caching delays.
       let upcomingAmount: number | undefined = undefined;
       try {
-          const preview = await stripe.invoices.retrieveUpcoming({
+          const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
               subscription: subscriptionId,
               customer: subscription.customer as string,
           });
-          upcomingAmount = preview.amount_due / 100; // convert cents to dollars
-          console.log(`SUCCESS: Post-trial preview for sub ${subscriptionId} is $${upcomingAmount} (includes ${quantity || 'current'} extra spots)`);
+          upcomingAmount = upcomingInvoice.amount_due / 100; // convert cents to dollars
+          console.log(`SUCCESS: Post-trial preview for sub ${subscriptionId} is $${upcomingAmount}`);
       } catch (previewErr: any) {
-          console.error(`Preview failed (non-blocking, update was successful): ${previewErr.message}`);
+          console.error(`Preview failed (non-blocking, update may have succeeded): ${previewErr.message}`);
       }
 
       return { success: true, upcomingAmount };
