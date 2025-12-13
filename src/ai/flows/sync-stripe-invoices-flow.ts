@@ -118,7 +118,13 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       }
 
       if (newInvoiceCount > 0) {
-        await batch.commit();
+        // Wrap the batch commit in a try/catch to provide detailed errors.
+        try {
+          await batch.commit();
+        } catch (dbError: any) {
+           // Rethrow a more informative error for the client to display.
+           throw new Error(`Firestore permission error: ${dbError.message}`);
+        }
       }
 
       return { success: true, syncedCount: newInvoiceCount };
@@ -128,6 +134,7 @@ const syncStripeInvoicesFlow = ai.defineFlow(
       return {
         success: false,
         syncedCount: 0,
+        // The error from the inner try/catch will be caught here and sent to the client.
         error: e.message || 'An unexpected error occurred while syncing invoices.',
       };
     }
