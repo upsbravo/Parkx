@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -47,7 +48,7 @@ Your address on file is: ${vendorAddress}
 By clicking "I Accept & Begin Trial" you agree to all terms below:
 
 1. Service
-ParkX provides software that lets you list truck parking spaces and collect rent from tenants. ParkX is NOT the owner, landlord, or operator of any parking lot.
+ParkX provides software that lets you list truck parking spaces and collect rent from tenants.ParkX is NOT the owner, landlord, or operator of any parking lot.
 
 2. Zero Liability
 ParkX has NO LIABILITY for theft, damage, injury, tenant disputes, non-payment, zoning violations, weather events, or anything else that happens on your property. You assume 100% of all risk.
