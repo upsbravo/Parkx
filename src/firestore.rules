@@ -56,6 +56,13 @@ service cloud.firestore {
         allow write: if isSuperAdmin() || request.auth.uid == vendorId;
       }
 
+      // Vendor Admins can manage invoices for their own company
+      match /vendorInvoices/{invoiceId} {
+        allow read, list: if (isVendorAdmin() && request.auth.uid == vendorId) || isSuperAdmin();
+        // Allow server-side processes and super admins to write
+        allow write: if isSuperAdmin() || request.auth == null;
+      }
+
       // Vendor Admins can manage invoices; End Users can only list their own
       match /userInvoices/{invoiceId} {
           allow read: if request.auth.uid == vendorId || (resource.data.userId == request.auth.uid);
