@@ -6,6 +6,11 @@ import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
 
+// Disable the default body parser for this route to get the raw request body for Stripe signature verification.
+export const api = {
+  bodyParser: false,
+};
+
 const getWebhookFirestore = () => {
     const appName = 'stripe-webhook-app';
     if (getApps().some(app => app.name === appName)) {
