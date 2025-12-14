@@ -6,11 +6,6 @@ import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
 
-// Disable the default body parser for this route to get the raw request body for Stripe signature verification.
-export const api = {
-  bodyParser: false,
-};
-
 const getWebhookFirestore = () => {
     const appName = 'stripe-webhook-app';
     if (getApps().some(app => app.name === appName)) {
@@ -21,7 +16,7 @@ const getWebhookFirestore = () => {
 }
 
 export async function POST(req: Request) {
-  const body = await req.arrayBuffer(); // Read the raw body as a buffer
+  const body = await req.text(); // Read the raw body as text
   const signature = headers().get('stripe-signature') as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -36,10 +31,10 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(Buffer.from(body), signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: any) {
     console.error(`❌ Webhook signature verification failed: ${err.message}`);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
   console.log(`✅ Stripe event verified: ${event.type}`);
