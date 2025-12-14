@@ -17,7 +17,9 @@ function getFirestoreInstance() {
 
 
 export async function POST(req: Request) {
-  const body = await req.text(); // Use raw text for signature verification
+  const rawBody = await req.text(); // Get the raw string payload
+  const payload = Buffer.from(rawBody); // Convert to Buffer for exact byte matching
+
   const signature = headers().get('stripe-signature') as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -33,7 +35,9 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = stripe.webhooks.constructEvent(payload, signature, webhookSecret, {
+        tolerance: 300, // Add 5 minutes of tolerance for clock skew
+    });
   } catch (err: any) {
     console.error(`❌ Webhook signature verification failed: ${err.message}`);
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
