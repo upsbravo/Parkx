@@ -17,20 +17,37 @@ function getFirestoreInstance() {
 
 
 export async function POST(req: Request) {
-  const rawBody = await req.text(); // Get the raw string payload
-  const payload = Buffer.from(rawBody); // Convert to Buffer for exact byte matching
+  // Manual raw body collection as Buffer (bypasses any platform quirks)
+  const chunks: Uint8Array[] = [];
+  const reader = req.body?.getReader();
+  if (!reader) {
+    return new NextResponse('No body', { status: 400 });
+  }
 
-  const signature = headers().get('stripe-signature') as string;
+  let done = false;
+  while (!done) {
+    const { value, done: readerDone } = await reader.read();
+    if (value) chunks.push(value);
+    done = readerDone;
+  }
+
+  const payload = Buffer.concat(chunks);
+
+  const signature = headers().get('stripe-signature');
+  if (!signature) {
+    return new NextResponse('No signature', { status: 400 });
+  }
+  
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET is not set.');
+  if (!webhookSecret || !process.env.STRIPE_SECRET_KEY) {
+    console.error('Missing Stripe environment variables.');
     return NextResponse.json({ error: 'Webhook secret is not configured.' }, { status: 500 });
   }
 
   // Dynamically import Stripe but use the static type for safety
-  const { default: Stripe } = await import('stripe');
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const { default: StripeLib } = await import('stripe');
+  const stripe = new StripeLib(process.env.STRIPE_SECRET_KEY!);
   
   let event: Stripe.Event;
 
