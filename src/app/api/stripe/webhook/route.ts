@@ -1,22 +1,23 @@
 
 import { headers } from 'next/headers';
 import { NextResponse } from "next/server";
-import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where, collectionGroup } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, setDoc, collection, getDocs, query, where, collectionGroup, type Firestore } from 'firebase/firestore';
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 import type Stripe from 'stripe';
 
-const getWebhookFirestore = () => {
-    const appName = 'stripe-webhook-app';
-    if (getApps().some(app => app.name === appName)) {
-        return getFirestore(getApp(appName));
-    }
-    const app = initializeApp(firebaseConfig, appName);
-    return getFirestore(app);
+// This is the new, robust way to get a Firestore instance in a serverless environment.
+let firestore: Firestore | null = null;
+function getFirestoreInstance() {
+    if (firestore) return firestore;
+    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    firestore = getFirestore(app);
+    return firestore;
 }
 
+
 export async function POST(req: Request) {
-  const body = await req.text(); // Read the raw body as text
+  const body = await req.text(); // Use raw text for signature verification
   const signature = headers().get('stripe-signature') as string;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Webhook secret is not configured.' }, { status: 500 });
   }
 
+  // Dynamically import Stripe but use the static type for safety
   const { default: Stripe } = await import('stripe');
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  console.log(`✅ Stripe event verified: ${event.type}`);
+  console.log(`✅ Stripe event verified: ${event.type} (ID: ${event.id})`);
 
   try {
     // Route event to the appropriate handler
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
 // --- Event Handlers ---
 
 async function getVendorIdByCustomerId(customerId: string): Promise<string | null> {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const q = query(collection(firestore, 'vendors'), where('stripeCustomerId', '==', customerId));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
@@ -102,7 +104,7 @@ async function getVendorIdByCustomerId(customerId: string): Promise<string | nul
 }
 
 async function getVendorIdByStripeAccountId(accountId: string): Promise<string | null> {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const q = query(collection(firestore, 'vendors'), where('stripeAccountId', '==', accountId));
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
@@ -112,13 +114,22 @@ async function getVendorIdByStripeAccountId(accountId: string): Promise<string |
 }
 
 async function handleChargeSucceeded(charge: Stripe.Charge) {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const vendorId = charge.transfer_data?.destination ? await getVendorIdByStripeAccountId(charge.transfer_data.destination as string) : null;
 
     if (!vendorId) {
         console.log(`Charge ${charge.id} succeeded but could not find matching vendor.`);
         return;
     }
+    
+    // Idempotency check
+    const transactionRef = doc(firestore, 'transactions', charge.id);
+    const existingSnap = await getDoc(transactionRef);
+    if (existingSnap.exists()) {
+        console.log(`Transaction ${charge.id} already processed. Skipping.`);
+        return;
+    }
+
     const vendorSnap = await getDoc(doc(firestore, 'vendors', vendorId));
     const vendorName = vendorSnap.exists() ? vendorSnap.data().name : 'Unknown Vendor';
     
@@ -142,12 +153,11 @@ async function handleChargeSucceeded(charge: Stripe.Charge) {
         refundedAt: null,
     };
     
-    const transactionRef = doc(firestore, 'transactions', charge.id);
     await setDoc(transactionRef, transactionData, { merge: true });
 }
 
 async function handleChargeRefunded(charge: Stripe.Charge) {
-  const firestore = getWebhookFirestore();
+  const firestore = getFirestoreInstance();
   const transactionRef = doc(firestore, 'transactions', charge.id);
   
   await updateDoc(transactionRef, {
@@ -158,7 +168,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const firestore = getWebhookFirestore();
+  const firestore = getFirestoreInstance();
   const vendorId = await getVendorIdByCustomerId(subscription.customer as string);
   
   if (!vendorId) return;
@@ -177,7 +187,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
-  const firestore = getWebhookFirestore();
+  const firestore = getFirestoreInstance();
   const vendorId = await getVendorIdByCustomerId(subscription.customer as string);
   
   if (!vendorId) return;
@@ -187,7 +197,7 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  const firestore = getWebhookFirestore();
+  const firestore = getFirestoreInstance();
   const vendorId = await getVendorIdByCustomerId(subscription.customer as string);
   if (!vendorId) return;
 
@@ -200,16 +210,23 @@ async function handleInvoiceCreated(invoice: Stripe.Invoice) {
         return; // Only care about subscription invoices
     }
 
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
     if (!vendorId) return;
+
+    // Idempotency check
+    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
+    const existingSnap = await getDoc(invoiceRef);
+    if (existingSnap.exists()) {
+        console.log(`Invoice ${invoice.id} already exists. Skipping.`);
+        return;
+    }
 
     const vendorSnap = await getDoc(doc(firestore, 'vendors', vendorId));
     if (!vendorSnap.exists()) return;
 
     const vendorName = vendorSnap.data().name;
     
-    const invoiceRef = doc(firestore, 'vendors', vendorId, 'vendorInvoices', invoice.id);
     await setDoc(invoiceRef, {
         id: invoice.id,
         vendorId: vendorId,
@@ -223,7 +240,7 @@ async function handleInvoiceCreated(invoice: Stripe.Invoice) {
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
     if (!vendorId) return;
 
@@ -238,7 +255,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     
     // Check if it's a vendor invoice (subscription)
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
@@ -270,7 +287,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 }
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     const vendorId = await getVendorIdByCustomerId(invoice.customer as string);
     if (!vendorId) return;
 
@@ -282,12 +299,19 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 }
 
 async function handlePayoutPaid(payout: Stripe.Payout) {
-    const firestore = getWebhookFirestore();
+    const firestore = getFirestoreInstance();
     // In Connect, payout.destination is the Stripe Account ID
     const vendorId = await getVendorIdByStripeAccountId(payout.destination as string);
     if (!vendorId) return;
   
+    // Idempotency check
     const payoutRef = doc(firestore, 'vendors', vendorId, 'payouts', payout.id);
+    const existingSnap = await getDoc(payoutRef);
+    if (existingSnap.exists()) {
+        console.log(`Payout ${payout.id} already processed. Skipping.`);
+        return;
+    }
+
     await setDoc(payoutRef, {
         id: payout.id,
         amount: payout.amount,
@@ -304,7 +328,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     // This event fires when a customer completes a checkout session.
     // We are interested in when it's for a *subscription* creation.
     if (session.mode === 'subscription' && session.subscription && session.customer) {
-        const firestore = getWebhookFirestore();
+        const firestore = getFirestoreInstance();
         const customerId = session.customer as string;
         
         // Find the vendor associated with this Stripe Customer ID
