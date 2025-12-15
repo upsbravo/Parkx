@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -268,8 +269,8 @@ export default function UserInvoicesPage() {
   };
 
   const handleCreateInvoice = async () => {
-    if (!vendorAdmin || !selectedUserId) {
-        toast({ variant: "destructive", title: "Error", description: "Please select a user." });
+    if (!vendorAdmin || !selectedUserId || !dueDate) {
+        toast({ variant: "destructive", title: "Error", description: "Please select a user and a due date." });
         return;
     }
 
@@ -287,6 +288,12 @@ export default function UserInvoicesPage() {
 
     setIsSubmitting(true);
     try {
+        const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+        const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
+        
+        // Temporarily create the invoice doc to get an ID
+        const newInvoiceRef = doc(invoiceCollectionRef);
+        
         const checkoutInput = {
             mode: 'payment' as const,
             customer: selectedUser.stripeCustomerId,
@@ -298,30 +305,29 @@ export default function UserInvoicesPage() {
                 },
                 quantity: 1,
             })),
-            successUrl: `${window.location.origin}/end-user/invoices?payment=success`,
+            successUrl: `${window.location.origin}/end-user/payment-success?session_id={CHECKOUT_SESSION_ID}`,
             cancelUrl: `${window.location.origin}/vendor-admin/user-invoices`,
             metadata: {
                 userId: selectedUserId,
                 vendorId: vendorAdmin.uid,
+                invoiceId: newInvoiceRef.id,
             }
         };
 
         const result = await createStripeCheckout(checkoutInput);
 
         if (result.url && result.id) {
-            const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
-            const notes = lineItems.map(item => `${item.description} - ${formatCurrency(Number(item.amount))}`).join('; ');
-            
-            await addDocumentNonBlocking(invoiceCollectionRef, {
+            await addDocumentNonBlocking(newInvoiceRef, {
+                id: newInvoiceRef.id,
                 userId: selectedUserId,
                 userName: `${selectedUser.firstName} ${selectedUser.lastName}`,
                 vendorId: vendorAdmin.uid,
                 amount: totalAmount,
-                dueDate: dueDate?.toISOString(),
+                dueDate: dueDate.toISOString(),
                 status: 'Pending',
                 notes: notes,
                 stripeCheckoutSessionId: result.id,
-                stripeReceiptUrl: result.url,
+                stripeReceiptUrl: null, // This will be updated by webhook/verify
                 createdAt: serverTimestamp(),
             });
             
@@ -659,7 +665,7 @@ Thank you for your business.
                         Cancel
                     </Button>
                     <Button type="submit" onClick={handleCreateInvoice} disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating...' : 'Create Invoice'}
+                        {isSubmitting ? 'Creating...' : 'Create & Send Invoice'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -777,4 +783,5 @@ Thank you for your business.
     </>
   );
 }
+
 

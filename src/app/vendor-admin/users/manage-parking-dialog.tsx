@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -99,6 +100,9 @@ export function ManageParkingDialog({
           };
         }
       }
+      
+      const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
+      const newInvoiceRef = doc(invoiceCollectionRef);
 
       const checkoutInput = {
         mode: isRecurring ? 'subscription' : 'payment' as 'subscription' | 'payment',
@@ -106,20 +110,22 @@ export function ManageParkingDialog({
             price_data: priceData,
             quantity: spots,
         }],
-        successUrl: `${window.location.origin}/end-user/invoices?payment=success`,
+        successUrl: `${window.location.origin}/end-user/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: window.location.origin + '/end-user/invoices',
         customer: user.stripeCustomerId,
         metadata: {
             userId: user.id,
             vendorId: vendorAdmin.uid,
+            invoiceId: newInvoiceRef.id,
         }
       };
 
       const result = await createStripeCheckout(checkoutInput);
 
       if (result.url && result.id) {
-          const invoiceCollectionRef = collection(firestore, 'vendors', vendorAdmin.uid, 'userInvoices');
-          await addDocumentNonBlocking(invoiceCollectionRef, {
+          
+          await addDocumentNonBlocking(newInvoiceRef, {
+              id: newInvoiceRef.id,
               vendorId: vendorAdmin.uid,
               userId: user.id,
               userName: `${user.firstName} ${user.lastName}`,
@@ -128,7 +134,7 @@ export function ManageParkingDialog({
               status: 'Pending',
               notes: `${spots} truck parking spot(s) - ${billingCycle} billing.`,
               stripeCheckoutSessionId: result.id,
-              stripeReceiptUrl: result.url, // Storing the checkout URL here
+              stripeReceiptUrl: null, // Will be updated by webhook
               createdAt: serverTimestamp(),
           });
           
